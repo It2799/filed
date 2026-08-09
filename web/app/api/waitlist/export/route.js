@@ -21,9 +21,13 @@ export async function GET(request) {
   const rows = await listEmails();
   rows.sort((a, b) => String(a.at).localeCompare(String(b.at)));
 
+  // Leading apostrophe on the phone so Excel doesn't mangle +91... into a number.
   const esc = (v) => `"${String(v ?? "").replace(/"/g, '""')}"`;
-  const csv = ["email,joined_at,source",
-               ...rows.map((r) => [r.email, r.at, r.source].map(esc).join(","))].join("\n");
+  const csv = [
+    "email,whatsapp,joined_at,source",
+    ...rows.map((r) => [r.email, r.phone ? "'" + r.phone : "", r.at, r.source]
+      .map(esc).join(",")),
+  ].join("\n");
 
   return new Response(csv, {
     headers: {

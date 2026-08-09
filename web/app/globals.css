@@ -149,8 +149,63 @@ button:disabled { opacity: 0.55; cursor: default; }
   overflow: hidden;
 }
 
+.phone-row { margin-top: 9px; }
+
+/* The +91 sits inside the field so it reads as one control, not two. */
+.phone-wrap {
+  position: relative;
+  flex: 1 1 260px;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+}
+.phone-wrap .cc {
+  position: absolute;
+  left: 15px;
+  font-size: 15.5px;
+  color: var(--dim);
+  pointer-events: none;
+}
+input.phone { padding-left: 52px; width: 100%; }
+
 .note { font-size: 13px; color: var(--dim); margin: 0; }
 .err { font-size: 13.5px; color: #ff8b82; margin: 9px 0 0; }
+
+.confirm-ask {
+  margin: 13px 0 11px !important;
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.wa-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  padding: 11px 19px;
+  border-radius: 10px;
+  background: #25d366;
+  color: #062313;
+  font-weight: 660;
+  font-size: 15px;
+  text-decoration: none;
+}
+.wa-btn:hover { background: #3ce07a; }
+
+.contact { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+.mail-btn {
+  display: inline-flex;
+  align-items: center;
+  padding: 11px 19px;
+  border-radius: 10px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  color: var(--ink);
+  font-weight: 600;
+  font-size: 15px;
+  text-decoration: none;
+}
+.mail-btn:hover { border-color: var(--accent); color: var(--accent); }
+.contact-note { margin-top: 12px; }
 
 .done {
   background: var(--pos-bg);
