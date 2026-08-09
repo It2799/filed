@@ -86,7 +86,11 @@ TOPICS = [
                         r"forensic audit|sebi order|adjudicat|show cause|penalt|"
                         r"search and seizure|income tax (raid|survey|search)|\bfraud\b|"
                         r"attachment of (property|asset)|freezing of|arbitration award|"
-                        r"supreme court|high court order|\bed\b (raid|summons)|qualified opinion"),
+                        r"supreme court|high court order|\bed\b (raid|summons)|qualified opinion|"
+                        # tax and appellate orders - the exchanges file these under the
+                        # same "order" category as a purchase order
+                        r"gst (demand|notice|order|liabilit)|demand order|assessment order|"
+                        r"tax (demand|notice|liabilit)|order-?in-?appeal|input tax credit"),
     ("Operations",  56, r"plant (shutdown|closure|fire|accident)|fire at (the )?(plant|factory|unit)|"
                         r"capacity (expansion|addition|augment)|new plant|greenfield|brownfield|"
                         r"commercial production|commissioning of|commencement of (production|operation)|"
@@ -133,10 +137,42 @@ DOWNGRADE = [
                          r"appointment of (the )?(internal|secretarial|cost)"),
 ]
 
+# ---------------------------------------------------------------------------
+# 5. RETAG - the exchanges file a tax or court ORDER under the same category as
+#    a purchase ORDER ("Award of Order / Receipt of Order"), so a GST demand
+#    came out labelled as an order win. Same word, opposite meaning. These
+#    patterns correct the label without touching the score.
+# ---------------------------------------------------------------------------
+RETAG = [
+    ("Legal/Reg", r"gst (demand|order|notice|liabilit)|demand order|"
+                  r"(income )?tax (demand|notice|order|liabilit)|assessment order|"
+                  r"adjudicat|show cause|order-?in-?appeal|"
+                  r"penalt.{0,40}(imposed|levied|order)|(imposed|levied).{0,40}penalt|"
+                  r"input tax credit"),
+]
+
 _JUNK_RE = [re.compile(p, re.I) for p in JUNK]
 _DOWN_RE = [(tag, cap, re.compile(p, re.I)) for tag, cap, p in DOWNGRADE]
+_RETAG_RE = [(tag, re.compile(p, re.I)) for tag, p in RETAG]
 _VAGUE_RE = [re.compile(p, re.I) for p in VAGUE]
 _TOPIC_RE = [(tag, pts, re.compile(p, re.I)) for tag, pts, p in TOPICS]
+
+
+def retag(text):
+    """
+    Re-label a filing once the PDF has actually been read.
+
+    Plenty of headlines say nothing at all - a real one reads "Please refer to
+    the letter enclosed", filed under "Award of Order / Receipt of Order". Only
+    the PDF reveals it's a GST demand, not an order win. So after summarising
+    we look again at what the document turned out to say.
+
+    Returns a corrected tag, or None to leave it alone.
+    """
+    for r_tag, rx in _RETAG_RE:
+        if rx.search(text or ""):
+            return r_tag
+    return None
 
 
 def _best(text):
@@ -172,6 +208,11 @@ def score(category, headline, critical=False):
             pts, tag = head_pts - 8, head_tag
 
     if pts == 0:
+        # Still worth relabelling - an unrecognised category can carry a
+        # headline the retag rules understand.
+        for r_tag, rx in _RETAG_RE:
+            if rx.search(category + " || " + headline):
+                return 50, r_tag
         return 18, "Other"
 
     if head_n > 1:                 # several important themes in one filing
@@ -184,5 +225,13 @@ def score(category, headline, critical=False):
     for d_tag, cap, rx in _DOWN_RE:
         if pts > cap and rx.search(both):
             pts, tag = cap, d_tag
+
+    # Correct the label where the category word is misleading. Score stands -
+    # a tax demand is just as worth reading as an order win, it's not the same
+    # kind of news.
+    for r_tag, rx in _RETAG_RE:
+        if rx.search(both):
+            tag = r_tag
+            break
 
     return pts, tag

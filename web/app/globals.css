@@ -292,6 +292,27 @@ input.phone { padding-left: 52px; width: 100%; }
   padding-left: 11px;
 }
 
+.card-links {
+  margin-top: 13px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.card-links a {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--accent);
+  text-decoration: none;
+}
+.card-links a:hover { text-decoration: underline; }
+.verify { font-size: 12.5px; color: var(--dim); }
+
 /* ---------- list ---------- */
 ul.points { list-style: none; padding: 0; margin: 0; }
 ul.points li {

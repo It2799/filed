@@ -172,6 +172,20 @@ def main():
         with open(CACHE, "w", encoding="utf-8") as f:
             json.dump(cache, f, ensure_ascii=False, indent=1)
 
+        # Now that the PDFs have been read, correct any labels the headline
+        # got wrong. A "Receipt of Order" filing that turns out to be a tax
+        # demand should not sit under Order Win.
+        fixed = 0
+        for a in todo:
+            better = rules.retag(
+                (a.get("summary") or "") + " " + " ".join(a.get("key_numbers") or []))
+            if better and better != a["tag"]:
+                print(f"  relabelled: {a['company'][:38]}  {a['tag']} -> {better}")
+                a["tag"] = better
+                fixed += 1
+        if fixed:
+            print(f"  ({fixed} corrected after reading the document)")
+
         used = providers.report()
         if used:
             print("\nWho did the work:")
