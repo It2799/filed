@@ -17,15 +17,24 @@
 
 const KEY = "waitlist";
 
+// Vercel names these KV_REST_API_* when you add Upstash from its dashboard, but
+// UPSTASH_REDIS_REST_* if you bring your own. Accept either.
+function redisUrl() {
+  return process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL;
+}
+function redisToken() {
+  return process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN;
+}
+
 function upstashConfigured() {
-  return Boolean(process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN);
+  return Boolean(redisUrl() && redisToken());
 }
 
 async function upstash(command) {
-  const res = await fetch(process.env.UPSTASH_REDIS_REST_URL, {
+  const res = await fetch(redisUrl(), {
     method: "POST",
     headers: {
-      Authorization: `Bearer ${process.env.UPSTASH_REDIS_REST_TOKEN}`,
+      Authorization: `Bearer ${redisToken()}`,
       "Content-Type": "application/json",
     },
     body: JSON.stringify(command),
