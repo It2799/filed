@@ -1,0 +1,26 @@
+# --- SECRETS. Never commit these. ---
+config.json
+
+# Generated output
+dashboard.html
+cache.json
+*.bak.json
+web/waitlist.local.jsonl
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Node / Next.js
+node_modules/
+.next/
+out/
+.vercel
+.env
+.env*.local
+
+# OS
+Thumbs.db
+.DS_Store

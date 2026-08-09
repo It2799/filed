@@ -1,0 +1,29 @@
+{
+  "//": "Copy this file to config.json and put your own keys in. config.json is gitignored.",
+  "//groq": "Free key from https://console.groq.com  - fast, text only",
+  "//gemini": "Free key from https://aistudio.google.com  - slower, but it can read scanned PDFs",
+
+  "providers": [
+    {
+      "kind": "groq",
+      "key": "PUT_YOUR_GROQ_KEY_HERE",
+      "models": ["openai/gpt-oss-120b", "openai/gpt-oss-20b"],
+      "tpm": 8000,
+      "vision": false
+    },
+    {
+      "kind": "gemini",
+      "key": "PUT_YOUR_GEMINI_KEY_HERE",
+      "models": ["gemini-flash-lite-latest", "gemini-3-flash-preview", "gemini-2.0-flash"],
+      "tpm": 250000,
+      "vision": true
+    }
+  ],
+
+  "min_score": 55,
+  "max_summaries": 40,
+  "workers": 4,
+
+  "days_back": 0,
+  "open_browser": true
+}
