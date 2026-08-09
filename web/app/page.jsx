@@ -16,8 +16,8 @@ const SITE = {
   readTime: "under 10 min",
 
   // Contact shown at the bottom of the page.
-  contactPhoneDisplay: "+91 82204 40146",
-  contactPhoneDigits: "918220440146",   // wa.me needs country code, digits only
+  contactPhoneDisplay: "+91 82004 40146",
+  contactPhoneDigits: "918200440146",   // wa.me needs country code, digits only
   contactEmail: "market.tide27@gmail.com",
 
   // The daily newsletter, which is already running on WhatsApp.
