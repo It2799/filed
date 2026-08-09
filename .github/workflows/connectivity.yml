@@ -1,0 +1,26 @@
+name: Can a cloud server reach NSE and BSE?
+
+# Answers the one question that decides whether you need to pay for proxies.
+# GitHub's runners sit in a Microsoft data centre, which is exactly the kind of
+# address the exchanges are most likely to block - so this is a fair test of
+# any cloud host, not just GitHub.
+#
+# Run it from the Actions tab, or: gh workflow run connectivity.yml
+
+on:
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - run: pip install --quiet requests
+
+      - name: Probe both exchanges
+        run: python tools/connectivity_check.py
