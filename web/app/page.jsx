@@ -16,7 +16,7 @@ const SITE = {
   contactEmail: "market.tide27@gmail.com",
 };
 
-// A real summary the pipeline produced, not a mock-up.
+// Real summaries the pipeline produced on 8 Aug 2026. Not mock-ups.
 const SAMPLES = [
   {
     company: "Aptus Pharma Ltd",
@@ -36,6 +36,57 @@ const SAMPLES = [
     why: "Returns cash to shareholders and can lift earnings per share.",
   },
   {
+    company: "Quality Power Electrical Equipments Ltd",
+    meta: "NSE · Financial Results · 08 Aug, 19:14",
+    tag: "Results",
+    impact: "Positive",
+    summary:
+      "Reported Q1 FY2027 results with strong year-on-year growth in revenue, "
+      + "EBITDA and profit after tax. Declared an interim dividend and pointed to "
+      + "a large global order book.",
+    numbers: [
+      "Revenue Rs 2,564 mn",
+      "Adjusted EBITDA Rs 725 mn",
+      "Adjusted PAT Rs 545 mn",
+      "Order book Rs 19,455 mn",
+    ],
+    why:
+      "Growth on both top and bottom line, backed by a strong order book, points "
+      + "to real demand for its energy-transition equipment.",
+  },
+  {
+    company: "Cemindia Projects Ltd",
+    meta: "BSE · Company Update / Legal · 08 Aug, 17:28",
+    tag: "Legal/Reg",
+    impact: "Negative",
+    summary:
+      "Received a GST demand order from tax authorities in Ahmedabad for FY 2020-21 "
+      + "over a mismatch in input tax credit. Tax and penalty of Rs 1.24 crore each "
+      + "have been levied. The company plans to appeal and does not expect a "
+      + "material financial impact.",
+    numbers: [
+      "Tax and penalty Rs 1.24 crore each",
+      "IGST Rs 57.03 lakh",
+      "CGST Rs 33.67 lakh",
+      "SGST Rs 33.67 lakh",
+    ],
+    why:
+      "A tax demand creates a short-term regulatory overhang, though management "
+      + "does not foresee material harm.",
+  },
+  {
+    company: "ARSS Infrastructure Projects Ltd",
+    meta: "BSE · Award of Order / Receipt of Order · 08 Aug, 15:51",
+    tag: "Order Win",
+    impact: "Positive",
+    summary:
+      "Received a work order worth Rs 19.78 crore for widening and strengthening "
+      + "the Danagadi-Bangarkata road in Jajpur district, covering 27.04 km over "
+      + "21 months.",
+    numbers: ["Order value Rs 19.78 crore", "27.04 km", "21 months"],
+    why: "Adds a sizeable contract to the revenue pipeline.",
+  },
+  {
     company: "Mayank Cattle Food Ltd",
     meta: "BSE · Corp. Action / Bonus Issue · 08 Aug, 16:05",
     tag: "Bonus/Split",
@@ -47,7 +98,47 @@ const SAMPLES = [
     numbers: ["1:1 bonus", "Record date 24 Aug 2026", "Trading from 26 Aug"],
     why: "Existing shareholders receive extra shares at no cost.",
   },
+  {
+    company: "Veefin Solutions Ltd",
+    meta: "BSE · Company Update / Fund Raising · 08 Aug, 20:02",
+    tag: "Fund Raise",
+    impact: "Neutral",
+    summary:
+      "The board approved a private placement of 3,00,000 unrated, unlisted, "
+      + "secured, redeemable non-convertible debentures with a face value of "
+      + "Rs 1,000 each, totalling Rs 30 crore. They carry a 16.65% annual coupon "
+      + "payable monthly after an eight-month moratorium, maturing 08 Aug 2029.",
+    numbers: [
+      "Rs 30 crore raised",
+      "16.65% per year",
+      "3,00,000 NCDs",
+      "Matures 08 Aug 2029",
+    ],
+    why:
+      "Raises debt and increases interest obligations, but does not dilute "
+      + "existing shareholders.",
+  },
+  {
+    company: "Orbit Exports Ltd",
+    meta: "BSE · Corp. Action / Dividend · 08 Aug, 14:37",
+    tag: "Dividend",
+    impact: "Positive",
+    summary:
+      "Declared a first interim dividend of Rs 0.50 per share for FY 2026-27 "
+      + "alongside its June quarter results, and set the record date.",
+    numbers: [
+      "Rs 0.50 per share",
+      "Record date 31 Aug 2026",
+      "Revenue Rs 7,515 lakh",
+      "Net profit Rs 2,506 lakh",
+    ],
+    why:
+      "A cash payout alongside solid quarterly earnings signals financial health.",
+  },
 ];
+
+const impactClass = (i) =>
+  i === "Positive" ? "pos" : i === "Negative" ? "neg" : "neu";
 
 function WaIcon() {
   return (
@@ -111,6 +202,7 @@ export default function Home() {
     <div className="wrap">
       <div className="brand">
         <span className="dot" /> {SITE.name}
+        <span className="pill">Demo · launching soon</span>
       </div>
 
       <section className="hero">
@@ -228,8 +320,12 @@ export default function Home() {
 
       <section className="section">
         <h2>What you&apos;ll actually get</h2>
+        <p className="section-note">
+          Every one of these is real output from a demo run on 8 August 2026 —
+          nothing here is made up for the pitch.
+        </p>
         {SAMPLES.map((s) => (
-          <div className="card" key={s.company}>
+          <div className="card" key={s.company + s.tag}>
             <div className="card-top">
               <div>
                 <div className="co">{s.company}</div>
@@ -237,7 +333,7 @@ export default function Home() {
               </div>
               <div className="badges">
                 <span className="b tag">{s.tag}</span>
-                <span className="b pos">{s.impact}</span>
+                <span className={`b ${impactClass(s.impact)}`}>{s.impact}</span>
               </div>
             </div>
             <p className="summary">{s.summary}</p>
