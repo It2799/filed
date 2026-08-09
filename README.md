@@ -4,6 +4,20 @@ Pulls every corporate announcement filed with NSE and BSE, throws away the routi
 paperwork, reads the PDFs of what's left, and puts plain-English summaries on a
 dashboard you open in your browser.
 
+## Setup
+
+```bash
+pip install requests pypdf
+```
+
+Copy `config.example.json` to `config.json` and put your own keys in. Get a free
+Groq key at [console.groq.com](https://console.groq.com) and a free Gemini key at
+[aistudio.google.com](https://aistudio.google.com).
+
+`config.json` is gitignored — keep it that way, it holds your keys.
+
+There's also a waitlist landing page in [`web/`](web/) with its own README.
+
 ## Running it
 
 Double-click `run.bat`, or from a terminal:
