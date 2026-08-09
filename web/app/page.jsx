@@ -9,7 +9,7 @@ import SAMPLES from "./samples.json";
 
 // Everything you'd want to rename lives here.
 const SITE = {
-  name: "Filed",
+  name: "Market Tide",
   // These are real figures measured from 7-8 Aug 2026. Update them when they drift.
   filedPerDay: "3,671",
   importantPerDay: "250",
@@ -19,6 +19,9 @@ const SITE = {
   contactPhoneDisplay: "+91 82204 40146",
   contactPhoneDigits: "918220440146",   // wa.me needs country code, digits only
   contactEmail: "market.tide27@gmail.com",
+
+  // The daily newsletter, which is already running on WhatsApp.
+  newsletterLink: "https://chat.whatsapp.com/B9cZ0FnmUFxKGUuXaqXG4H?s=cl&p=a&ilr=1",
 };
 
 const impactClass = (i) =>
@@ -62,7 +65,7 @@ export default function Home() {
 
   const waLink = WA_NUMBER
     ? `https://wa.me/${WA_NUMBER}?text=${encodeURIComponent(
-        "Hi, I just joined the Filed waitlist. Please send me updates on WhatsApp.")}`
+        "Hi, I just joined the Market Tide waitlist. Please send me updates on WhatsApp.")}`
     : null;
 
   async function submit(e) {
@@ -98,7 +101,7 @@ export default function Home() {
     <div className="wrap">
       <div className="brand">
         <span className="dot" /> {SITE.name}
-        <span className="pill">Demo · launching soon</span>
+        <span className="pill">Newsletter live · dashboard coming</span>
       </div>
 
       <section className="hero">
@@ -138,9 +141,16 @@ export default function Home() {
           <div className="done">
             <b>{already ? "You're already on the list." : "You're on the list."}</b>
             <p>
-              We&apos;ll message you when it opens up — and nothing else. No
-              newsletter, no passing your details to anyone.
+              We&apos;ll message you the moment the dashboard opens up. We
+              won&apos;t pass your details to anyone.
             </p>
+            <p className="confirm-ask">
+              Don&apos;t wait for it — the daily newsletter is already running,
+              and it&apos;s free.
+            </p>
+            <a className="wa-btn" href={SITE.newsletterLink} target="_blank" rel="noopener">
+              <WaIcon /> Join the daily newsletter
+            </a>
 
             {gaveWhatsApp && !whatsappSent && waLink && (
               <>
@@ -280,7 +290,7 @@ export default function Home() {
           <a
             className="wa-btn"
             href={`https://wa.me/${SITE.contactPhoneDigits}?text=${encodeURIComponent(
-              "Hi, I'd like to know more about Filed.")}`}
+              "Hi, I'd like to know more about Market Tide.")}`}
             target="_blank"
             rel="noopener"
           >
@@ -293,6 +303,49 @@ export default function Home() {
         <p className="note contact-note">
           Message us on WhatsApp or drop an email — we answer both.
         </p>
+      </section>
+
+      <section className="section">
+        <div className="newsletter">
+          <div className="nl-flag">
+            <span className="live-dot" /> Already running
+          </div>
+          <h2 className="nl-title">The {SITE.name} Newsletter</h2>
+
+          <p className="nl-lead">
+            Every day, hundreds of corporate announcements are filed on stock
+            exchanges. Most investors{" "}
+            <strong>don&apos;t have the time to track them all.</strong>
+          </p>
+          <p className="nl-lead">
+            {SITE.name} <strong>filters the noise</strong> and delivers, early
+            each morning, the{" "}
+            <strong>
+              most important corporate announcements, key developments and
+              actionable insights in a concise format.
+            </strong>{" "}
+            No need to scan endless exchange filings — we do the heavy lifting
+            for you.
+          </p>
+          <p className="nl-lead">
+            Plus, get <strong>weekly deep dives</strong> on companies and
+            industries to understand the bigger picture.
+          </p>
+
+          <p className="nl-tagline">Stay updated. Save time. Stay ahead.</p>
+
+          <a
+            className="nl-btn"
+            href={SITE.newsletterLink}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <WaIcon /> Click here to join for free
+          </a>
+          <p className="nl-note">
+            Delivered on WhatsApp. Free, and you can leave any time.
+          </p>
+        </div>
       </section>
 
       <footer>

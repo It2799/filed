@@ -209,6 +209,94 @@ input.phone { padding-left: 52px; width: 100%; }
 }
 .wa-btn:hover { background: #3ce07a; }
 
+/* ---------- newsletter ---------- */
+.newsletter {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 15px;
+  padding: 26px 26px 24px;
+  position: relative;
+  overflow: hidden;
+}
+/* faint green wash so it reads as the live thing on the page */
+.newsletter::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 190px;
+  background: radial-gradient(70% 100% at 20% 0%, rgba(37, 211, 102, 0.10), transparent 72%);
+  pointer-events: none;
+}
+.newsletter > * { position: relative; }
+
+.nl-flag {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--pos);
+  background: var(--pos-bg);
+  border-radius: 999px;
+  padding: 4px 11px;
+  margin-bottom: 14px;
+}
+.live-dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: var(--pos);
+  animation: pulse 2s ease-in-out infinite;
+}
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.35; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .live-dot { animation: none; }
+}
+
+/* .section h2 is uppercase by default; this heading is a real title, so it
+   needs the extra specificity to win. */
+.section h2.nl-title {
+  font-size: clamp(21px, 3.6vw, 26px);
+  letter-spacing: -0.025em;
+  margin: 0 0 14px;
+  font-weight: 700;
+  color: var(--ink);
+  text-transform: none;
+}
+.nl-lead {
+  margin: 0 0 13px;
+  font-size: 15.5px;
+  color: var(--muted);
+  max-width: 62ch;
+}
+.nl-lead strong { color: var(--ink); font-weight: 640; }
+
+.nl-tagline {
+  margin: 18px 0 20px;
+  font-size: 16.5px;
+  font-weight: 660;
+  letter-spacing: -0.015em;
+  color: var(--ink);
+}
+
+.nl-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 26px;
+  border-radius: 11px;
+  background: #25d366;
+  color: #062313;
+  font-weight: 700;
+  font-size: 16px;
+  text-decoration: none;
+}
+.nl-btn:hover { background: #3ce07a; }
+.nl-note { margin: 12px 0 0; font-size: 12.5px; color: var(--dim); }
+
 .contact { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
 .mail-btn {
   display: inline-flex;

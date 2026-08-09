@@ -55,7 +55,7 @@ Everything you'd want to edit is at the top of `app/page.jsx`:
 - `SAMPLES` — the example summary cards. These are real output from the
   scraper; swap in fresher ones as you go.
 
-The name "Filed" is a placeholder. Change it in `SITE.name` and in the
+The name lives in `SITE.name` in `app/page.jsx` and in the
 `metadata` block in `app/layout.jsx`.
 
 ## Spam handling

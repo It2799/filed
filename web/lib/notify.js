@@ -34,15 +34,15 @@ export async function sendEmail(to) {
     body: JSON.stringify({
       from,
       to: [to],
-      subject: "You're on the Filed waitlist",
+      subject: "You're on the Market Tide waitlist",
       text:
-        "Thanks for joining Filed.\n\n"
+        "Thanks for joining Market Tide.\n\n"
         + "Every trading day NSE and BSE publish about 3,600 corporate announcements. "
         + "Roughly 250 of them matter. We read those and send you what they actually say, "
         + "in plain English.\n\n"
         + "We'll email you once when it opens up. Nothing else, and we won't pass your "
         + "address to anyone.\n\n"
-        + "Filed summarises public exchange filings. It is not investment advice.\n",
+        + "Market Tide summarises public exchange filings. It is not investment advice.\n",
     }),
   });
 
