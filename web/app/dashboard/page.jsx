@@ -89,13 +89,21 @@ export default function Dashboard() {
           {data.meta?.scanned
             ? `${Number(data.meta.scanned).toLocaleString("en-IN")} filings scanned · `
             : ""}
-          {items.length} worth reading
+          {Number(data.total || items.length).toLocaleString("en-IN")} worth reading
+          {data.summarised ? ` · ${data.summarised} summarised` : ""}
           {data.meta?.updated
             ? ` · updated ${new Date(data.meta.updated).toLocaleString("en-IN", {
                 day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit",
               })}`
             : ""}
         </p>
+        {data.truncated && (
+          <p className="dash-note">
+            Showing the {items.length} most useful of{" "}
+            {Number(data.total).toLocaleString("en-IN")}. Summarised filings come
+            first — download the Excel for every row.
+          </p>
+        )}
       </header>
 
       <div className="stats">
@@ -150,7 +158,15 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {shown.length === 0 ? (
+      {items.length === 0 ? (
+        <div className="empty">
+          <p>No announcements stored yet.</p>
+          <p className="meta">
+            The scraper runs each weekday evening. If this is the first run, give
+            it a few minutes.
+          </p>
+        </div>
+      ) : shown.length === 0 ? (
         <div className="empty">Nothing matches that filter.</div>
       ) : (
         <>

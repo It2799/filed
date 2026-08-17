@@ -3,6 +3,8 @@ import { recent, configured } from "../../../lib/announcements";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
+const LIMIT = 500;
+
 export async function GET(request) {
   if (!configured()) {
     return Response.json(
@@ -28,7 +30,24 @@ export async function GET(request) {
           .includes(q));
     }
 
-    return Response.json({ days, meta, count: rows.length, items: rows });
+    // On a heavy results day there can be thousands of filings over 7 days.
+    // Shipping all of them would be a multi-megabyte page load, so the summarised
+    // ones lead (they're the point of the product) and the rest are trimmed.
+    // The Excel export still gives you every row.
+    const total = rows.length;
+    const summarised = rows.filter((r) => r.summary);
+    const bare = rows.filter((r) => !r.summary);
+    rows = [...summarised, ...bare].slice(0, LIMIT);
+
+    return Response.json({
+      days,
+      meta,
+      total,
+      summarised: summarised.length,
+      truncated: total > rows.length,
+      count: rows.length,
+      items: rows,
+    });
   } catch (err) {
     console.error("[announcements]", err);
     return Response.json({ error: "Couldn't load announcements." }, { status: 500 });

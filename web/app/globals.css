@@ -281,6 +281,12 @@ input.phone { padding-left: 52px; width: 100%; }
 }
 .more:hover { border-color: var(--accent); }
 
+.empty { text-align: center; color: var(--muted); padding: 50px 0; }
+.empty p { margin: 0 0 6px; }
+.inline-link { color: var(--accent); text-decoration: none; font-weight: 600;
+               white-space: nowrap; }
+.inline-link:hover { text-decoration: underline; }
+
 /* ---------- newsletter ---------- */
 .newsletter {
   background: var(--panel);
@@ -512,4 +518,14 @@ footer p { margin: 0 0 7px; }
     --neg: #b3261e; --neg-bg: #fdeceb;
   }
   body::before { background: radial-gradient(60% 60% at 50% 40%, rgba(31,111,235,.09), transparent 70%); }
+}
+
+.dash-note {
+  margin: 9px 0 0;
+  font-size: 13px;
+  color: var(--dim);
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  padding: 9px 13px;
 }

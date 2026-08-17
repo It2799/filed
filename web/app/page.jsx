@@ -227,8 +227,10 @@ export default function Home() {
       <section className="section">
         <h2>What you&apos;ll actually get</h2>
         <p className="section-note">
-          Every one of these is real output from a demo run on 8 August 2026 —
-          nothing here is made up for the pitch.
+          Real output from the scraper — nothing here is made up for the pitch.{" "}
+          <a className="inline-link" href="/dashboard">
+            See the last 7 days →
+          </a>
         </p>
         {SAMPLES.map((s) => (
           <div className="card" key={s.company + s.tag}>
