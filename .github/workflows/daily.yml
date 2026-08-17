@@ -1,0 +1,73 @@
+name: Daily announcement scrape
+
+# Runs itself every evening, scrapes the day's filings, summarises the important
+# ones and pushes them to Redis. The website reads from Redis, so the dashboard
+# is fresh without anything running on your machine.
+#
+# It only scrapes the last 2 days each time, not 7. Every day is stored under
+# its own key with an 8-day expiry, so the 7-day window builds up on its own and
+# each run stays quick. The 2 days (rather than 1) catches filings that land
+# late at night after the previous run.
+
+on:
+  schedule:
+    # 21:30 IST = 16:00 UTC. Indian markets close at 15:30 IST and filings land
+    # through the evening, so this catches the bulk of the day.
+    - cron: "0 16 * * 1-5"
+  workflow_dispatch:
+    inputs:
+      days:
+        description: "How many days back to scrape"
+        required: false
+        default: "2"
+      max_summaries:
+        description: "How many filings to summarise"
+        required: false
+        default: "40"
+
+concurrency:
+  group: daily-scrape
+  cancel-in-progress: false
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - run: pip install --quiet requests pypdf
+
+      # Summaries are cached by filing id, so restoring the cache means a rerun
+      # never pays for the same PDF twice.
+      - name: Restore summary cache
+        uses: actions/cache@v4
+        with:
+          path: cache.json
+          key: summaries-${{ github.run_id }}
+          restore-keys: summaries-
+
+      - name: Scrape, summarise and publish
+        env:
+          KV_REST_API_URL: ${{ secrets.KV_REST_API_URL }}
+          KV_REST_API_TOKEN: ${{ secrets.KV_REST_API_TOKEN }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: |
+          python -u publish.py \
+            --days "${{ github.event.inputs.days || 2 }}" \
+            --max-summaries "${{ github.event.inputs.max_summaries || 40 }}"
+
+      - name: Keep a copy of the run for debugging
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cache
+          path: cache.json
+          retention-days: 7
+          if-no-files-found: ignore
