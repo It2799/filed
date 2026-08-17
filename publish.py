@@ -82,13 +82,47 @@ def load_providers():
 
 # ---------------------------------------------------------------- redis
 
+# The "All" tab doesn't need summaries or the long headline, and trimming keeps
+# a busy day's payload well under Upstash's request size limit.
+SLIM_FIELDS = ("id", "exchange", "company", "ticker", "category", "headline",
+               "time", "date", "score", "tag", "pdf_url")
+
+MAX_BYTES = 700_000        # stay comfortably inside the REST request limit
+
+
 def redis(url, token, command):
     r = requests.post(url, headers={"Authorization": f"Bearer {token}",
                                     "Content-Type": "application/json"},
-                      json=command, timeout=60)
+                      json=command, timeout=90)
     if not r.ok:
         raise RuntimeError(f"Redis {r.status_code}: {r.text[:200]}")
     return r.json().get("result")
+
+
+def write_day(url, token, key, rows):
+    """
+    Write one day's rows, splitting into parts if they're too big for a single
+    request. A heavy results day can carry over a thousand filings.
+    """
+    if not rows:
+        redis(url, token, ["SET", key, "[]", "EX", str(TTL_SECONDS)])
+        return 1
+
+    blob = json.dumps(rows, ensure_ascii=False)
+    if len(blob.encode("utf-8")) <= MAX_BYTES:
+        redis(url, token, ["SET", key, blob, "EX", str(TTL_SECONDS)])
+        redis(url, token, ["SET", key + ":parts", "1", "EX", str(TTL_SECONDS)])
+        return 1
+
+    parts = (len(blob.encode("utf-8")) // MAX_BYTES) + 1
+    size = (len(rows) // parts) + 1
+    chunks = [rows[i:i + size] for i in range(0, len(rows), size)]
+    for i, chunk in enumerate(chunks):
+        redis(url, token, ["SET", f"{key}:{i}",
+                           json.dumps(chunk, ensure_ascii=False), "EX", str(TTL_SECONDS)])
+    redis(url, token, ["SET", key + ":parts", str(len(chunks)), "EX", str(TTL_SECONDS)])
+    redis(url, token, ["DEL", key])          # the single-blob form is now stale
+    return len(chunks)
 
 
 # ---------------------------------------------------------------- main
@@ -97,7 +131,10 @@ def main():
     p = argparse.ArgumentParser()
     p.add_argument("--days", type=int, default=KEEP_DAYS,
                    help=f"how many days back to scrape (default {KEEP_DAYS})")
-    p.add_argument("--min-score", type=int, default=55)
+    p.add_argument("--min-score", type=int, default=20,
+                   help="lowest score worth storing at all (feeds the All tab)")
+    p.add_argument("--important-at", type=int, default=55,
+                   help="score at which a filing counts as Important")
     p.add_argument("--max-summaries", type=int, default=60)
     p.add_argument("--workers", type=int, default=4)
     p.add_argument("--dry-run", action="store_true")
@@ -118,40 +155,51 @@ def main():
         workers=args.workers,
     )
 
-    # Group by the day the filing was made.
+    # Two tiers per day, so the dashboard's default view stays small and fast:
+    #   mt:day:DATE  the important ones, with their summaries
+    #   mt:all:DATE  everything else, trimmed, for the "All" tab
     cutoff = (datetime.date.today() - datetime.timedelta(days=KEEP_DAYS - 1)).isoformat()
-    by_day = {}
+    important, rest = {}, {}
     for r in rows:
         day = r.get("date") or ""
-        if day and day >= cutoff:
-            by_day.setdefault(day, []).append(r)
+        if not day or day < cutoff:
+            continue
+        if r.get("score", 0) >= args.important_at:
+            important.setdefault(day, []).append(r)
+        else:
+            rest.setdefault(day, []).append(
+                {k: r.get(k, "") for k in SLIM_FIELDS})
 
-    days = sorted(by_day, reverse=True)
+    days = sorted(set(important) | set(rest), reverse=True)
     print(f"\nGrouped into {len(days)} days:")
     for d in days:
-        n = len(by_day[d])
-        s = sum(1 for x in by_day[d] if x.get("summary"))
-        print(f"  {d}   {n:>4} important, {s:>3} summarised")
+        imp = len(important.get(d, []))
+        oth = len(rest.get(d, []))
+        s = sum(1 for x in important.get(d, []) if x.get("summary"))
+        print(f"  {d}   {imp:>4} important ({s:>3} summarised), {oth:>4} other")
 
     if args.dry_run:
         print("\n(dry run - nothing written)")
         return
 
     for d in days:
-        redis(url, token, ["SET", f"mt:day:{d}", json.dumps(by_day[d], ensure_ascii=False),
-                           "EX", str(TTL_SECONDS)])
+        write_day(url, token, f"mt:day:{d}", important.get(d, []))
+        write_day(url, token, f"mt:all:{d}", rest.get(d, []))
 
     meta = {
         "updated": datetime.datetime.now(datetime.timezone.utc)
                    .strftime("%Y-%m-%dT%H:%M:%SZ"),
         "days": days,
+        "important_at": args.important_at,
+        "important": sum(len(v) for v in important.values()),
+        "other": sum(len(v) for v in rest.values()),
         **stats,
     }
     redis(url, token, ["SET", "mt:index", json.dumps(days)])
     redis(url, token, ["SET", "mt:meta", json.dumps(meta, ensure_ascii=False)])
 
-    total = sum(len(v) for v in by_day.values())
-    print(f"\nPublished {total} filings across {len(days)} days.")
+    print(f"\nPublished {meta['important']} important + {meta['other']} other "
+          f"across {len(days)} days.")
     print(f"Last updated: {meta['updated']}")
 
 

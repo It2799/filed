@@ -14,17 +14,34 @@ function prettyDay(iso) {
 export default function Dashboard() {
   const [data, setData] = useState(null);
   const [error, setError] = useState("");
+  const [scope, setScope] = useState("important");   // "important" | "all"
+  const [loading, setLoading] = useState(true);
   const [tag, setTag] = useState(null);
   const [day, setDay] = useState(null);
   const [q, setQ] = useState("");
   const [limit, setLimit] = useState(60);
 
   useEffect(() => {
-    fetch("/api/announcements")
+    let cancelled = false;
+    setLoading(true);
+    fetch(`/api/announcements?scope=${scope}`)
       .then((r) => r.json())
-      .then((d) => (d.error ? setError(d.error) : setData(d)))
-      .catch(() => setError("Couldn't load announcements. Try again in a moment."));
-  }, []);
+      .then((d) => {
+        if (cancelled) return;
+        if (d.error) setError(d.error);
+        else {
+          setData(d);
+          setError("");
+        }
+      })
+      .catch(() => !cancelled &&
+        setError("Couldn't load announcements. Try again in a moment."))
+      .finally(() => !cancelled && setLoading(false));
+    return () => { cancelled = true; };
+  }, [scope]);
+
+  // Switching tab shouldn't strand you on a category that no longer exists.
+  useEffect(() => { setLimit(60); }, [scope, tag, day, q]);
 
   const items = data?.items || [];
 
@@ -51,6 +68,7 @@ export default function Dashboard() {
     const p = new URLSearchParams();
     if (tag) p.set("tag", tag);
     if (day) p.set("day", day);
+    if (scope === "all") p.set("scope", "all");
     const qs = p.toString();
     return "/api/announcements/export" + (qs ? `?${qs}` : "");
   };
@@ -114,6 +132,26 @@ export default function Dashboard() {
       </div>
 
       <div className="controls">
+        <div className="tabs" role="tablist">
+          <button
+            role="tab"
+            aria-selected={scope === "important"}
+            className={`tab ${scope === "important" ? "on" : ""}`}
+            onClick={() => { setScope("important"); setTag(null); }}
+          >
+            Important
+          </button>
+          <button
+            role="tab"
+            aria-selected={scope === "all"}
+            className={`tab ${scope === "all" ? "on" : ""}`}
+            onClick={() => { setScope("all"); setTag(null); }}
+          >
+            All
+          </button>
+          {loading && <span className="tab-loading">loading…</span>}
+        </div>
+
         <div className="control-row">
           <input
             type="search"
@@ -142,9 +180,9 @@ export default function Dashboard() {
           ))}
         </div>
 
-        <div className="chips">
+        <div className="chips tags">
           <button className={`chip ${!tag ? "on" : ""}`} onClick={() => setTag(null)}>
-            All {items.length}
+            Every category {items.length}
           </button>
           {tags.map(([t, n]) => (
             <button

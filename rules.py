@@ -32,13 +32,14 @@ JUNK = [
     r"statement of deviation|monitoring agency",
     r"large corporate|lc framework",
     r"regulation 29\(|reg\.? ?29\(|regulation 31\(|regulation 10\(5\)|regulation 7\(2\)",
-    r"submission of annual report|annual report for the (financial )?year",
-    r"corrigend|amendment to (aoa|moa)|memorandum and articles",
-    r"\besop\b|esos|esps|employee stock option|exercise of (stock )?option",
+    r"corrigend",
     r"scrutinizer|postal ballot notice|notice of (the )?(agm|egm|annual general)",
     r"proceedings of (the )?(agm|annual general)",
     r"\bfor the quarter ended.{0,10}$",
 ]
+# NOTE: ESOP, annual reports and AoA/MoA amendments used to be dropped here.
+# They're now kept as their own low-scoring categories, so they show under
+# "All" but stay out of "Important".
 
 # ---------------------------------------------------------------------------
 # 2. VAGUE categories - the exchange bucket tells us nothing, so read the
@@ -57,66 +58,118 @@ VAGUE = [
 # ---------------------------------------------------------------------------
 # 3. IMPORTANT topics: (tag, points, pattern)
 # ---------------------------------------------------------------------------
+# Points do double duty: they rank importance, AND they decide which label wins
+# when a filing matches several. So the more specific pattern always carries a
+# slightly higher number than the general one it sits inside - "Scheme Of
+# Arrangement" beats "Acquisition", "QIP Allotment" beats "QIP" beats
+# "Fund Raising". Anything scoring at or above `min_score` shows under
+# "Important"; everything else is still kept and tagged, just under "All".
 TOPICS = [
-    ("Results",     62, r"financial result|quarterly result|(un)?audited (financial )?result|"
-                        r"integrated filing.{0,5}financial|q[1-4] ?(fy)?\s?\d* result|"
-                        r"results? for the (quarter|half|year)|standalone and consolidated financial"),
-    ("Dividend",    60, r"\bdividend\b"),
-    ("Bonus/Split", 68, r"bonus (issue|share)|issue of bonus|stock split|sub-?division of (equity |the )?share|"
-                        r"split of (equity )?share|rights issue|letter of offer.{0,20}rights"),
-    ("Buyback",     68, r"buy-?\s?back of (equity |fully )?"),
-    ("M&A",         66, r"\bacquisition\b|has acquired|proposed acquisition|amalgamation|\bmerger\b|"
-                        r"scheme of arrangement|de-?merger|slump sale|divestment|divestiture|"
-                        r"stake sale|sale of (the )?(subsidiary|business|undertaking|division)|"
-                        r"joint venture|strategic (partnership|alliance|investment)|"
-                        r"share purchase agreement|\bspa\b executed"),
-    ("Order Win",   62, r"bagging|receiv(ing|ed|t) of (orders?|contracts?|letter of award)|"
-                        r"award of (order|contract)|order win|bags? (an? )?order|"
-                        r"letter of (intent|award)|\bloi\b|work order|purchase order|"
-                        r"contract (won|awarded|received|secured)|secures? (an? )?(order|contract|project)|"
-                        r"\bwins?\b.{0,25}(order|contract|project|tender)"),
-    ("Fund Raise",  58, r"fund ?rais|preferential (issue|allotment)|qualified institution|\bqip\b|"
-                        r"rights entitlement|issue of (ncd|debenture|bond|warrant|convertible)|"
-                        r"allotment of (equity share|warrant|ncd|debenture|bond|convertible)|"
-                        r"capital raising|further public offer|\bfpo\b"),
-    ("Open Offer",  62, r"open offer|public announcement.{0,25}(acquisition|offer)|"
-                        r"detailed public statement|regulation 3\(1\)|delisting"),
-    ("Legal/Reg",   58, r"insolvency|\bnclt\b|\bnclat\b|\bibc\b|\bcirp\b|liquidat|winding up|"
-                        r"default in (payment|repayment)|one[- ]time settlement|debt restructur|"
-                        r"forensic audit|sebi order|adjudicat|show cause|penalt|"
-                        r"search and seizure|income tax (raid|survey|search)|\bfraud\b|"
-                        r"attachment of (property|asset)|freezing of|arbitration award|"
-                        r"supreme court|high court order|\bed\b (raid|summons)|qualified opinion|"
-                        # tax and appellate orders - the exchanges file these under the
-                        # same "order" category as a purchase order
-                        r"gst (demand|notice|order|liabilit)|demand order|assessment order|"
-                        r"tax (demand|notice|liabilit)|order-?in-?appeal|input tax credit"),
-    ("Operations",  56, r"plant (shutdown|closure|fire|accident)|fire at (the )?(plant|factory|unit)|"
-                        r"capacity (expansion|addition|augment)|new plant|greenfield|brownfield|"
-                        r"commercial production|commissioning of|commencement of (production|operation)|"
-                        r"force majeure|production (halt|suspend|stopp)|lock-?out|"
-                        r"\bcapex\b|expansion (plan|project)"),
-    ("Biz Update",  54, r"monthly business update|business update|revenue update|sales update|"
-                        r"monthly sales|production (update|figures|volume)|operational (update|data)|"
-                        r"quarterly (business |pre-?)update|key financial and operational|\bguidance\b"),
-    ("Rating",      52, r"credit rating|rating (action|revision|upgrade|downgrade|reaffirm|assigned)|"
-                        r"\bcrisil\b|\bicra\b|care ratings|india ratings|\bcareedge\b"),
-    ("Leadership",  50, r"(resignation|appointment|cessation|re-?appointment|removal|retirement|change).{0,70}"
-                        r"(managing director|chief executive|\bceo\b|chief financial|\bcfo\b|"
-                        r"chairman|whole[- ]time director|statutory auditor|\bauditor\b)|"
-                        r"change in (auditors|management)|resignation of (statutory )?auditor"),
-    ("Corp Action", 50, r"change of name|name change|\bisin\b change|face value|"
-                        r"reduction of (share )?capital|capital reduction"),
-    ("Unusual",     48, r"spurt in volume|price (movement|volume)|clarification sought|news verification|"
-                        r"exchange has sought"),
-    ("Presentation",42, r"investor presentation|press release|media release|earnings call transcript|"
-                        r"transcript of|analyst (meet|call)|conference call|con\.? ?call|"
-                        r"institutional investor meet"),
-    ("Board Meet",  40, r"board meeting|outcome of (the )?board"),
-    ("People",      32, r"resignation|appointment|cessation|change in director|"
-                        r"key managerial|company secretary|\bkmp\b|\bsmp\b|senior management"),
-    ("Meeting",     22, r"shareholders meeting|postal ballot|voting result|\bagm\b|\begm\b|"
-                        r"book closure"),
+    # ---- corporate actions on the share itself -------------------------------
+    ("Buyback",              70, r"buy-?\s?back"),
+    ("Scheme Of Arrangement", 69, r"scheme of (arrangement|amalgamation|merger|demerger)|"
+                                 r"composite scheme|de-?merger|\bdemerge"),
+    ("Rights Issue",         68, r"rights issue|rights entitlement|letter of offer.{0,25}rights"),
+    ("Split",                67, r"stock split|sub-?division of (equity |the )?share|"
+                                 r"split of (equity )?share|face value.{0,30}split"),
+    ("Bonus",                67, r"bonus (issue|share)|issue of bonus"),
+    ("Open Offer",           66, r"open offer|detailed public statement|regulation 3\(1\)|"
+                                 r"public announcement.{0,25}(acquisition|offer)|delisting|"
+                                 r"substantial acquisition of shares|\bsast\b"),
+    ("Acquisition",          65, r"\bacquisition\b|has acquired|proposed acquisition|amalgamation|"
+                                 r"\bmerger\b|slump sale|divestment|divestiture|stake sale|"
+                                 r"sale of (the )?(subsidiary|business|undertaking|division)|"
+                                 r"joint venture|strategic (partnership|alliance|investment)|"
+                                 r"share purchase agreement|\bspa\b executed"),
+
+    # ---- raising money -------------------------------------------------------
+    ("Qip Allotment",        63, r"qip allotment|allotment.{0,30}qualified institution|"
+                                 r"allotment of (equity )?shares.{0,40}\bqip\b"),
+    ("Qip",                  62, r"\bqip\b|qualified institution(s)? placement"),
+    ("Warrants",             61, r"\bwarrant(s)?\b|convertible warrant"),
+    ("Pref",                 60, r"preferential (issue|allotment|basis)|on a preferential"),
+    ("Fund Raising",         58, r"fund ?rais|capital raising|further public offer|\bfpo\b|"
+                                 r"issue of (ncd|debenture|bond|commercial paper)|"
+                                 r"allotment of (ncd|debenture|bond|convertible)|"
+                                 r"private placement"),
+
+    # ---- performance and operations -----------------------------------------
+    ("Results",              64, r"financial result|quarterly result|(un)?audited (financial )?result|"
+                                 r"integrated filing.{0,5}financial|q[1-4] ?(fy)?\s?\d* result|"
+                                 r"results? for the (quarter|half|year)|"
+                                 r"standalone and consolidated financial"),
+    ("Order",                62, r"bagging|receiv(ing|ed|t) of (orders?|contracts?|letter of award)|"
+                                 r"award of (order|contract)|order win|bags? (an? )?order|"
+                                 r"letter of (intent|award)|\bloi\b|work order|purchase order|"
+                                 r"contract (won|awarded|received|secured)|"
+                                 r"secures? (an? )?(order|contract|project)|"
+                                 r"\bwins?\b.{0,25}(order|contract|project|tender)"),
+    ("Dividend",             60, r"\bdividend\b"),
+    ("Capacity Increase",    57, r"capacity (expansion|addition|augment|increase)|new plant|"
+                                 r"greenfield|brownfield|commercial production|commissioning of|"
+                                 r"commencement of (production|operation)|\bcapex\b|"
+                                 r"expansion (plan|project)|debottleneck"),
+    ("Business Update",      55, r"monthly business update|business update|revenue update|"
+                                 r"sales update|monthly sales|production (update|figures|volume)|"
+                                 r"operational (update|data)|quarterly (business |pre-?)update|"
+                                 r"key financial and operational|\bguidance\b"),
+
+    # ---- trouble -------------------------------------------------------------
+    ("Nclt",                 60, r"\bnclt\b|\bnclat\b|\bibc\b|\bcirp\b|insolvency|liquidat|"
+                                 r"winding up|resolution professional|corporate insolvency"),
+    ("Legal/Reg",            58, r"default in (payment|repayment)|one[- ]time settlement|"
+                                 r"debt restructur|forensic audit|sebi order|adjudicat|show cause|"
+                                 r"penalt|search and seizure|income tax (raid|survey|search)|"
+                                 r"\bfraud\b|attachment of (property|asset)|freezing of|"
+                                 r"arbitration award|supreme court|high court order|"
+                                 r"\bed\b (raid|summons)|qualified opinion|"
+                                 # tax and appellate orders - the exchanges file these under
+                                 # the same "order" category as a purchase order
+                                 r"gst (demand|notice|order|liabilit)|demand order|"
+                                 r"assessment order|tax (demand|notice|liabilit)|"
+                                 r"order-?in-?appeal|input tax credit"),
+    ("Operations",           56, r"plant (shutdown|closure|fire|accident)|"
+                                 r"fire at (the )?(plant|factory|unit)|force majeure|"
+                                 r"production (halt|suspend|stopp)|lock-?out|strike at"),
+
+    # ---- ratings and holdings ------------------------------------------------
+    ("Ratings Update",       53, r"credit rating|rating (action|revision|upgrade|downgrade|"
+                                 r"reaffirm|assigned)|\bcrisil\b|\bicra\b|care ratings|"
+                                 r"india ratings|\bcareedge\b|\besg rating\b"),
+    ("Bulk And Block",       42, r"bulk deal|block deal|bulk and block"),
+    ("Fii",                  38, r"\bfii\b|\bfpi\b|foreign (institutional|portfolio) investor|"
+                                 r"shareholding of promoter|promoter (holding|pledge)|"
+                                 r"encumbrance|invocation of pledge"),
+
+    # ---- people --------------------------------------------------------------
+    ("Change In Management", 51, r"change in (management|directorate|auditors)|"
+                                 r"(appointment|re-?appointment).{0,70}(managing director|"
+                                 r"chief executive|\bceo\b|chief financial|\bcfo\b|chairman|"
+                                 r"whole[- ]time director|statutory auditor)"),
+    ("Resignation",          40, r"resignation|cessation|removal|retirement of|"
+                                 r"stepped down|relinquish"),
+
+    # ---- meetings and talk ---------------------------------------------------
+    ("Concall",              45, r"analysts?.{0,14}meet|institutional investor meet|"
+                                 r"con\.? ?call|conference call|earnings call|"
+                                 r"audio recording|video recording|transcript"),
+    ("Outcome",              43, r"outcome of (the )?board meeting|outcome of the meeting"),
+    ("Board Meeting",        41, r"board meeting|meeting of the board of directors"),
+    ("Presentation",         44, r"investor presentation|press release|media release"),
+
+    # ---- housekeeping, kept but low so they stay out of "Important" ----------
+    ("Corp Action",          50, r"change of name|name change|\bisin\b change|"
+                                 r"reduction of (share )?capital|capital reduction|record date|"
+                                 r"book closure"),
+    ("Unusual",              48, r"spurt in volume|price (movement|volume)|clarification sought|"
+                                 r"news verification|exchange has sought"),
+    ("Esop",                 30, r"\besop\b|esos|esps|employee stock option|"
+                                 r"exercise of (stock )?option|stock appreciation"),
+    ("Annual Report",        28, r"annual report|annual general meeting.{0,20}report"),
+    ("Article Of Association", 27, r"article(s)? of association|memorandum and article|"
+                                 r"\baoa\b|\bmoa\b|amendment to (aoa|moa)"),
+    ("Meeting",              22, r"shareholders meeting|postal ballot|voting result|"
+                                 r"\bagm\b|\begm\b"),
 ]
 
 # ---------------------------------------------------------------------------
@@ -126,15 +179,15 @@ TOPICS = [
 #    These cap the score no matter what else matched.
 # ---------------------------------------------------------------------------
 DOWNGRADE = [
-    ("Presentation", 42, r"audio recording|video recording|transcript|earnings call|"
-                         r"con\.? ?call|conference call|analysts?.{0,14}meet|investor meet|"
-                         r"schedule of (the )?(analyst|investor)|intimation of (analyst|investor)"),
-    ("Board Meet",   40, r"(intimation|notice|prior intimation) (of|for|regarding).{0,45}board meeting|"
-                         r"board meeting (will be|is scheduled|to be held|shall be|has been scheduled)|"
-                         r"meeting of the board of directors.{0,90}(will be held|is scheduled|shall be held|"
-                         r"to consider)|to consider and approve|scheduled to be held on"),
-    ("People",       32, r"internal auditor|secretarial auditor|cost auditor|"
-                         r"appointment of (the )?(internal|secretarial|cost)"),
+    ("Concall",       45, r"audio recording|video recording|transcript|earnings call|"
+                          r"con\.? ?call|conference call|analysts?.{0,14}meet|investor meet|"
+                          r"schedule of (the )?(analyst|investor)|intimation of (analyst|investor)"),
+    ("Board Meeting", 41, r"(intimation|notice|prior intimation) (of|for|regarding).{0,45}board meeting|"
+                          r"board meeting (will be|is scheduled|to be held|shall be|has been scheduled)|"
+                          r"meeting of the board of directors.{0,90}(will be held|is scheduled|shall be held|"
+                          r"to consider)|to consider and approve|scheduled to be held on"),
+    ("Resignation",   32, r"internal auditor|secretarial auditor|cost auditor|"
+                          r"appointment of (the )?(internal|secretarial|cost)"),
 ]
 
 # ---------------------------------------------------------------------------

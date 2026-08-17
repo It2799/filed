@@ -35,10 +35,11 @@ export async function GET(request) {
   const url = new URL(request.url);
   const tag = url.searchParams.get("tag");
   const day = url.searchParams.get("day");
+  const scope = url.searchParams.get("scope") === "all" ? "all" : "important";
 
   let items;
   try {
-    ({ items } = await recent());
+    ({ items } = await recent({ scope }));
   } catch (err) {
     console.error("[export]", err);
     return new Response("Couldn't build the file.", { status: 500 });

@@ -12,10 +12,11 @@ export async function GET(request) {
   }
 
   try {
-    const { days, items, meta } = await recent();
+    const url = new URL(request.url);
+    const scope = url.searchParams.get("scope") === "all" ? "all" : "important";
+    const { days, items, meta } = await recent({ scope });
 
     // Optional narrowing, so the page can filter without shipping everything twice.
-    const url = new URL(request.url);
     const tag = url.searchParams.get("tag");
     const day = url.searchParams.get("day");
     const q = (url.searchParams.get("q") || "").toLowerCase().trim();
@@ -42,6 +43,7 @@ export async function GET(request) {
     return Response.json({
       days,
       meta,
+      scope,
       total,
       summarised: summarised.length,
       truncated: total > rows.length,

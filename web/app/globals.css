@@ -529,3 +529,25 @@ footer p { margin: 0 0 7px; }
   border-radius: 9px;
   padding: 9px 13px;
 }
+
+/* Important / All tabs */
+.tabs { display: flex; align-items: center; gap: 6px; margin-bottom: 10px; }
+.tab {
+  padding: 7px 16px; border-radius: 8px;
+  background: transparent; border: 1px solid var(--line);
+  color: var(--muted); font-family: inherit; font-size: 14px;
+  font-weight: 620; cursor: pointer;
+}
+.tab:hover { border-color: var(--accent); color: var(--ink); }
+.tab.on {
+  background: var(--accent); border-color: var(--accent);
+  color: var(--accent-ink);
+}
+.tab-loading { font-size: 12.5px; color: var(--dim); margin-left: 4px; }
+
+/* The category list gets long, so cap its height and let it scroll. */
+.chips.tags {
+  max-height: 92px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
