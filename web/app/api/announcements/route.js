@@ -47,17 +47,21 @@ export async function GET(request) {
         ? rows.slice(0, LIMIT)
         : [...summarised, ...rows.filter((r) => !r.summary)].slice(0, LIMIT);
 
-    return Response.json({
-      days,
-      meta,
-      scope,
-      total,
-      tagCounts,
-      summarised: summarised.length,
-      truncated: total > rows.length,
-      count: rows.length,
-      items: rows,
-    });
+    return Response.json(
+      {
+        days,
+        meta,
+        scope,
+        total,
+        tagCounts,
+        summarised: summarised.length,
+        truncated: total > rows.length,
+        count: rows.length,
+        items: rows,
+      },
+      // Without this the CDN happily serves yesterday's filings from its edge
+      // cache after a fresh scrape has landed.
+      { headers: { "Cache-Control": "no-store, max-age=0" } });
   } catch (err) {
     console.error("[announcements]", err);
     return Response.json({ error: "Couldn't load announcements." }, { status: 500 });
