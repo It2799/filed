@@ -135,7 +135,9 @@ def main():
                    help="lowest score worth storing at all (feeds the All tab)")
     p.add_argument("--important-at", type=int, default=55,
                    help="score at which a filing counts as Important")
-    p.add_argument("--max-summaries", type=int, default=60)
+    p.add_argument("--max-summaries", type=int, default=400,
+                   help="ceiling on AI calls per run; summaries are cached so "
+                        "a rerun only pays for what's new")
     p.add_argument("--workers", type=int, default=4)
     p.add_argument("--dry-run", action="store_true")
     args = p.parse_args()
@@ -147,13 +149,28 @@ def main():
     provider_list = load_providers()
     print(f"AI providers configured: {[p['kind'] for p in provider_list] or 'none'}\n")
 
-    rows, stats = pipeline.run(
-        days=args.days,
-        min_score=args.min_score,
-        max_summaries=args.max_summaries,
-        provider_list=provider_list,
-        workers=args.workers,
-    )
+    today = datetime.date.today()
+    start = today - datetime.timedelta(days=max(0, args.days))
+
+    raw, kept = pipeline.fetch_and_score(start, today, args.min_score)
+
+    # Only spend AI on filings that will actually appear under Important. The
+    # store keeps everything down to score 20 for the All tab, but summarising a
+    # routine board-meeting notice burns budget that a buyback should have had.
+    worth_reading = [a for a in kept if a.get("score", 0) >= args.important_at]
+    print(f"\nOf {len(kept)} stored, {len(worth_reading)} are Important "
+          f"(score >= {args.important_at}) and eligible for a summary.")
+
+    pipeline.summarise(worth_reading, provider_list, args.max_summaries,
+                       workers=args.workers)
+
+    rows = pipeline.to_rows(kept)
+    stats = {
+        "scanned": len(raw),
+        "summarised": sum(1 for a in kept if a.get("summary")),
+        "from": start.isoformat(),
+        "to": today.isoformat(),
+    }
 
     # Two tiers per day, so the dashboard's default view stays small and fast:
     #   mt:day:DATE  the important ones, with their summaries
