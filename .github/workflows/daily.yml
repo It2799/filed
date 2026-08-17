@@ -23,7 +23,7 @@ on:
       max_summaries:
         description: "Ceiling on AI calls this run"
         required: false
-        default: "400"
+        default: "250"
 
 concurrency:
   group: daily-scrape
@@ -61,7 +61,7 @@ jobs:
         run: |
           python -u publish.py \
             --days "${{ github.event.inputs.days || 2 }}" \
-            --max-summaries "${{ github.event.inputs.max_summaries || 400 }}"
+            --max-summaries "${{ github.event.inputs.max_summaries || 250 }}"
 
       - name: Keep a copy of the run for debugging
         if: always()

@@ -135,7 +135,7 @@ def main():
                    help="lowest score worth storing at all (feeds the All tab)")
     p.add_argument("--important-at", type=int, default=55,
                    help="score at which a filing counts as Important")
-    p.add_argument("--max-summaries", type=int, default=400,
+    p.add_argument("--max-summaries", type=int, default=250,
                    help="ceiling on AI calls per run; summaries are cached so "
                         "a rerun only pays for what's new")
     p.add_argument("--workers", type=int, default=4)
