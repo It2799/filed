@@ -35,8 +35,11 @@ OUT = os.path.join(HERE, "web", "app", "samples.json")
 HOW_MANY = 7
 
 # Prefer a spread over these, in this order, so the page isn't all of one kind.
-PREFERRED_TAGS = ["Results", "Order Win", "Dividend", "Buyback", "Bonus/Split",
-                  "M&A", "Fund Raise", "Legal/Reg", "Rating", "Operations"]
+# These must match the tag names in rules.py TOPICS.
+PREFERRED_TAGS = ["Results", "Order", "Dividend", "Buyback", "Bonus", "Split",
+                  "Acquisition", "Scheme Of Arrangement", "Fund Raising", "Qip",
+                  "Legal/Reg", "Nclt", "Ratings Update", "Capacity Increase",
+                  "Business Update", "Open Offer", "Rights Issue"]
 
 
 def load_records():
