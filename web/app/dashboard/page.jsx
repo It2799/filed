@@ -45,11 +45,15 @@ export default function Dashboard() {
 
   const items = data?.items || [];
 
+  // Counts come from the server across everything that matched, not just the
+  // slice we were sent, so a category isn't under-reported on a busy week.
   const tags = useMemo(() => {
-    const counts = {};
-    for (const it of items) counts[it.tag] = (counts[it.tag] || 0) + 1;
-    return Object.entries(counts).sort((a, b) => b[1] - a[1]);
-  }, [items]);
+    const counts = data?.tagCounts;
+    if (counts) return Object.entries(counts).sort((a, b) => b[1] - a[1]);
+    const fallback = {};
+    for (const it of items) fallback[it.tag] = (fallback[it.tag] || 0) + 1;
+    return Object.entries(fallback).sort((a, b) => b[1] - a[1]);
+  }, [data, items]);
 
   const shown = useMemo(() => {
     const needle = q.toLowerCase().trim();
@@ -182,7 +186,7 @@ export default function Dashboard() {
 
         <div className="chips tags">
           <button className={`chip ${!tag ? "on" : ""}`} onClick={() => setTag(null)}>
-            Every category {items.length}
+            Every category {Number(data.total || items.length).toLocaleString("en-IN")}
           </button>
           {tags.map(([t, n]) => (
             <button

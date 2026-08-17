@@ -31,20 +31,28 @@ export async function GET(request) {
           .includes(q));
     }
 
+    // Count categories over everything that matched, not just the slice we send,
+    // otherwise the chips would under-report on a busy week.
+    const tagCounts = {};
+    for (const r of rows) tagCounts[r.tag] = (tagCounts[r.tag] || 0) + 1;
+
     // On a heavy results day there can be thousands of filings over 7 days.
-    // Shipping all of them would be a multi-megabyte page load, so the summarised
-    // ones lead (they're the point of the product) and the rest are trimmed.
-    // The Excel export still gives you every row.
+    // Shipping all of them would be a multi-megabyte page load. On the Important
+    // tab the summarised ones lead, since they're the point of the product; the
+    // All tab keeps its chronological order. The Excel export has every row.
     const total = rows.length;
     const summarised = rows.filter((r) => r.summary);
-    const bare = rows.filter((r) => !r.summary);
-    rows = [...summarised, ...bare].slice(0, LIMIT);
+    rows =
+      scope === "all"
+        ? rows.slice(0, LIMIT)
+        : [...summarised, ...rows.filter((r) => !r.summary)].slice(0, LIMIT);
 
     return Response.json({
       days,
       meta,
       scope,
       total,
+      tagCounts,
       summarised: summarised.length,
       truncated: total > rows.length,
       count: rows.length,

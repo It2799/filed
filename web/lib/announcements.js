@@ -97,8 +97,17 @@ export async function recent({ scope = "important" } = {}) {
     push(await readKeys(days.map((d) => `mt:all:${d}`)));
   }
 
-  // Highest score first, then most recent.
-  items.sort((a, b) => (b.score - a.score) || String(b.time).localeCompare(String(a.time)));
+  if (scope === "all") {
+    // "All" is a feed - newest first, the way you'd scan the exchange site.
+    // Sorting it by score would just repeat the Important tab.
+    items.sort((a, b) =>
+      String(b.day).localeCompare(String(a.day)) ||
+      String(b.time).localeCompare(String(a.time)));
+  } else {
+    // "Important" is a ranking - the biggest news first.
+    items.sort((a, b) =>
+      (b.score - a.score) || String(b.time).localeCompare(String(a.time)));
+  }
 
   return { days, items, meta };
 }

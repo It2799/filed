@@ -186,14 +186,18 @@ def main():
         write_day(url, token, f"mt:day:{d}", important.get(d, []))
         write_day(url, token, f"mt:all:{d}", rest.get(d, []))
 
+    # stats carries its own "important" (everything worth storing at all), which
+    # is a different and larger number than the Important tab. Spread it first so
+    # the explicit counts below win rather than being silently overwritten.
     meta = {
+        **stats,
         "updated": datetime.datetime.now(datetime.timezone.utc)
                    .strftime("%Y-%m-%dT%H:%M:%SZ"),
         "days": days,
         "important_at": args.important_at,
+        "stored": len(rows),
         "important": sum(len(v) for v in important.values()),
         "other": sum(len(v) for v in rest.values()),
-        **stats,
     }
     redis(url, token, ["SET", "mt:index", json.dumps(days)])
     redis(url, token, ["SET", "mt:meta", json.dumps(meta, ensure_ascii=False)])
