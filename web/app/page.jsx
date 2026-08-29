@@ -1,428 +1,308 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
+import Nav from "./Nav";
+import MkFooter from "./MkFooter";
+import { SITE } from "./site";
 
-const SITE = {
-  name: "Market Tide",
-  phoneDisplay: "+91 82004 40146",
-  phoneDigits: "918200440146",
-  email: "market.tide27@gmail.com",
-  newsletterLink: "https://chat.whatsapp.com/B9cZ0FnmUFxKGUuXaqXG4H?s=cl&p=a&ilr=1",
-
-  // Combined audience across the WhatsApp newsletter and the website list.
-  // The website form count alone is served live at /api/waitlist; this is the
-  // wider figure you keep by hand, so update it as the group grows.
-  readers: "500+",
-};
-
-const impactClass = (i) =>
-  i === "Positive" ? "pos" : i === "Negative" ? "neg" : "neu";
-
-const prettyDay = (iso) =>
-  iso
-    ? new Date(iso + "T00:00:00").toLocaleDateString("en-IN", {
-        day: "2-digit",
-        month: "short",
-      })
-    : "";
-
-export default function Home() {
-  const [data, setData] = useState(null);
-  const [error, setError] = useState("");
-  const [scope, setScope] = useState("important");
-  const [loading, setLoading] = useState(true);
-  const [tag, setTag] = useState(null);
-  const [day, setDay] = useState(null);
-  const [q, setQ] = useState("");
-  const [limit, setLimit] = useState(40);
-
-  const [email, setEmail] = useState("");
-  const [phone, setPhone] = useState("");
-  const [company, setCompany] = useState(""); // honeypot
-  const [formState, setFormState] = useState("idle");
-  const [formError, setFormError] = useState("");
+export default function Landing() {
+  // Real numbers and real filings, pulled from the same store the dashboard
+  // uses. Nothing on this page is a mock-up.
+  const [live, setLive] = useState(null);
 
   useEffect(() => {
-    let dead = false;
-    setLoading(true);
-    fetch(`/api/announcements?scope=${scope}`)
+    fetch("/api/announcements?scope=important")
       .then((r) => r.json())
-      .then((d) => {
-        if (dead) return;
-        if (d.error) setError(d.error);
-        else {
-          setData(d);
-          setError("");
-        }
-      })
-      .catch(() => !dead && setError("Couldn't load the filings. Please refresh."))
-      .finally(() => !dead && setLoading(false));
-    return () => {
-      dead = true;
-    };
-  }, [scope]);
+      .then((d) => !d.error && setLive(d))
+      .catch(() => {});
+  }, []);
 
-  useEffect(() => {
-    setLimit(40);
-  }, [scope, tag, day, q]);
+  const scanned = live?.meta?.scanned;
+  const summarised = live?.summarised;
+  const days = live?.days?.length || 7;
 
-  const items = data?.items || [];
+  // A handful of genuinely interesting ones for the scrolling strip.
+  const ticker = (live?.items || [])
+    .filter((i) => i.summary && i.tag !== "Results")
+    .slice(0, 14);
 
-  const tags = useMemo(
-    () => Object.entries(data?.tagCounts || {}).sort((a, b) => b[1] - a[1]),
-    [data]
-  );
-
-  const shown = useMemo(() => {
-    const n = q.toLowerCase().trim();
-    return items.filter(
-      (it) =>
-        (!tag || it.tag === tag) &&
-        (!day || it.day === day) &&
-        (!n ||
-          `${it.company} ${it.ticker} ${it.headline} ${it.summary}`
-            .toLowerCase()
-            .includes(n))
-    );
-  }, [items, tag, day, q]);
-
-  const exportUrl = () => {
-    const p = new URLSearchParams();
-    if (tag) p.set("tag", tag);
-    if (day) p.set("day", day);
-    if (scope === "all") p.set("scope", "all");
-    const qs = p.toString();
-    return "/api/announcements/export" + (qs ? `?${qs}` : "");
-  };
-
-  async function submit(e) {
-    e.preventDefault();
-    if (formState === "sending") return;
-    setFormState("sending");
-    setFormError("");
-    try {
-      const res = await fetch("/api/waitlist", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, phone, company, source: "home" }),
-      });
-      const d = await res.json();
-      if (!res.ok) {
-        setFormError(d.error || "Please try again.");
-        setFormState("idle");
-        return;
-      }
-      setFormState("done");
-    } catch {
-      setFormError("Couldn't reach the server. Please try again.");
-      setFormState("idle");
-    }
-  }
-
-  const scanned = data?.meta?.scanned;
-  const summarised = data?.summarised || 0;
+  const samples = (live?.items || []).filter((i) => i.summary).slice(0, 3);
 
   return (
-    <div className="wrap">
-      <div className="brand">
-        <span className="dot" /> {SITE.name}
-        <span className="pill">Free · updated every evening</span>
-      </div>
+    <>
+      <Nav />
 
-      <header className="intro">
-        <h1>The filings that actually matter</h1>
-        <p className="intro-lede">
-          Every trading day, companies file hundreds of announcements with NSE
-          and BSE. <strong>We read all of them</strong> and write a plain-English
-          summary of the ones worth your time. The rest — trading window notices,
-          newspaper clippings, duplicate certificates — we throw away.
-        </p>
-
-        {scanned ? (
-          <div className="howitworks">
-            <div className="hiw">
-              <b>{Number(scanned).toLocaleString("en-IN")}</b>
-              <span>filed in the last 7 days</span>
-            </div>
-            <div className="hiw-arrow" aria-hidden="true">
-              →
-            </div>
-            <div className="hiw">
-              <b>Every one</b>
-              <span>read and checked by us</span>
-            </div>
-            <div className="hiw-arrow" aria-hidden="true">
-              →
-            </div>
-            <div className="hiw done">
-              <b>{summarised}</b>
-              <span>were relevant, and summarised</span>
-            </div>
+      <main className="mk">
+        {/* ---------------- hero ---------------- */}
+        <section className="mk-hero">
+          <div className="eyebrow">
+            <span className="live-dot" /> Updated every evening · free to read
           </div>
-        ) : null}
 
-        <p className="intro-note">
-          How many are relevant changes every day — a quiet Saturday throws up a
-          handful, results week throws up hundreds. We summarise whatever is
-          there. Free to read, nothing to sign up for, and every card links to
-          the original PDF so you can check it yourself.
-        </p>
-      </header>
+          <h1 className="mk-h1">
+            Every filing read.
+            <br />
+            <span className="grad">Only the ones that matter, kept.</span>
+          </h1>
 
-      <div className="controls">
-        <div className="tabs">
-          <button
-            className={`tab ${scope === "important" ? "on" : ""}`}
-            onClick={() => {
-              setScope("important");
-              setTag(null);
-            }}
-          >
-            Worth reading
-          </button>
-          <button
-            className={`tab ${scope === "all" ? "on" : ""}`}
-            onClick={() => {
-              setScope("all");
-              setTag(null);
-            }}
-          >
-            Everything filed
-          </button>
-          {loading && <span className="tab-loading">loading…</span>}
-        </div>
+          <p className="mk-sub">
+            NSE and BSE publish thousands of company announcements a week. Almost
+            all of it is paperwork. <strong>We read every single one</strong> and
+            write a plain-English summary of the handful worth your time — with a
+            link to the original PDF, always.
+          </p>
 
-        <div className="control-row">
-          <input
-            type="search"
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder="Search a company…"
-            aria-label="Search"
-          />
-          <a className="dl-btn" href={exportUrl()} download>
-            <XlsIcon /> Excel
-          </a>
-        </div>
+          <div className="mk-ctas">
+            <a className="btn-lg btn-grad" href="/dashboard">
+              Open the dashboard <span aria-hidden="true">→</span>
+            </a>
+            <a className="btn-lg btn-ghost" href="/join">
+              Join the community · ₹99
+            </a>
+          </div>
+          <p className="mk-ctanote">
+            No sign-up needed to read. {SITE.readers} investors already follow us.
+          </p>
 
-        <div className="chips">
-          <button className={`chip ${!day ? "on" : ""}`} onClick={() => setDay(null)}>
-            All days
-          </button>
-          {(data?.days || []).map((d) => (
-            <button
-              key={d}
-              className={`chip ${day === d ? "on" : ""}`}
-              onClick={() => setDay(day === d ? null : d)}
-            >
-              {prettyDay(d)}
-            </button>
-          ))}
-        </div>
+          {scanned ? (
+            <div className="livestrip">
+              <div className="livestat">
+                <b>{Number(scanned).toLocaleString("en-IN")}</b>
+                <span>filings read</span>
+              </div>
+              <div className="livestat hi">
+                <b>{Number(summarised || 0).toLocaleString("en-IN")}</b>
+                <span>were worth summarising</span>
+              </div>
+              <div className="livestat">
+                <b>{days}</b>
+                <span>days on the dashboard</span>
+              </div>
+              <div className="livestat">
+                <b>{Object.keys(live?.tagCounts || {}).length}</b>
+                <span>categories to filter</span>
+              </div>
+            </div>
+          ) : null}
+        </section>
 
-        {tags.length > 0 && (
-          <div className="chips tags">
-            <button className={`chip ${!tag ? "on" : ""}`} onClick={() => setTag(null)}>
-              Every type
-            </button>
-            {tags.map(([t, n]) => (
-              <button
-                key={t}
-                className={`chip ${tag === t ? "on" : ""}`}
-                onClick={() => setTag(tag === t ? null : t)}
-              >
-                {t} {n}
-              </button>
-            ))}
+        {/* ---------------- live ticker ---------------- */}
+        {ticker.length > 4 && (
+          <div className="ticker" aria-hidden="true">
+            <div className="ticker-track">
+              {[...ticker, ...ticker].map((t, i) => (
+                <span className="tick" key={i}>
+                  <span className="tk">{t.tag}</span>
+                  <b>{t.company}</b>
+                  <span>{(t.key_numbers || [])[0] || t.time}</span>
+                </span>
+              ))}
+            </div>
           </div>
         )}
-      </div>
 
-      {error ? (
-        <div className="empty">{error}</div>
-      ) : !data ? (
-        <div className="empty">Loading the last 7 days…</div>
-      ) : shown.length === 0 ? (
-        <div className="empty">Nothing matches that filter.</div>
-      ) : (
-        <>
-          {shown.slice(0, limit).map((it) => (
-            <article className="card" key={it.id}>
-              <div className="card-top">
-                <div>
-                  <div className="co">
-                    {it.company}{" "}
-                    {it.ticker && <span className="meta">{it.ticker}</span>}
+        {/* ---------------- what you get ---------------- */}
+        <section className="mk-sec">
+          <div className="mk-sec-head">
+            <p className="mk-kicker">What you actually get</p>
+            <h2 className="mk-h2">Not headlines. The answer.</h2>
+            <p className="mk-lead">
+              These are real summaries produced in the last seven days. Nothing
+              here is written for the pitch.
+            </p>
+          </div>
+
+          {samples.length > 0 ? (
+            samples.map((s) => (
+              <article className="card" key={s.id}>
+                <div className="card-top">
+                  <div>
+                    <div className="co">{s.company}</div>
+                    <div className="meta">
+                      {s.exchange} · {s.category} · {s.time}
+                    </div>
                   </div>
-                  <div className="meta">
-                    {it.exchange} · {it.category} · {it.time}
+                  <div className="badges">
+                    <span className="b tag">{s.tag}</span>
+                    {s.impact && (
+                      <span
+                        className={`b ${
+                          s.impact === "Positive"
+                            ? "pos"
+                            : s.impact === "Negative"
+                            ? "neg"
+                            : "neu"
+                        }`}
+                      >
+                        {s.impact}
+                      </span>
+                    )}
                   </div>
                 </div>
-                <div className="badges">
-                  <span className="b tag">{it.tag}</span>
-                  {it.impact && (
-                    <span className={`b ${impactClass(it.impact)}`}>{it.impact}</span>
-                  )}
-                </div>
-              </div>
-
-              {it.summary ? (
-                <p className="summary">{it.summary}</p>
-              ) : (
-                <div className="head">{it.headline}</div>
-              )}
-
-              {Array.isArray(it.key_numbers) && it.key_numbers.length > 0 && (
-                <div className="nums">
-                  {it.key_numbers.map((n, i) => (
-                    <span className="num" key={i}>
-                      {n}
-                    </span>
-                  ))}
-                </div>
-              )}
-              {it.why_it_matters && <div className="why">{it.why_it_matters}</div>}
-
-              <div className="card-links">
-                {it.pdf_url && (
-                  <a href={it.pdf_url} target="_blank" rel="noopener noreferrer">
-                    Open the original filing
-                  </a>
+                <p className="summary">{s.summary}</p>
+                {(s.key_numbers || []).length > 0 && (
+                  <div className="nums">
+                    {s.key_numbers.map((n, i) => (
+                      <span className="num" key={i}>
+                        {n}
+                      </span>
+                    ))}
+                  </div>
                 )}
-              </div>
-            </article>
-          ))}
-
-          {shown.length > limit && (
-            <button className="more" onClick={() => setLimit(limit + 40)}>
-              Show more <span className="meta">({shown.length - limit} left)</span>
-            </button>
-          )}
-        </>
-      )}
-
-      <section className="section">
-        <div className="newsletter">
-          <div className="nl-flag">
-            <span className="live-dot" /> Already running
-          </div>
-          <h2 className="nl-title">Get it every morning on WhatsApp</h2>
-          <p className="nl-lead">
-            You don&apos;t have to come here. Every morning we send the most
-            important announcements, key developments and what they mean — free,
-            in one short message. Plus weekly deep dives on companies and
-            industries.
-          </p>
-          <p className="nl-tagline">Stay updated. Save time. Stay ahead.</p>
-          <a
-            className="nl-btn"
-            href={SITE.newsletterLink}
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <WaIcon /> Click here to join for free
-          </a>
-          <p className="nl-note">
-            {SITE.readers} investors already follow Market Tide. Leave any time.
-          </p>
-        </div>
-      </section>
-
-      <section className="section">
-        <h2>Prefer email?</h2>
-        {formState === "done" ? (
-          <div className="done">
-            <b>Done — you&apos;re on the list.</b>
-          </div>
-        ) : (
-          <>
-            <form onSubmit={submit}>
-              <div className="row">
-                <input
-                  type="email"
-                  value={email}
-                  required
-                  autoComplete="email"
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="you@email.com"
-                  aria-label="Email address"
-                />
-                <input
-                  className="hp"
-                  type="text"
-                  tabIndex={-1}
-                  aria-hidden="true"
-                  autoComplete="off"
-                  value={company}
-                  onChange={(e) => setCompany(e.target.value)}
-                />
-              </div>
-              <div className="row phone-row">
-                <div className="phone-wrap">
-                  <span className="cc">+91</span>
-                  <input
-                    className="phone"
-                    type="tel"
-                    inputMode="numeric"
-                    maxLength={14}
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    placeholder="WhatsApp number (optional)"
-                    aria-label="WhatsApp number, optional"
-                  />
+                {s.why_it_matters && <div className="why">{s.why_it_matters}</div>}
+                <div className="card-links">
+                  {s.pdf_url && (
+                    <a href={s.pdf_url} target="_blank" rel="noopener noreferrer">
+                      Open the original filing
+                    </a>
+                  )}
+                  <span className="verify">check it yourself</span>
                 </div>
-                <button type="submit" disabled={formState === "sending"}>
-                  {formState === "sending" ? "Adding…" : "Email me the big ones"}
-                </button>
-              </div>
-              {formError && <p className="err">{formError}</p>}
-            </form>
-            <p className="note">Optional. The page above is free without it.</p>
-          </>
-        )}
-      </section>
+              </article>
+            ))
+          ) : (
+            <div className="empty">Loading today&apos;s filings…</div>
+          )}
 
-      <footer>
-        <div className="footer-links">
-          <a href="/terms">Terms</a>
-          <a href="/refund">Refunds</a>
-          <a href="/privacy">Privacy</a>
-          <a href="/contact">Contact</a>
-          <a
-            href={`https://wa.me/${SITE.phoneDigits}`}
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            {SITE.phoneDisplay}
-          </a>
-        </div>
-        <p>
-          Market Tide summarises public filings made with NSE and BSE. It is not
-          investment advice, and we are not a registered research analyst. Always
-          read the original filing before acting on anything.
-        </p>
-        <p>Summaries are generated by AI and can contain mistakes.</p>
-      </footer>
-    </div>
+          <div style={{ textAlign: "center", marginTop: 22 }}>
+            <a className="btn-lg btn-ghost" href="/dashboard">
+              See all of them <span aria-hidden="true">→</span>
+            </a>
+          </div>
+        </section>
+
+        {/* ---------------- how ---------------- */}
+        <section className="mk-sec">
+          <div className="mk-sec-head">
+            <p className="mk-kicker">How it works</p>
+            <h2 className="mk-h2">Three steps, every evening</h2>
+          </div>
+
+          <div className="steps">
+            <div className="step">
+              <div className="step-n">1</div>
+              <h3>We pull everything</h3>
+              <p>
+                Every announcement filed with both exchanges, every day —
+                including weekends, when companies still file.
+              </p>
+            </div>
+            <div className="step">
+              <div className="step-n">2</div>
+              <h3>We throw out the noise</h3>
+              <p>
+                Trading window notices, newspaper clippings, duplicate share
+                certificates. Roughly nine in ten filings never reach you.
+              </p>
+            </div>
+            <div className="step">
+              <div className="step-n">3</div>
+              <h3>We read the PDF</h3>
+              <p>
+                Including scanned ones. You get two or three sentences, the
+                numbers that matter, and the original document to check.
+              </p>
+            </div>
+          </div>
+        </section>
+
+        {/* ---------------- why us ---------------- */}
+        <section className="mk-sec">
+          <div className="mk-sec-head">
+            <p className="mk-kicker">Why it is different</p>
+            <h2 className="mk-h2">Built to be checked, not trusted</h2>
+          </div>
+
+          <div className="bento">
+            <div className="bx wide">
+              <div className="bx-ico">
+                <IconDoc />
+              </div>
+              <h3>Every card links to the PDF</h3>
+              <p>
+                We summarise with AI, and AI gets things wrong. So the original
+                filing is one tap away on every single item. If our summary and
+                the filing disagree, the filing wins.
+              </p>
+            </div>
+            <div className="bx wide">
+              <div className="bx-ico">
+                <IconFilter />
+              </div>
+              <h3>Sorted by what it is</h3>
+              <p>
+                Buybacks, bonus issues, order wins, schemes of arrangement, QIPs,
+                NCLT matters, rating changes — filter to the one thing you care
+                about instead of scrolling.
+              </p>
+            </div>
+
+            <div className="bx">
+              <div className="bx-num">₹0</div>
+              <h3>Free to read</h3>
+              <p>The dashboard and the daily WhatsApp brief cost nothing.</p>
+            </div>
+            <div className="bx">
+              <div className="bx-num">7</div>
+              <h3>Days of history</h3>
+              <p>Catch up on the whole week, not just what landed today.</p>
+            </div>
+            <div className="bx">
+              <div className="bx-num">XLS</div>
+              <h3>Export anything</h3>
+              <p>
+                Any filter, straight to Excel — with the PDF link in every row.
+              </p>
+            </div>
+          </div>
+        </section>
+
+        {/* ---------------- community teaser ---------------- */}
+        <section className="mk-sec">
+          <div className="finale">
+            <h2>The reading is free. The room is not.</h2>
+            <p>
+              ₹99 a month gets you into a community of investors who are serious
+              enough to pay for it — discussion, deep dives, and offline meetups
+              across India.
+            </p>
+            <div className="mk-ctas">
+              <a className="btn-lg btn-grad" href="/join">
+                See what&apos;s inside · ₹99/month
+              </a>
+              <a
+                className="btn-lg btn-wa"
+                href={SITE.newsletterLink}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <WaIcon /> Free daily brief
+              </a>
+            </div>
+          </div>
+        </section>
+      </main>
+
+      <MkFooter />
+    </>
   );
 }
 
-function XlsIcon() {
+function IconDoc() {
   return (
-    <svg
-      width="15"
-      height="15"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-      <polyline points="7 10 12 15 17 10" />
-      <line x1="12" y1="15" x2="12" y2="3" />
+    <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+      <polyline points="14 2 14 8 20 8" />
+      <line x1="16" y1="13" x2="8" y2="13" />
+      <line x1="16" y1="17" x2="8" y2="17" />
+    </svg>
+  );
+}
+
+function IconFilter() {
+  return (
+    <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
     </svg>
   );
 }

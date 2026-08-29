@@ -1,4 +1,5 @@
 import "./globals.css";
+import "./marketing.css";
 
 export const metadata = {
   title: "Market Tide — the NSE & BSE filings that actually matter",
