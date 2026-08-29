@@ -188,7 +188,7 @@ def main():
     # Two tiers per day, so the dashboard's default view stays small and fast:
     #   mt:day:DATE  the important ones, with their summaries
     #   mt:all:DATE  everything else, trimmed, for the "All" tab
-    cutoff = (datetime.date.today() - datetime.timedelta(days=KEEP_DAYS - 1)).isoformat()
+    cutoff = (today - datetime.timedelta(days=KEEP_DAYS - 1)).isoformat()
     important, rest = {}, {}
     for r in rows:
         day = r.get("date") or ""
@@ -200,7 +200,13 @@ def main():
             rest.setdefault(day, []).append(
                 {k: r.get(k, "") for k in SLIM_FIELDS})
 
-    days = sorted(set(important) | set(rest), reverse=True)
+    # Every calendar date we scraped, not just the ones that had filings. A
+    # quiet Sunday is still one of the seven days - dropping it would make the
+    # window six days long and shift what "last 7 days" means.
+    scraped = [(start + datetime.timedelta(days=i)).isoformat()
+               for i in range((today - start).days + 1)]
+    days = sorted(set(scraped) | set(important) | set(rest), reverse=True)
+    days = [d for d in days if d >= cutoff]
     print(f"\nGrouped into {len(days)} days:")
     for d in days:
         imp = len(important.get(d, []))
@@ -217,6 +223,8 @@ def main():
         write_day(url, token, f"mt:all:{d}", rest.get(d, []))
         # Per-day tallies, so the index and the headline figures can be rebuilt
         # from what is genuinely in the store rather than from this one run.
+        # Written even when the day is empty, so the index can tell "we looked
+        # and there was nothing" apart from "we never scraped this day".
         redis(url, token, ["SET", f"mt:count:{d}", json.dumps({
             "important": len(important.get(d, [])),
             "other": len(rest.get(d, [])),

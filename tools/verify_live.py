@@ -76,14 +76,23 @@ def main():
     check(summarised > 0, "filings carry summaries",
           f"{summarised}/{total} summarised")
 
-    # A day listed in the index but holding nothing means the index is lying.
+    # The window must be seven consecutive dates ending today. A weekend day
+    # with no filings still belongs in it - dropping it would quietly shorten
+    # the window - but a gap in the middle means a day failed to scrape.
     if days:
+        import datetime
+        got = sorted(days, reverse=True)
+        expected = [(datetime.date.fromisoformat(got[0]) - datetime.timedelta(days=i))
+                    .isoformat() for i in range(EXPECT_DAYS)]
+        check(got[:EXPECT_DAYS] == expected, "the days are consecutive, no gaps",
+              f"got {got[:EXPECT_DAYS]}")
+
         per_day = {}
         for it in d.get("items", []):
             per_day[it.get("day")] = per_day.get(it.get("day"), 0) + 1
-        empty = [x for x in days if per_day.get(x, 0) == 0]
-        check(not empty, "every listed day has filings behind it",
-              f"empty: {empty}" if empty else "")
+        with_filings = sum(1 for x in days if per_day.get(x, 0) > 0)
+        check(with_filings >= 4, "most days actually hold filings",
+              f"{with_filings}/{len(days)} days have filings")
 
     # ---- every category you can click must actually return something ------
     print("\nCATEGORIES")
