@@ -3,53 +3,48 @@
 import { useState } from "react";
 import Nav from "../Nav";
 import MkFooter from "../MkFooter";
-import { SITE, SAVING, SAVING_PCT, PER_MONTH } from "../site";
+import { SITE } from "../site";
 
-const FEATURES = [
+const BENEFITS = [
   {
-    icon: "📄",
-    title: "The full dashboard",
-    body: "Every relevant filing, all seven days, all 30-odd categories, and Excel export on any filter you set.",
+    no: "01",
+    title: "Private Market Community",
+    body: "Connect with serious investors, traders and equity researchers who genuinely follow the markets.",
   },
   {
-    icon: "💬",
-    title: "The evening read-through",
-    body: "The day's filings land and members pull them apart. What an order win is really worth. Whether a buyback is priced sensibly.",
+    no: "02",
+    title: "Daily Market Conversations",
+    body: "Discuss important market moves, sectors, companies, results and developments without the noise.",
   },
   {
-    icon: "🤝",
-    title: "Meetups across India",
-    body: "Mumbai first, then wherever enough members are. Real conversations, no stage, nobody selling anything.",
+    no: "03",
+    title: "Stock & Business Discussions",
+    body: "Bring your own ideas and research. Debate the thesis, risks, opportunities and business fundamentals with other members.",
   },
   {
-    icon: "🔍",
-    title: "Weekly deep dives",
-    body: "One company or one industry, written up properly — the filings, the numbers, the history — not posted as a chart with an arrow.",
+    no: "04",
+    title: "Offline Investor Meetups",
+    body: "Meet fellow members in person, exchange ideas, build relationships and expand your network.",
   },
   {
-    icon: "❓",
-    title: "Bring a filing, get it explained",
-    body: "Stuck on a scheme of arrangement or a warrant issue? Post it. Someone who has read a hundred of them will walk you through it.",
+    no: "05",
+    title: "Expert Conversations",
+    body: "Members-only sessions with investors, analysts, founders and professionals from the financial ecosystem.",
   },
   {
-    icon: "🚨",
-    title: "Results season war room",
-    body: "When 1,300 filings land in a day, members split the work and flag what actually moved. Nobody reads that alone.",
+    no: "06",
+    title: "Equity Research Sessions",
+    body: "Learn practical approaches to analysing companies, annual reports, financials, valuations and investment theses.",
   },
   {
-    icon: "👀",
-    title: "Watchlist alerts",
-    body: "Tell us the companies you hold. We message you when one of them files something that matters, instead of you checking.",
+    no: "07",
+    title: "IPO & Corporate Action Discussions",
+    body: "Discuss IPOs, results, corporate actions and important company announcements from an investor's perspective.",
   },
   {
-    icon: "🧹",
-    title: "Moderated, properly",
-    body: "No tips, no forwards, no good-morning images, no operators. One warning, then out. That rule is the whole product.",
-  },
-  {
-    icon: "🎯",
-    title: "You shape what gets built",
-    body: "Members ask for a category, a filter, an alert — and it gets built. This dashboard exists because people asked for it.",
+    no: "08",
+    title: "Member Research",
+    body: "Share your own stock research, investment frameworks and company notes. Get different perspectives from the community.",
   },
 ];
 
@@ -61,7 +56,7 @@ export default function Join() {
   const [error, setError] = useState("");
 
   const waLink = `https://wa.me/${SITE.phoneDigits}?text=${encodeURIComponent(
-    `Hi, I'd like a founding seat in the Market Tide community at Rs ${SITE.price}/year.`
+    "Hi, I'd like to join The Equity Markets Club."
   )}`;
 
   async function submit(e) {
@@ -73,7 +68,7 @@ export default function Join() {
       const res = await fetch("/api/waitlist", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, phone, company, source: "join" }),
+        body: JSON.stringify({ email, phone, company, source: "club" }),
       });
       const d = await res.json();
       if (!res.ok) {
@@ -93,79 +88,117 @@ export default function Join() {
       <Nav />
 
       <main className="mk">
+        {/* ---------------- hero ---------------- */}
         <section className="mk-hero">
           <div className="launch-banner">
-            🚀 Launch price · first {SITE.launchSeats} members only
+            🚀 Launch price · first {SITE.launchSeats} members
           </div>
+
           <h1 className="mk-h1">
-            ₹{SITE.price} a year keeps
+            The Equity
             <br />
-            <span className="grad">the tourists out.</span>
+            <span className="grad">Markets Club</span>
           </h1>
-          <p className="mk-sub">
-            The filings stay free — they always will. What you&apos;re paying for
-            is the room next door: investors and traders serious enough to put
-            money on the table to be in it.{" "}
-            <strong>The price isn&apos;t covering our costs. It&apos;s the filter.</strong>
+
+          <div className="price-tag" style={{ justifyContent: "center" }}>
+            <span className="was">₹{SITE.fullPrice.toLocaleString("en-IN")}</span>
+            <b>₹{SITE.price.toLocaleString("en-IN")}</b>
+            <span>/ year</span>
+          </div>
+
+          <p className="mk-sub" style={{ marginTop: 22 }}>
+            <strong>
+              A private community for people who take equity markets seriously.
+            </strong>
           </p>
+
+          <div className="mk-narrow" style={{ textAlign: "left", maxWidth: 360, margin: "0 auto" }}>
+            <div className="nots">
+              <span>Not a tip group.</span>
+              <span>Not a stock advisory service.</span>
+              <span>Not another noisy Telegram channel.</span>
+            </div>
+          </div>
+
+          <p className="mk-sub">
+            A place to <strong>meet, discuss, learn, research and network</strong>{" "}
+            with serious investors, traders and equity-market enthusiasts.
+          </p>
+
+          <div className="mk-ctas">
+            <a className="btn-lg btn-grad" href="#join">
+              Join the club · ₹{SITE.price.toLocaleString("en-IN")}/year
+            </a>
+            <a className="btn-lg btn-ghost" href="/dashboard">
+              See the free dashboard
+            </a>
+          </div>
         </section>
 
-        {/* ---------------- price + why ---------------- */}
-        <section className="mk-sec" style={{ paddingTop: 8 }}>
+        {/* ---------------- what members get ---------------- */}
+        <section className="mk-sec">
+          <div className="mk-sec-head">
+            <p className="mk-kicker">Members get access to</p>
+            <h2 className="mk-h2">Eight things, all of them people</h2>
+          </div>
+
+          <div className="club-grid">
+            {BENEFITS.map((b) => (
+              <div className="club-item" key={b.no}>
+                <span className="club-no">{b.no}</span>
+                <h3>{b.title}</h3>
+                <p>{b.body}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* ---------------- who should join ---------------- */}
+        <section className="mk-sec">
+          <div className="mk-sec-head">
+            <p className="mk-kicker">Who should join?</p>
+            <p className="who-line">
+              Investors. Traders. Equity Researchers. Finance Professionals.
+              Market Enthusiasts.
+            </p>
+            <p className="mk-lead">
+              If you spend time understanding businesses, analysing stocks,
+              following markets or researching investment opportunities —{" "}
+              <strong style={{ color: "var(--ink)" }}>this club is for you.</strong>
+            </p>
+          </div>
+        </section>
+
+        {/* ---------------- join ---------------- */}
+        <section className="mk-sec" id="join">
           <div className="price-wrap">
             <div className="price-card">
               <p className="mk-kicker" style={{ marginBottom: 4 }}>
                 Founding membership
               </p>
-
               <div className="price-tag">
                 <span className="was">₹{SITE.fullPrice.toLocaleString("en-IN")}</span>
                 <b>₹{SITE.price.toLocaleString("en-IN")}</b>
-                <span>/ {SITE.period}</span>
+                <span>/ year</span>
               </div>
               <p className="price-note">
-                Save ₹{SAVING} ({SAVING_PCT}% off) — works out to about ₹{PER_MONTH} a
-                month. Goes back to ₹{SITE.fullPrice.toLocaleString("en-IN")} once
-                the first {SITE.launchSeats} seats are gone.
+                One year. One community. Hundreds of conversations and
+                connections. Goes to ₹{SITE.fullPrice.toLocaleString("en-IN")} once
+                the first {SITE.launchSeats} seats are taken.
               </p>
 
               <div className="seatbar">
                 <div className="seatbar-track">
                   <div className="seatbar-fill" style={{ width: "18%" }} />
                 </div>
-                <span>Founding seats are limited to {SITE.launchSeats}.</span>
+                <span>Founding seats limited to {SITE.launchSeats}.</span>
               </div>
-
-              <ul className="tick-list">
-                <li>
-                  <span className="ok">✓</span>
-                  <span>
-                    <b>Everything on the dashboard</b>, plus the members&apos; group,
-                    meetups, deep dives and watchlist alerts.
-                  </span>
-                </li>
-                <li>
-                  <span className="ok">✓</span>
-                  <span>
-                    <b>Your price is locked.</b> Founding members stay at ₹
-                    {SITE.price.toLocaleString("en-IN")} on renewal, for as long as
-                    you keep the membership.
-                  </span>
-                </li>
-                <li>
-                  <span className="ok">✓</span>
-                  <span>
-                    <b>One year, paid once.</b> No monthly card charges, no
-                    auto-renewal surprises.
-                  </span>
-                </li>
-              </ul>
 
               {state === "done" ? (
                 <div className="done">
                   <b>Your founding seat is reserved.</b>
                   <p>
-                    We&apos;ll message you the moment the doors open, with joining
+                    We&apos;ll message you when the doors open, with joining
                     instructions and your locked price.
                   </p>
                   <a
@@ -232,153 +265,57 @@ export default function Join() {
 
             <div>
               <div className="why-card" style={{ marginBottom: 14 }}>
-                <h3>Why charge at all, if the filings are free?</h3>
-                <p>
-                  Because free groups fill with people who don&apos;t read. Anyone
-                  joins a group that costs nothing, and within a month it&apos;s
-                  tips, forwards and good-morning images.
-                </p>
-                <p>
+                <h3>What this club is not</h3>
+                <div className="nots" style={{ marginBottom: 0 }}>
+                  <span>No stock tips.</span>
+                  <span>No guaranteed returns.</span>
+                  <span>No buy/sell calls.</span>
+                </div>
+                <p style={{ marginTop: 16 }}>
                   <strong>
-                    ₹{SITE.price.toLocaleString("en-IN")} a year is about ₹{PER_MONTH} a
-                    month — deliberately small, deliberately not zero.
-                  </strong>{" "}
-                  Nobody serious is priced out. Nobody joins by accident.
-                </p>
-                <p>
-                  The money keeps the lights on. The <em>price</em> keeps the room
-                  worth being in.
+                    Just serious people talking seriously about equity markets.
+                  </strong>
                 </p>
               </div>
 
               <div className="why-card">
-                <h3>Who this is for</h3>
+                <h3>Before you join</h3>
                 <p>
-                  People who already read filings, or want to and don&apos;t know
-                  where to start. Investors holding twenty companies who can&apos;t
-                  track them all. Traders who want to know what actually landed
-                  before the noise starts.
+                  You can leave whenever you like — there is no lock-in and no
+                  notice period. The annual fee is{" "}
+                  <strong>non-refundable</strong> once you have joined, except if
+                  you are charged twice or we stop running the service during your
+                  year. Full detail in the <a href="/refund">refund policy</a>.
                 </p>
                 <p>
-                  <strong>It is not for you</strong> if you want buy-sell calls or
-                  intraday tips. You will not get them here, and asking will get
-                  you removed.
+                  We are not a SEBI-registered research analyst or investment
+                  adviser. Nothing here is a recommendation to buy or sell. See
+                  the <a href="/terms">terms</a>.
                 </p>
               </div>
             </div>
           </div>
         </section>
 
-        {/* ---------------- what's inside ---------------- */}
-        <section className="mk-sec">
-          <div className="mk-sec-head">
-            <p className="mk-kicker">What you get</p>
-            <h2 className="mk-h2">Nine reasons it&apos;s worth ₹{PER_MONTH} a month</h2>
-            <p className="mk-lead">
-              The dashboard is the tool. The community is what makes it useful.
-            </p>
-          </div>
-
-          <div className="feat-grid">
-            {FEATURES.map((f) => (
-              <div className="feat" key={f.title}>
-                <div className="feat-ico" aria-hidden="true">
-                  {f.icon}
-                </div>
-                <h3>{f.title}</h3>
-                <p>{f.body}</p>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        {/* ---------------- faq ---------------- */}
-        <section className="mk-sec">
-          <div className="mk-sec-head">
-            <p className="mk-kicker">Straight answers</p>
-            <h2 className="mk-h2">Before you join</h2>
-          </div>
-
-          <div className="mk-narrow faq">
-            <details>
-              <summary>Is this tips or recommendations?</summary>
-              <p>
-                No. We are not a SEBI-registered research analyst or investment
-                adviser, and we will never tell you what to buy or sell. We
-                summarise public filings and link the original. What members
-                discuss between themselves is their own view, not ours.
-              </p>
-            </details>
-            <details>
-              <summary>Can I cancel? Do I get a refund?</summary>
-              <p>
-                You can leave the community whenever you like — there is no
-                lock-in and no notice period.{" "}
-                <strong>
-                  The annual fee is non-refundable once you have joined.
-                </strong>{" "}
-                It is a one-year membership paid up front, and access continues to
-                the end of the year you paid for. The two exceptions: if you are
-                charged twice, or if we stop running the service during your year,
-                you get your money back. Full detail is in the{" "}
-                <a href="/refund">refund policy</a>.
-              </p>
-            </details>
-            <details>
-              <summary>Do I need to pay to read the filings?</summary>
-              <p>
-                No. The dashboard and the daily WhatsApp brief are free and stay
-                free. ₹{SITE.price.toLocaleString("en-IN")} is for the community,
-                the meetups, the deep dives and the watchlist alerts.
-              </p>
-            </details>
-            <details>
-              <summary>What happens after the first {SITE.launchSeats} members?</summary>
-              <p>
-                The price goes to ₹{SITE.fullPrice.toLocaleString("en-IN")} a year
-                for everyone who joins after. If you are in the first{" "}
-                {SITE.launchSeats}, you stay at ₹{SITE.price.toLocaleString("en-IN")}{" "}
-                on every renewal for as long as you keep the membership.
-              </p>
-            </details>
-            <details>
-              <summary>When do the meetups start?</summary>
-              <p>
-                As soon as there are enough members in one city to make it worth
-                everyone&apos;s evening. Mumbai is first — that is where we are.
-                We will ask members before fixing anything.
-              </p>
-            </details>
-            <details>
-              <summary>What if a summary is wrong?</summary>
-              <p>
-                Sometimes one will be — they are written by AI. That is exactly why
-                every card links to the original PDF. Tell us when you spot one and
-                we fix it. Members do this, and it makes the product better for
-                everyone.
-              </p>
-            </details>
-            <details>
-              <summary>How do I pay?</summary>
-              <p>
-                Not yet — we are opening to founding members first. Leave your
-                details above and we will message you with joining instructions
-                and a payment link when the doors open.
-              </p>
-            </details>
-          </div>
-        </section>
-
+        {/* ---------------- closing ---------------- */}
         <section className="mk-sec">
           <div className="finale">
-            <h2>Read first. Decide later.</h2>
-            <p>
-              The dashboard is open and costs nothing. Use it for a week — if it
-              earns a place in your evening, the room is next door.
+            <h2>₹{SITE.price.toLocaleString("en-IN")} / year</h2>
+            <p className="closing">
+              One year. One community. Hundreds of conversations and connections.
+            </p>
+            <div className="nots"
+                 style={{ maxWidth: 260, margin: "24px auto", textAlign: "left" }}>
+              <span>No stock tips.</span>
+              <span>No guaranteed returns.</span>
+              <span>No buy/sell calls.</span>
+            </div>
+            <p className="closing" style={{ marginBottom: 26 }}>
+              Just serious people talking seriously about equity markets.
             </p>
             <div className="mk-ctas">
-              <a className="btn-lg btn-ghost" href="/dashboard">
-                Open the dashboard
+              <a className="btn-lg btn-grad" href="#join">
+                Reserve my seat
               </a>
               <a
                 className="btn-lg btn-wa"

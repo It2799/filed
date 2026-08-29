@@ -33,10 +33,24 @@ export default function Dashboard() {
   const [limit, setLimit] = useState(PAGE);
   const [railOpen, setRailOpen] = useState(false);
 
+  // Filtering happens on the server. Doing it in the browser meant a small
+  // category was searched inside an already-truncated list, so picking
+  // "Pref" or "Warrants" came back nearly empty even though the filings existed.
+  const [debouncedQ, setDebouncedQ] = useState("");
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedQ(q), 300);
+    return () => clearTimeout(t);
+  }, [q]);
+
   useEffect(() => {
     let dead = false;
     setLoading(true);
-    fetch(`/api/announcements?scope=${scope}`)
+    const p = new URLSearchParams({ scope });
+    if (tag) p.set("tag", tag);
+    if (day) p.set("day", day);
+    if (debouncedQ) p.set("q", debouncedQ);
+
+    fetch(`/api/announcements?${p}`)
       .then((r) => r.json())
       .then((d) => {
         if (dead) return;
@@ -49,9 +63,9 @@ export default function Dashboard() {
       .catch(() => !dead && setError("Couldn't load the filings. Please refresh."))
       .finally(() => !dead && setLoading(false));
     return () => { dead = true; };
-  }, [scope]);
+  }, [scope, tag, day, debouncedQ]);
 
-  useEffect(() => { setLimit(PAGE); }, [scope, tag, day, q]);
+  useEffect(() => { setLimit(PAGE); }, [scope, tag, day, debouncedQ]);
 
   const items = data?.items || [];
 
@@ -65,25 +79,21 @@ export default function Dashboard() {
     return n ? tags.filter(([t]) => t.toLowerCase().includes(n)) : tags;
   }, [tags, catQ]);
 
-  // Per-day counts, so the day list says how much is behind each one.
-  const dayCounts = useMemo(() => {
-    const c = {};
-    for (const it of items) c[it.day] = (c[it.day] || 0) + 1;
-    return c;
-  }, [items]);
+  // Day counts come from a separate unfiltered read, so selecting a category
+  // doesn't make every other day look empty.
+  const [dayCounts, setDayCounts] = useState({});
+  useEffect(() => {
+    fetch(`/api/announcements?scope=${scope}`)
+      .then((r) => r.json())
+      .then((d) => {
+        const c = {};
+        for (const it of d.items || []) c[it.day] = (c[it.day] || 0) + 1;
+        setDayCounts(c);
+      })
+      .catch(() => {});
+  }, [scope]);
 
-  const shown = useMemo(() => {
-    const n = q.toLowerCase().trim();
-    return items.filter(
-      (it) =>
-        (!tag || it.tag === tag) &&
-        (!day || it.day === day) &&
-        (!n ||
-          `${it.company} ${it.ticker} ${it.headline} ${it.summary}`
-            .toLowerCase()
-            .includes(n))
-    );
-  }, [items, tag, day, q]);
+  const shown = items;
 
   const exportUrl = () => {
     const p = new URLSearchParams();
@@ -157,7 +167,9 @@ export default function Dashboard() {
                   onClick={() => setDay(null)}
                 >
                   <span>All days</span>
-                  <span className="cnt">{items.length}</span>
+                  <span className="cnt">
+                    {Object.values(dayCounts).reduce((a, b) => a + b, 0) || items.length}
+                  </span>
                 </button>
                 {(data?.days || []).map((d) => {
                   const { d: dd, w } = dayLabel(d);

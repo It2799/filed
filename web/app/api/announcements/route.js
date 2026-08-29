@@ -3,7 +3,10 @@ import { recent, configured } from "../../../lib/announcements";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-const LIMIT = 500;
+// "Worth reading" is a few hundred filings, so we can send effectively all of
+// them. "Everything" runs to five figures on a results week, so that one stays
+// capped and relies on the filters below.
+const LIMIT = { important: 1500, all: 600 };
 
 export async function GET(request) {
   if (!configured()) {
@@ -14,38 +17,42 @@ export async function GET(request) {
   try {
     const url = new URL(request.url);
     const scope = url.searchParams.get("scope") === "all" ? "all" : "important";
-    const { days, items, meta } = await recent({ scope });
-
-    // Optional narrowing, so the page can filter without shipping everything twice.
     const tag = url.searchParams.get("tag");
     const day = url.searchParams.get("day");
     const q = (url.searchParams.get("q") || "").toLowerCase().trim();
 
-    let rows = items;
-    if (tag) rows = rows.filter((r) => r.tag === tag);
-    if (day) rows = rows.filter((r) => r.day === day);
+    const { days, items, meta } = await recent({ scope });
+
+    // Narrow by day and text first. Whatever survives is the universe the
+    // category counts describe, so the sidebar keeps showing every category
+    // even while one of them is selected.
+    let universe = items;
+    if (day) universe = universe.filter((r) => r.day === day);
     if (q) {
-      rows = rows.filter((r) =>
+      universe = universe.filter((r) =>
         `${r.company} ${r.ticker} ${r.headline} ${r.summary} ${r.category}`
           .toLowerCase()
           .includes(q));
     }
 
-    // Count categories over everything that matched, not just the slice we send,
-    // otherwise the chips would under-report on a busy week.
     const tagCounts = {};
-    for (const r of rows) tagCounts[r.tag] = (tagCounts[r.tag] || 0) + 1;
+    for (const r of universe) tagCounts[r.tag] = (tagCounts[r.tag] || 0) + 1;
 
-    // On a heavy results day there can be thousands of filings over 7 days.
-    // Shipping all of them would be a multi-megabyte page load. On the Important
-    // tab the summarised ones lead, since they're the point of the product; the
-    // All tab keeps its chronological order. The Excel export has every row.
+    // Category filter applies after the counts, and crucially before the cut -
+    // otherwise picking a small category searches a list it was already
+    // truncated out of, and comes back empty.
+    let rows = tag ? universe.filter((r) => r.tag === tag) : universe;
+
     const total = rows.length;
-    const summarised = rows.filter((r) => r.summary);
-    rows =
-      scope === "all"
-        ? rows.slice(0, LIMIT)
-        : [...summarised, ...rows.filter((r) => !r.summary)].slice(0, LIMIT);
+    const summarised = rows.filter((r) => r.summary).length;
+    const cap = LIMIT[scope];
+
+    if (rows.length > cap) {
+      rows = scope === "all"
+        ? rows.slice(0, cap)
+        : [...rows.filter((r) => r.summary), ...rows.filter((r) => !r.summary)]
+            .slice(0, cap);
+    }
 
     return Response.json(
       {
@@ -54,7 +61,7 @@ export async function GET(request) {
         scope,
         total,
         tagCounts,
-        summarised: summarised.length,
+        summarised,
         truncated: total > rows.length,
         count: rows.length,
         items: rows,
