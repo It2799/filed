@@ -51,7 +51,7 @@ jobs:
           python-version: "3.12"
           cache: pip                    # shaves ~20s off every run
 
-      - run: pip install --quiet requests pypdf
+      - run: pip install --quiet -r requirements.txt
 
       - name: Restore summary and market-cap caches
         uses: actions/cache@v4
