@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Nav from "../Nav";
+import { mcapLabel, mcapTier } from "../fmt";
 
 const PAGE = 40;
 
@@ -302,7 +303,12 @@ export default function Dashboard() {
                     <div className="card-top">
                       <div>
                         <div className="co">
-                          {it.company}{" "}
+                          {it.company}
+                          {mcapLabel(it.mcap) && (
+                            <span className={`mcap ${mcapTier(it.mcap)}`}>
+                              {mcapLabel(it.mcap)}
+                            </span>
+                          )}{" "}
                           {it.ticker && <span className="meta">{it.ticker}</span>}
                         </div>
                         <div className="meta">
@@ -338,6 +344,19 @@ export default function Dashboard() {
                       </div>
                     )}
                     {it.why_it_matters && <div className="why">{it.why_it_matters}</div>}
+
+                    {it.also_filed > 0 && (
+                      <div className="also">
+                        <span>Also filed as</span>
+                        {(it.also_tags || []).map((t) => (
+                          <span className="also-tag" key={t}>{t}</span>
+                        ))}
+                        <span>
+                          — {it.also_filed} related filing
+                          {it.also_filed === 1 ? "" : "s"} folded in
+                        </span>
+                      </div>
+                    )}
 
                     <div className="card-links">
                       {it.pdf_url && (

@@ -159,7 +159,7 @@ def summarise(kept, provider_list, max_summaries, workers=4, log=print):
 
 FIELDS = ("id", "exchange", "company", "ticker", "category", "headline", "time",
           "date", "score", "tag", "pdf_url", "page_url", "summary", "impact",
-          "key_numbers", "why_it_matters")
+          "key_numbers", "why_it_matters", "mcap", "also_filed", "also_tags")
 
 
 def to_rows(kept):

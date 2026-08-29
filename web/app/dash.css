@@ -147,3 +147,24 @@
            margin-bottom: 9px; animation: pulse 1.6s ease-in-out infinite; }
 .sk-line.w40 { width: 40%; } .sk-line.w70 { width: 70%; }
 .sk-line.w90 { width: 90%; } .sk-line.w55 { width: 55%; }
+
+/* market cap beside the company name */
+.mcap {
+  font-size: 12.5px; font-weight: 640; margin-left: 7px;
+  font-variant-numeric: tabular-nums; white-space: nowrap;
+  padding: 1px 7px; border-radius: 6px;
+  background: var(--panel-2); color: var(--muted);
+}
+.mcap.lg { color: var(--accent); }
+.mcap.md { color: var(--muted); }
+.mcap.sm { color: var(--dim); }
+
+/* "also filed as" line for events we collapsed */
+.also {
+  margin-top: 9px; font-size: 12.5px; color: var(--dim);
+  display: flex; align-items: center; gap: 7px; flex-wrap: wrap;
+}
+.also .also-tag {
+  padding: 1px 7px; border-radius: 5px;
+  background: var(--panel-2); color: var(--muted); font-size: 11.5px;
+}

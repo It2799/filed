@@ -31,6 +31,8 @@ import sys
 
 import requests
 
+import dedupe
+import mcap
 import pipeline
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -85,7 +87,7 @@ def load_providers():
 # The "All" tab doesn't need summaries or the long headline, and trimming keeps
 # a busy day's payload well under Upstash's request size limit.
 SLIM_FIELDS = ("id", "exchange", "company", "ticker", "category", "headline",
-               "time", "date", "score", "tag", "pdf_url")
+               "time", "date", "score", "tag", "pdf_url", "mcap")
 
 MAX_BYTES = 700_000        # stay comfortably inside the REST request limit
 
@@ -140,6 +142,8 @@ def main():
                         "only if you want to cap AI calls for a run. Summaries "
                         "are cached, so a rerun only pays for what is new.")
     p.add_argument("--workers", type=int, default=4)
+    p.add_argument("--no-mcap", action="store_true",
+                   help="skip the market-cap lookup")
     p.add_argument("--dry-run", action="store_true")
     args = p.parse_args()
 
@@ -155,6 +159,9 @@ def main():
 
     raw, kept = pipeline.fetch_and_score(start, today, args.min_score)
 
+    # One event, filed four times, should be one entry - not four.
+    kept = dedupe.collapse(kept)
+
     # Only spend AI on filings that will actually appear under Important. The
     # store keeps everything down to score 20 for the All tab, but summarising a
     # routine board-meeting notice burns budget that a buyback should have had.
@@ -165,6 +172,10 @@ def main():
           f"(score >= {args.important_at}). Summarising {how_many}.")
 
     pipeline.summarise(worth_reading, provider_list, cap, workers=args.workers)
+
+    # Market cap, so a Rs 400 crore order means something next to the company.
+    if not args.no_mcap:
+        mcap.attach(kept, workers=args.workers)
 
     rows = pipeline.to_rows(kept)
     stats = {

@@ -10,6 +10,7 @@ const COLUMNS = [
   { header: "Company", key: "company", width: 38 },
   { header: "Exchange", key: "exchange", width: 11 },
   { header: "Ticker", key: "ticker", width: 12 },
+  { header: "Market cap (Cr)", key: "mcap", width: 16 },
   { header: "Type", key: "tag", width: 14 },
   { header: "Impact", key: "impact", width: 10 },
   { header: "Score", key: "score", width: 8 },
@@ -66,8 +67,11 @@ export async function GET(request) {
   for (const r of items) {
     const row = ws.addRow({
       ...r,
+      mcap: typeof r.mcap === "number" ? r.mcap : null,
       numbers: Array.isArray(r.key_numbers) ? r.key_numbers.join("; ") : "",
     });
+    // Keep it a real number so it sorts and filters in Excel.
+    row.getCell("mcap").numFmt = "#,##0";
     row.alignment = { vertical: "top", wrapText: true };
 
     const fill = IMPACT_FILL[r.impact];
