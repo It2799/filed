@@ -1,0 +1,92 @@
+name: Scrape announcements
+
+# Runs every 30 minutes through the Indian filing day, so nothing sits unseen
+# for more than half an hour.
+#
+# Two shapes of run:
+#   * the half-hourly ones only scrape TODAY, which takes about a minute
+#   * the last run of the night rescrapes the whole 7-day window, so the
+#     dashboard stays complete even if a run was missed
+#
+# Summaries are cached by filing id, so a repeat pass only pays for filings it
+# has not seen before - usually a handful.
+
+on:
+  schedule:
+    # UTC. 03:00-18:30 UTC = 08:30-00:00 IST, weekdays.
+    - cron: "0,30 3-18 * * 1-5"
+    # Companies file at weekends too, just far less. Three passes is plenty.
+    - cron: "0 6,12,16 * * 0,6"
+  workflow_dispatch:
+    inputs:
+      days:
+        description: "How many days back to scrape"
+        required: false
+        default: "7"
+      max_summaries:
+        description: "Cap on AI calls (0 = summarise every relevant filing)"
+        required: false
+        default: "0"
+
+concurrency:
+  group: scrape
+  cancel-in-progress: false
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    timeout-minutes: 330
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - run: pip install --quiet requests pypdf
+
+      - name: Restore summary and market-cap caches
+        uses: actions/cache@v4
+        with:
+          path: |
+            cache.json
+            mcap.json
+          key: caches-${{ github.run_id }}
+          restore-keys: caches-
+
+      - name: Decide how much to scrape
+        id: plan
+        run: |
+          if [ -n "${{ github.event.inputs.days }}" ]; then
+            DAYS="${{ github.event.inputs.days }}"          # manual run wins
+          elif [ "$(date -u +%H)" -ge 18 ]; then
+            DAYS=7                                          # nightly full pass
+          else
+            DAYS=1                                          # quick top-up
+          fi
+          echo "days=$DAYS" >> "$GITHUB_OUTPUT"
+          echo "Scraping $DAYS day(s)"
+
+      - name: Scrape, summarise and publish
+        env:
+          KV_REST_API_URL: ${{ secrets.KV_REST_API_URL }}
+          KV_REST_API_TOKEN: ${{ secrets.KV_REST_API_TOKEN }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: >-
+          python -u publish.py
+          --days "${{ steps.plan.outputs.days }}"
+          --max-summaries "${{ github.event.inputs.max_summaries || 0 }}"
+          --workers 8
+
+      - name: Keep the caches for the next run
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: caches
+          path: |
+            cache.json
+            mcap.json
+          retention-days: 3
+          if-no-files-found: ignore
