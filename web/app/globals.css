@@ -619,3 +619,22 @@ footer p { margin: 0 0 7px; }
 }
 .cta-secondary:hover { border-color: #25d366; color: #25d366; }
 .cta-note { margin: 0 0 30px; font-size: 13px; color: var(--dim); }
+
+/* ---------- one-page intro ---------- */
+.intro { padding: 40px 0 8px; }
+.intro h1 { font-size: clamp(27px, 5.2vw, 40px); margin: 0 0 14px; }
+.intro-lede { font-size: clamp(15.5px, 2.2vw, 17.5px); color: var(--muted);
+              margin: 0 0 24px; max-width: 60ch; }
+.intro-lede strong { color: var(--ink); font-weight: 640; }
+.intro-note { font-size: 13.5px; color: var(--dim); margin: 16px 0 30px; }
+
+.howitworks { display: flex; align-items: stretch; gap: 10px; flex-wrap: wrap; }
+.hiw { flex: 1 1 150px; background: var(--panel); border: 1px solid var(--line);
+       border-radius: 11px; padding: 14px 16px; }
+.hiw b { display: block; font-size: 22px; font-weight: 700; letter-spacing: -0.02em;
+         margin-bottom: 3px; font-variant-numeric: tabular-nums; }
+.hiw span { font-size: 12.5px; color: var(--dim); line-height: 1.4; display: block; }
+.hiw.done { border-color: var(--pos); background: var(--pos-bg); }
+.hiw.done b { color: var(--pos); }
+.hiw-arrow { align-self: center; color: var(--dim); font-size: 18px; }
+@media (max-width: 640px) { .hiw-arrow { display: none; } }

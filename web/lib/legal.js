@@ -10,10 +10,10 @@ export const LEGAL = {
 
   // The name you trade under. For a sole proprietorship this is usually
   // "<Your full name>, sole proprietor trading as Market Tide".
-  entity: "Market Tide",                       // <<< CHECK THIS
+  entity: "Market Tide",
 
   // A real postal address. Gateways verify it. A home address is fine.
-  address: "[ADD YOUR FULL POSTAL ADDRESS, CITY, STATE, PIN]",   // <<< FILL IN
+  address: "Ghatkopar, Mumbai 400086, Maharashtra",
 
   // Leave GST blank until you register (not required below Rs 20 lakh).
   gstin: "",                                   // <<< FILL IN when you have one
