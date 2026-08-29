@@ -215,25 +215,50 @@ def main():
     for d in days:
         write_day(url, token, f"mt:day:{d}", important.get(d, []))
         write_day(url, token, f"mt:all:{d}", rest.get(d, []))
+        # Per-day tallies, so the index and the headline figures can be rebuilt
+        # from what is genuinely in the store rather than from this one run.
+        redis(url, token, ["SET", f"mt:count:{d}", json.dumps({
+            "important": len(important.get(d, [])),
+            "other": len(rest.get(d, [])),
+            "summarised": sum(1 for x in important.get(d, []) if x.get("summary")),
+        }), "EX", str(TTL_SECONDS)])
 
-    # stats carries its own "important" (everything worth storing at all), which
-    # is a different and larger number than the Important tab. Spread it first so
-    # the explicit counts below win rather than being silently overwritten.
+    # The index must list every day still in the store, not just the days this
+    # run happened to touch. A quick top-up scrapes one day; writing that as the
+    # index would delist the other six even though they are sitting right there.
+    window = [(today - datetime.timedelta(days=i)).isoformat()
+              for i in range(KEEP_DAYS)]
+    marks = redis(url, token, ["MGET", *[f"mt:count:{d}" for d in window]]) or []
+
+    live_days, totals = [], {"important": 0, "other": 0, "summarised": 0}
+    for d, mark in zip(window, marks):
+        if not mark:
+            continue
+        live_days.append(d)
+        try:
+            c = json.loads(mark)
+            for k in totals:
+                totals[k] += int(c.get(k) or 0)
+        except Exception:
+            pass
+
     meta = {
         **stats,
         "updated": datetime.datetime.now(datetime.timezone.utc)
                    .strftime("%Y-%m-%dT%H:%M:%SZ"),
-        "days": days,
+        "days": live_days,
         "important_at": args.important_at,
-        "stored": len(rows),
-        "important": sum(len(v) for v in important.values()),
-        "other": sum(len(v) for v in rest.values()),
+        "scanned_last_run": stats.get("scanned"),
+        **totals,
     }
-    redis(url, token, ["SET", "mt:index", json.dumps(days)])
+    redis(url, token, ["SET", "mt:index", json.dumps(live_days)])
     redis(url, token, ["SET", "mt:meta", json.dumps(meta, ensure_ascii=False)])
 
-    print(f"\nPublished {meta['important']} important + {meta['other']} other "
-          f"across {len(days)} days.")
+    span = f"{live_days[-1]} to {live_days[0]}" if live_days else "nothing"
+    imp, oth = meta["important"], meta["other"]
+    print("")
+    print(f"Index now lists {len(live_days)} days ({span})")
+    print(f"Holding {imp} important + {oth} other across {len(live_days)} days.")
     print(f"Last updated: {meta['updated']}")
 
 
