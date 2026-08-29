@@ -148,7 +148,7 @@ export default function Home() {
               →
             </div>
             <div className="hiw">
-              <b>All of them</b>
+              <b>Every one</b>
               <span>read and checked by us</span>
             </div>
             <div className="hiw-arrow" aria-hidden="true">
@@ -156,14 +156,16 @@ export default function Home() {
             </div>
             <div className="hiw done">
               <b>{summarised}</b>
-              <span>relevant enough to summarise</span>
+              <span>were relevant, and summarised</span>
             </div>
           </div>
         ) : null}
 
         <p className="intro-note">
-          Free to read. Nothing to sign up for. Every card links to the original
-          PDF so you can check it yourself.
+          How many are relevant changes every day — a quiet Saturday throws up a
+          handful, results week throws up hundreds. We summarise whatever is
+          there. Free to read, nothing to sign up for, and every card links to
+          the original PDF so you can check it yourself.
         </p>
       </header>
 
