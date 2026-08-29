@@ -110,7 +110,7 @@ export default function Home() {
     <div className="wrap">
       <div className="brand">
         <span className="dot" /> {SITE.name}
-        <span className="pill">Newsletter live · dashboard coming</span>
+        <span className="pill">Live · free while in beta</span>
       </div>
 
       <section className="hero">
@@ -146,12 +146,25 @@ export default function Home() {
           </div>
         </div>
 
+        <div className="cta-row">
+          <a className="cta-primary" href="/dashboard">
+            Open the dashboard <span aria-hidden="true">→</span>
+          </a>
+          <a className="cta-secondary" href={SITE.newsletterLink}
+             target="_blank" rel="noopener">
+            <WaIcon /> Free daily newsletter
+          </a>
+        </div>
+        <p className="cta-note">
+          No sign-up, no card. The last 7 days are open to read right now.
+        </p>
+
         {state === "done" ? (
           <div className="done">
             <b>{already ? "You're already on the list." : "You're on the list."}</b>
             <p>
-              We&apos;ll message you the moment the dashboard opens up. We
-              won&apos;t pass your details to anyone.
+              We&apos;ll email you when something big lands. The dashboard is
+              already open — nothing to wait for.
             </p>
             <p className="confirm-ask">
               Don&apos;t wait for it — the daily newsletter is already running,
@@ -219,19 +232,19 @@ export default function Home() {
                   />
                 </div>
                 <button type="submit" disabled={state === "sending"}>
-                  {state === "sending" ? "Joining…" : "Join the waitlist"}
+                  {state === "sending" ? "Adding…" : "Email me the big ones"}
                 </button>
               </div>
 
               {error && <p className="err">{error}</p>}
             </form>
             <p className="note">
-              Free while we build. No card, no spam. Give us your WhatsApp and
-              you&apos;ll get the alerts there instead of buried in email.
+              Optional. The dashboard is free to read without this — leave your
+              details only if you want the important ones pushed to you.
             </p>
             {joined > 0 && (
               <p className="joined">
-                <b>{joined.toLocaleString("en-IN")}</b> people have joined so far.
+                <b>{joined.toLocaleString("en-IN")}</b> people are already on the list.
               </p>
             )}
           </>
@@ -243,7 +256,7 @@ export default function Home() {
         <p className="section-note">
           Real output from the scraper — nothing here is made up for the pitch.{" "}
           <a className="inline-link" href="/dashboard">
-            See the last 7 days →
+            All of it is on the dashboard →
           </a>
         </p>
         {SAMPLES.map((s) => (
