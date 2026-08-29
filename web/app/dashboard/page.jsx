@@ -271,6 +271,13 @@ export default function Dashboard() {
       )}
 
       <footer>
+        <div className="footer-links">
+          <a href="/">Home</a>
+          <a href="/terms">Terms</a>
+          <a href="/refund">Refunds</a>
+          <a href="/privacy">Privacy</a>
+          <a href="/contact">Contact</a>
+        </div>
         <p>
           Market Tide summarises public filings made with NSE and BSE. It is not
           investment advice, and we are not a registered research analyst. Always

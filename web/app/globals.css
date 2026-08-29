@@ -551,3 +551,53 @@ footer p { margin: 0 0 7px; }
   overflow-y: auto;
   padding-right: 4px;
 }
+
+/* ---------- policy pages ---------- */
+.legal { max-width: 720px; padding-bottom: 70px; }
+.legal .back {
+  display: inline-block; margin: 26px 0 22px;
+  color: var(--muted); text-decoration: none; font-size: 14px; font-weight: 600;
+}
+.legal .back:hover { color: var(--accent); }
+.legal h1 { font-size: clamp(26px, 5vw, 34px); letter-spacing: -0.03em; margin: 0 0 6px; }
+.legal .updated { color: var(--dim); font-size: 13.5px; margin: 0 0 30px; }
+.legal h2 {
+  font-size: 17px; font-weight: 680; letter-spacing: -0.01em;
+  margin: 32px 0 10px; color: var(--ink); text-transform: none;
+}
+.legal h3 { font-size: 14px; margin: 0 0 6px; color: var(--muted); font-weight: 650; }
+.legal p, .legal li { color: var(--muted); font-size: 15.5px; }
+.legal p { margin: 0 0 13px; }
+.legal ul { margin: 0 0 13px; padding-left: 20px; }
+.legal li { margin-bottom: 8px; }
+.legal a { color: var(--accent); text-decoration: none; }
+.legal a:hover { text-decoration: underline; }
+.legal strong { color: var(--ink); font-weight: 640; }
+
+.legal .callout {
+  background: var(--panel); border: 1px solid var(--line);
+  border-left: 3px solid var(--accent);
+  border-radius: 10px; padding: 15px 17px; margin: 0 0 20px;
+}
+.legal .address {
+  background: var(--panel); border: 1px solid var(--line);
+  border-radius: 10px; padding: 15px 17px; line-height: 1.7;
+}
+.contact-grid {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 12px; margin: 0 0 10px;
+}
+.contact-card {
+  background: var(--panel); border: 1px solid var(--line);
+  border-radius: 11px; padding: 16px 18px;
+}
+.contact-card p { margin: 0 0 4px; font-size: 16px; }
+.contact-card .small { font-size: 12.5px; color: var(--dim); }
+
+/* footer policy links */
+.footer-links { display: flex; gap: 14px; flex-wrap: wrap; margin-bottom: 12px; }
+.footer-links a { color: var(--muted); text-decoration: none; font-size: 12.5px; font-weight: 600; }
+.footer-links a:hover { color: var(--accent); }
+
+.joined { margin: 10px 0 0; font-size: 13.5px; color: var(--muted); }
+.joined b { color: var(--ink); font-variant-numeric: tabular-nums; }
