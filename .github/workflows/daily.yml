@@ -1,29 +1,31 @@
 name: Daily announcement scrape
 
-# Runs itself every evening, scrapes the day's filings, summarises the important
-# ones and pushes them to Redis. The website reads from Redis, so the dashboard
-# is fresh without anything running on your machine.
+# Wakes up every evening, reads the last 7 days of filings from NSE and BSE,
+# summarises every relevant one, and pushes the result to Redis. The website
+# reads from Redis, so the page is as fresh as the last run.
 #
-# It only scrapes the last 2 days each time, not 7. Every day is stored under
-# its own key with an 8-day expiry, so the 7-day window builds up on its own and
-# each run stays quick. The 2 days (rather than 1) catches filings that land
-# late at night after the previous run.
+# It rescrapes the whole 7-day window each time rather than just the newest day.
+# Summaries are cached by filing id, so re-reading a day that is already done
+# costs nothing - and it means the 7 days on the site are always complete, even
+# if a run is missed.
+#
+# Run it by hand from the Actions tab, or: gh workflow run daily.yml
 
 on:
   schedule:
-    # 21:30 IST = 16:00 UTC. Indian markets close at 15:30 IST and filings land
-    # through the evening, so this catches the bulk of the day.
-    - cron: "0 16 * * 1-5"
+    # 16:00 UTC = 21:30 IST. Indian markets close at 15:30 IST and filings land
+    # through the evening. Runs every day - companies file at weekends too.
+    - cron: "0 16 * * *"
   workflow_dispatch:
     inputs:
       days:
         description: "How many days back to scrape"
         required: false
-        default: "2"
+        default: "7"
       max_summaries:
-        description: "Ceiling on AI calls this run"
+        description: "Cap on AI calls (0 = summarise every relevant filing)"
         required: false
-        default: "250"
+        default: "0"
 
 concurrency:
   group: daily-scrape
@@ -32,7 +34,7 @@ concurrency:
 jobs:
   scrape:
     runs-on: ubuntu-latest
-    timeout-minutes: 50
+    timeout-minutes: 330
 
     steps:
       - uses: actions/checkout@v4
@@ -58,10 +60,11 @@ jobs:
           KV_REST_API_TOKEN: ${{ secrets.KV_REST_API_TOKEN }}
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-        run: |
-          python -u publish.py \
-            --days "${{ github.event.inputs.days || 2 }}" \
-            --max-summaries "${{ github.event.inputs.max_summaries || 250 }}"
+        run: >-
+          python -u publish.py
+          --days "${{ github.event.inputs.days || 7 }}"
+          --max-summaries "${{ github.event.inputs.max_summaries || 0 }}"
+          --workers 8
 
       - name: Keep a copy of the run for debugging
         if: always()

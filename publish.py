@@ -135,9 +135,10 @@ def main():
                    help="lowest score worth storing at all (feeds the All tab)")
     p.add_argument("--important-at", type=int, default=55,
                    help="score at which a filing counts as Important")
-    p.add_argument("--max-summaries", type=int, default=250,
-                   help="ceiling on AI calls per run; summaries are cached so "
-                        "a rerun only pays for what's new")
+    p.add_argument("--max-summaries", type=int, default=0,
+                   help="0 means summarise every important filing. Set a number "
+                        "only if you want to cap AI calls for a run. Summaries "
+                        "are cached, so a rerun only pays for what is new.")
     p.add_argument("--workers", type=int, default=4)
     p.add_argument("--dry-run", action="store_true")
     args = p.parse_args()
@@ -158,11 +159,12 @@ def main():
     # store keeps everything down to score 20 for the All tab, but summarising a
     # routine board-meeting notice burns budget that a buyback should have had.
     worth_reading = [a for a in kept if a.get("score", 0) >= args.important_at]
-    print(f"\nOf {len(kept)} stored, {len(worth_reading)} are Important "
-          f"(score >= {args.important_at}) and eligible for a summary.")
+    cap = args.max_summaries or len(worth_reading)      # 0 means no cap
+    how_many = "all of them" if not args.max_summaries else f"up to {cap}"
+    print(f"\nOf {len(kept)} stored, {len(worth_reading)} are relevant "
+          f"(score >= {args.important_at}). Summarising {how_many}.")
 
-    pipeline.summarise(worth_reading, provider_list, args.max_summaries,
-                       workers=args.workers)
+    pipeline.summarise(worth_reading, provider_list, cap, workers=args.workers)
 
     rows = pipeline.to_rows(kept)
     stats = {
