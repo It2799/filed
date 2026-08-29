@@ -11,7 +11,7 @@ export default function Landing() {
   const [live, setLive] = useState(null);
 
   useEffect(() => {
-    fetch("/api/announcements?scope=important")
+    fetch("/api/announcements?scope=important", { cache: "no-store" })
       .then((r) => r.json())
       .then((d) => !d.error && setLive(d))
       .catch(() => {});

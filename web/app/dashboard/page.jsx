@@ -50,7 +50,7 @@ export default function Dashboard() {
     if (day) p.set("day", day);
     if (debouncedQ) p.set("q", debouncedQ);
 
-    fetch(`/api/announcements?${p}`)
+    fetch(`/api/announcements?${p}`, { cache: "no-store" })
       .then((r) => r.json())
       .then((d) => {
         if (dead) return;
@@ -83,7 +83,7 @@ export default function Dashboard() {
   // doesn't make every other day look empty.
   const [dayCounts, setDayCounts] = useState({});
   useEffect(() => {
-    fetch(`/api/announcements?scope=${scope}`)
+    fetch(`/api/announcements?scope=${scope}`, { cache: "no-store" })
       .then((r) => r.json())
       .then((d) => {
         const c = {};

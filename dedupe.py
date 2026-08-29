@@ -1,47 +1,36 @@
 """
 Collapse the same event filed several times into one entry.
 
-A single quarterly result typically arrives as four separate filings on the
-same day: the board-meeting outcome, a press release, an investor presentation,
-and a concall intimation. Sometimes twice more because the company files on
-both exchanges. Left alone, one company's result fills half a screen and the
-AI summarises the same news four times over.
+The genuine duplicate is a quarterly result. It arrives the same day as the
+board-meeting outcome, a press release, an investor presentation and a concall
+intimation - four filings, one piece of news - and again on the second
+exchange. Left alone it fills the dashboard and the AI summarises it four times.
 
-We group by company + day + what kind of event it is, keep the single best
-filing, and record how many others it stood in for. The dropped ones' PDF links
-are kept, so nothing becomes unreachable.
+Everything else only merges with its own kind. An earlier version lumped QIPs,
+preferential issues, warrants and fund raising into one bucket, which meant a
+company doing a QIP and a preferential allotment on the same day had one of
+them silently deleted. Two different money-raising events are two pieces of
+news, and the same goes for two orders or two acquisitions.
 """
 
 import re
 
-# Filing types that are really the same underlying event when they land on the
-# same day for the same company. Order wins and acquisitions are deliberately
-# NOT in here: two different orders on one day are two different pieces of news.
-SAME_EVENT = {
-    "Results": "results",
-    "Outcome": "results",
-    "Concall": "results",
-    "Presentation": "results",
-    "Board Meeting": "results",
-    "Dividend": "dividend",
-    "Corp Action": "dividend",
-    "Buyback": "buyback",
-    "Bonus": "bonus",
-    "Split": "split",
-    "Rights Issue": "rights",
-    "Scheme Of Arrangement": "scheme",
-    "Qip": "raise",
-    "Qip Allotment": "raise",
-    "Pref": "raise",
-    "Warrants": "raise",
-    "Fund Raising": "raise",
-    "Ratings Update": "rating",
-    "Change In Management": "people",
-    "Resignation": "people",
-    "Annual Report": "ar",
-    "Meeting": "meeting",
-    "Esop": "esop",
+# The one case where different filing types really are the same event.
+RESULTS_FAMILY = {"Results", "Outcome", "Concall", "Presentation", "Board Meeting"}
+
+# Tags where a same-day repeat is a genuine duplicate worth folding - usually
+# the same document filed on both exchanges, or filed twice.
+MERGE_SAME_TAG = {
+    "Results", "Outcome", "Concall", "Presentation", "Board Meeting",
+    "Dividend", "Buyback", "Bonus", "Split", "Rights Issue",
+    "Scheme Of Arrangement", "Open Offer", "Ratings Update",
+    "Annual Report", "Meeting", "Esop", "Corp Action",
+    "Qip", "Qip Allotment", "Pref", "Warrants", "Fund Raising",
+    "Change In Management", "Resignation",
 }
+# Deliberately absent: Order, Acquisition, Nclt, Legal/Reg, Capacity Increase,
+# Business Update, Operations, Unusual, Fii, Bulk And Block. Two orders on one
+# day are two orders.
 
 
 def norm_company(name):
@@ -51,42 +40,45 @@ def norm_company(name):
     return re.sub(r"[^a-z0-9]", "", n)
 
 
+def bucket_for(tag):
+    """What this filing should be grouped under, or None to leave it alone."""
+    if tag in RESULTS_FAMILY:
+        return "results"
+    if tag in MERGE_SAME_TAG:
+        return tag              # only ever merges with an identical tag
+    return None
+
+
 def collapse(records, log=print):
-    """Return a de-duplicated list, newest/most important kept."""
-    groups = {}
-    singles = []
+    groups, singles = {}, []
 
     for r in records:
-        bucket = SAME_EVENT.get(r.get("tag"))
-        if not bucket:
-            singles.append(r)            # nothing to merge it with
+        b = bucket_for(r.get("tag"))
+        if not b:
+            singles.append(r)
             continue
-        key = (norm_company(r.get("company")), r.get("date"), bucket)
-        groups.setdefault(key, []).append(r)
+        groups.setdefault((norm_company(r.get("company")), r.get("date"), b), []).append(r)
 
-    merged = []
-    collapsed_count = 0
-
-    for key, rows in groups.items():
+    merged, folded = [], 0
+    for rows in groups.values():
         if len(rows) == 1:
             merged.append(rows[0])
             continue
 
-        # Prefer one that was actually summarised, then the highest score,
-        # then the most recent - that is the filing with the real content.
+        # Keep the filing that actually carries the content: one that was
+        # summarised, then the highest score, then the most recent.
         rows.sort(key=lambda x: (bool(x.get("summary")), x.get("score", 0),
                                  x.get("time", "")), reverse=True)
         best = dict(rows[0])
         others = rows[1:]
-
         best["also_filed"] = len(others)
-        best["also_tags"] = sorted({o.get("tag") for o in others if o.get("tag")})
+        best["also_tags"] = sorted({o.get("tag") for o in others
+                                    if o.get("tag") and o.get("tag") != best.get("tag")})
         best["also_pdfs"] = [o["pdf_url"] for o in others if o.get("pdf_url")][:4]
-        collapsed_count += len(others)
+        folded += len(others)
         merged.append(best)
 
     out = merged + singles
-    out.sort(key=lambda x: (-(x.get("score") or 0), x.get("time") or ""), reverse=False)
-    log(f"Deduplicated: {len(records)} filings -> {len(out)} events "
-        f"({collapsed_count} folded in)")
+    out.sort(key=lambda x: (-(x.get("score") or 0), x.get("time") or ""))
+    log(f"Deduplicated: {len(records)} filings -> {len(out)} events ({folded} folded in)")
     return out
