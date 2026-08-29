@@ -1,7 +1,8 @@
 name: Scrape announcements
 
-# Runs every 30 minutes through the Indian filing day, so nothing sits unseen
-# for more than half an hour.
+# Covers 06:00 to 23:30 IST. Half-hourly from 08:30, when filings actually
+# start arriving, and hourly before that - almost nothing is filed between 6am
+# and 8am, and each run costs GitHub minutes we have a fixed budget of.
 #
 # Two shapes of run:
 #   * the half-hourly ones only scrape TODAY, which takes about a minute
@@ -13,8 +14,13 @@ name: Scrape announcements
 
 on:
   schedule:
-    # UTC. 03:00-18:30 UTC = 08:30-00:00 IST, weekdays.
-    - cron: "0,30 3-18 * * 1-5"
+    # UTC times. IST is UTC+5:30.
+    # 06:00, 07:00, 08:00 IST - quiet, so hourly is plenty.
+    - cron: "30 0,1,2 * * 1-5"
+    # 08:30 to 23:00 IST, every half hour - the working window.
+    - cron: "0,30 3-17 * * 1-5"
+    # 23:30 IST - the last pass, which rescrapes the full 7 days.
+    - cron: "0 18 * * 1-5"
     # Companies file at weekends too, just far less. Three passes is plenty.
     - cron: "0 6,12,16 * * 0,6"
   workflow_dispatch:
@@ -43,6 +49,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+          cache: pip                    # shaves ~20s off every run
 
       - run: pip install --quiet requests pypdf
 
