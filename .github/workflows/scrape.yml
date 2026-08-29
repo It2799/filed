@@ -91,6 +91,12 @@ jobs:
           --max-summaries "${{ github.event.inputs.max_summaries || 0 }}"
           --workers 8
 
+      # Every bug that reached the dashboard so far would have been caught here.
+      # If this fails the run goes red, so a broken dashboard is visible in the
+      # Actions tab instead of being found by someone using the site.
+      - name: Verify the live site
+        run: python tools/verify_live.py
+
       - name: Keep the caches for the next run
         if: always()
         uses: actions/upload-artifact@v4
