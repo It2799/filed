@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Nav from "./Nav";
 import MkFooter from "./MkFooter";
-import { SITE } from "./site";
+import { SITE, PER_MONTH } from "./site";
 
 export default function Landing() {
   // Real numbers and real filings, pulled from the same store the dashboard
@@ -57,7 +57,7 @@ export default function Landing() {
               Open the dashboard <span aria-hidden="true">→</span>
             </a>
             <a className="btn-lg btn-ghost" href="/join">
-              Join the community · ₹99
+              Join the community · ₹{SITE.price.toLocaleString("en-IN")}/yr
             </a>
           </div>
           <p className="mk-ctanote">
@@ -262,13 +262,14 @@ export default function Landing() {
           <div className="finale">
             <h2>The reading is free. The room is not.</h2>
             <p>
-              ₹99 a month gets you into a community of investors who are serious
-              enough to pay for it — discussion, deep dives, and offline meetups
-              across India.
+              ₹{SITE.price.toLocaleString("en-IN")} a year — about ₹{PER_MONTH} a
+              month — gets you into a community of investors serious enough to pay
+              to be in it. Discussion, deep dives, watchlist alerts and offline
+              meetups across India. Launch price for the first {SITE.launchSeats}.
             </p>
             <div className="mk-ctas">
               <a className="btn-lg btn-grad" href="/join">
-                See what&apos;s inside · ₹99/month
+                See what&apos;s inside · ₹{SITE.price.toLocaleString("en-IN")}/year
               </a>
               <a
                 className="btn-lg btn-wa"

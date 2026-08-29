@@ -601,3 +601,42 @@
   margin: 0 0 7px;
   max-width: 70ch;
 }
+
+/* ---------- launch price ---------- */
+.launch-banner {
+  display: inline-flex; align-items: center; gap: 9px;
+  padding: 7px 15px; border-radius: 999px; margin-bottom: 18px;
+  background: linear-gradient(135deg,
+    color-mix(in srgb, var(--grad-1) 22%, transparent),
+    color-mix(in srgb, var(--grad-2) 22%, transparent));
+  border: 1px solid var(--glass-line);
+  font-size: 12.5px; font-weight: 700; color: var(--ink);
+}
+.was { color: var(--dim); text-decoration: line-through; font-size: 20px; font-weight: 600; }
+.price-tag .per-mo { display: block; color: var(--dim); font-size: 13px; margin-top: 8px; }
+.seatbar { margin: 0 0 22px; }
+.seatbar-track {
+  height: 6px; border-radius: 999px; background: var(--panel-2);
+  overflow: hidden; margin-bottom: 8px;
+}
+.seatbar-fill {
+  height: 100%; border-radius: 999px;
+  background: linear-gradient(90deg, var(--grad-1), var(--grad-2));
+}
+.seatbar span { font-size: 12.5px; color: var(--dim); }
+
+/* ---------- community feature grid ---------- */
+.feat-grid {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 12px;
+}
+.feat {
+  background: var(--panel); border: 1px solid var(--line);
+  border-radius: 14px; padding: 22px;
+}
+.feat-ico {
+  width: 34px; height: 34px; border-radius: 9px; margin-bottom: 13px;
+  display: grid; place-items: center; font-size: 16px;
+  background: var(--glass); border: 1px solid var(--glass-line);
+}
+.feat h3 { font-size: 16px; font-weight: 700; margin: 0 0 6px; letter-spacing: -0.015em; }
+.feat p { color: var(--muted); font-size: 14.5px; margin: 0; line-height: 1.55; }

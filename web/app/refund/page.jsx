@@ -10,81 +10,97 @@ export default function Refund() {
       <p className="updated">Last updated {LEGAL.updated}</p>
 
       <p className="callout">
-        <strong>The short version.</strong> Changed your mind within 7 days and
-        barely used it? Full refund. Later than that, we refund the unused
-        months. If we break something or shut down, you get your money back
-        without asking.
+        <strong>The short version.</strong> You can leave whenever you like — no
+        lock-in, no notice. But the annual membership fee is{" "}
+        <strong>non-refundable</strong> once you have joined. We only refund if we
+        charged you twice, or if we stop running the service during the year you
+        paid for.
       </p>
 
-      <h2>1. Cancelling</h2>
+      <h2>1. What you are buying</h2>
       <p>
-        You can cancel at any time by emailing{" "}
-        <a href={`mailto:${LEGAL.email}`}>{LEGAL.email}</a> or messaging{" "}
-        {LEGAL.phoneDisplay} on WhatsApp. There is no cancellation fee and no
-        form to fill in.
+        Membership is a one-year subscription, paid once, up front. It gives you
+        access to the members&apos; community and the full dashboard for twelve
+        months from the day you join.
       </p>
       <p>
-        Subscriptions are prepaid for a fixed term and do not auto-renew, so
-        cancelling simply means we will not ask you to pay again.
-      </p>
-
-      <h2>2. Refund within 7 days</h2>
-      <p>
-        If you cancel within <strong>7 days</strong> of paying, we refund the
-        full amount, provided the account has not been used heavily — as a rough
-        guide, fewer than 10 days&rsquo; worth of dashboard access or bulk
-        exports.
+        The public dashboard and the daily WhatsApp brief are free and are not
+        part of this — you do not need to pay for those, and cancelling
+        membership does not take them away.
       </p>
 
-      <h2>3. Refund after 7 days</h2>
+      <h2>2. Cancelling</h2>
       <p>
-        After 7 days we refund the unused whole months of your term, rounded
-        down. For example, on a 12-month plan at ₹1,899 cancelled after 4 months,
-        we refund 8 months: ₹1,899 × 8 ÷ 12 = ₹1,266.
+        Email <a href={`mailto:${LEGAL.email}`}>{LEGAL.email}</a> or message{" "}
+        {LEGAL.phoneDisplay} on WhatsApp and we will remove you from the
+        community. There is no fee and no notice period.
+      </p>
+      <p>
+        Memberships do not auto-renew. Nothing is charged again unless you choose
+        to renew, so cancelling simply means we will not ask you to.
       </p>
 
-      <h2>4. When we refund without being asked</h2>
+      <h2>3. The fee is non-refundable</h2>
+      <p>
+        <strong>
+          Once you have joined, the annual fee is not refundable — in part or in
+          full — for any reason, including if you stop using it or change your
+          mind.
+        </strong>{" "}
+        Access continues to the end of the twelve months you paid for, whether you
+        use it or not.
+      </p>
+      <p>
+        We say this plainly because we would rather you decide carefully than feel
+        misled later. The dashboard is free to use for as long as you like before
+        you pay, and we would genuinely rather you spent a week with it first.
+      </p>
+
+      <h2>4. The two exceptions</h2>
+      <p>We will refund, without you having to ask twice:</p>
       <ul>
-        <li>We stop running the service during a term you have paid for.</li>
-        <li>You were charged twice for the same subscription.</li>
         <li>
-          The service was substantially unavailable for more than 7 consecutive
-          days for reasons within our control.
+          <strong>You were charged more than once</strong> for the same
+          membership. We refund the duplicate in full.
+        </li>
+        <li>
+          <strong>We stop running the service</strong> during a year you have paid
+          for. We refund the unused whole months.
         </li>
       </ul>
-
-      <h2>5. What we do not refund</h2>
-      <ul>
-        <li>
-          Trading losses, or decisions taken on the basis of anything you read
-          here. We are an information service, not advisers — see our{" "}
-          <a href="/terms">Terms</a>.
-        </li>
-        <li>
-          Accounts closed for sharing a login or redistributing our content,
-          though we will still refund the unused months.
-        </li>
-        <li>
-          Interruptions caused by the exchanges changing or withdrawing their
-          own systems, which is outside our control.
-        </li>
-      </ul>
-
-      <h2>6. How long a refund takes</h2>
       <p>
-        We approve or query refund requests within{" "}
-        <strong>2 working days</strong>. Approved refunds go back to the original
-        payment method and typically reach you within{" "}
-        <strong>5 to 7 working days</strong>, depending on your bank. We do not
-        charge a processing fee.
+        These are not favours; they are the situations where we would be keeping
+        money for something you did not receive.
       </p>
 
-      <h2>7. How to ask</h2>
+      <h2>5. If something has gone wrong</h2>
       <p>
-        Email <a href={`mailto:${LEGAL.email}`}>{LEGAL.email}</a> with the email
-        address you signed up with and the date you paid. That is all we need.
-        If something has gone wrong, telling us what happened helps us fix it,
-        but it is not a condition of the refund.
+        A refund is not the only remedy, and often not the best one. If the
+        service is not working, a summary is wrong, or you cannot access the
+        community, tell us at{" "}
+        <a href={`mailto:${LEGAL.email}`}>{LEGAL.email}</a> and we will fix it.
+        We read every message.
+      </p>
+
+      <h2>6. Removal from the community</h2>
+      <p>
+        We remove members who post buy-sell tips, promotional material, or
+        anything that makes the room worse for everyone else. That is what people
+        are paying for. Removal on those grounds does not carry a refund.
+      </p>
+
+      <h2>7. How refunds are paid, where they apply</h2>
+      <p>
+        Approved refunds go back to the original payment method. We approve or
+        query within <strong>2 working days</strong>, and the money typically
+        reaches you within <strong>5 to 7 working days</strong> depending on your
+        bank. We do not charge a processing fee.
+      </p>
+
+      <h2>8. Contact</h2>
+      <p>
+        <a href={`mailto:${LEGAL.email}`}>{LEGAL.email}</a> · WhatsApp{" "}
+        {LEGAL.phoneDisplay} · <a href="/contact">contact page</a>
       </p>
     </div>
   );

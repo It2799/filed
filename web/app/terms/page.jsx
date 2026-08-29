@@ -59,9 +59,10 @@ export default function Terms() {
 
       <h2>5. Your account</h2>
       <p>
-        A subscription is for one person. Please do not share your login or
-        redistribute our summaries as your own. We may end an account, with a
-        pro-rata refund, if it is being shared or resold.
+        A membership is for one person. Please do not share your login or
+        redistribute our summaries as your own. We may end a membership without
+        refund if it is shared or resold, or if you post buy-sell tips or
+        promotional material in the community.
       </p>
       <p>
         Keep your login details to yourself. Tell us promptly at {LEGAL.email} if
@@ -70,14 +71,16 @@ export default function Terms() {
 
       <h2>6. Payment</h2>
       <p>
-        Subscriptions are prepaid for a fixed term, currently{" "}
+        Membership is a one-year subscription, prepaid, currently{" "}
         {LEGAL.plans.map((p, i) => (
           <span key={p.name}>
             {i > 0 ? ", " : ""}₹{p.price.toLocaleString("en-IN")} for {p.name}
           </span>
         ))}
         . Prices are in Indian rupees. Payments are handled by a third-party
-        payment gateway; we never see or store your card details.
+        payment gateway; we never see or store your card details. The founding
+        price is limited to the first 500 members, after which the standard
+        price applies to new members.
       </p>
       <p>
         We may change prices for future terms. A change never affects a term you
@@ -86,8 +89,11 @@ export default function Terms() {
 
       <h2>7. Cancelling and refunds</h2>
       <p>
-        Our <a href="/refund">Refund and Cancellation Policy</a> forms part of
-        these terms.
+        You may leave at any time. The annual membership fee is{" "}
+        <strong>non-refundable</strong> once you have joined, except where you
+        were charged twice or we stop running the service during your paid year.
+        Our <a href="/refund">Refund and Cancellation Policy</a> sets this out in
+        full and forms part of these terms.
       </p>
 
       <h2>8. What we are responsible for</h2>

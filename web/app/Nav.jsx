@@ -13,7 +13,7 @@ export default function Nav() {
             Free brief
           </a>
           <a className="nav-cta" href="/join">
-            Join · ₹{SITE.price}
+            Join · ₹{SITE.price.toLocaleString("en-IN")}
           </a>
         </div>
       </div>

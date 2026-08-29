@@ -3,7 +3,55 @@
 import { useState } from "react";
 import Nav from "../Nav";
 import MkFooter from "../MkFooter";
-import { SITE } from "../site";
+import { SITE, SAVING, SAVING_PCT, PER_MONTH } from "../site";
+
+const FEATURES = [
+  {
+    icon: "📄",
+    title: "The full dashboard",
+    body: "Every relevant filing, all seven days, all 30-odd categories, and Excel export on any filter you set.",
+  },
+  {
+    icon: "💬",
+    title: "The evening read-through",
+    body: "The day's filings land and members pull them apart. What an order win is really worth. Whether a buyback is priced sensibly.",
+  },
+  {
+    icon: "🤝",
+    title: "Meetups across India",
+    body: "Mumbai first, then wherever enough members are. Real conversations, no stage, nobody selling anything.",
+  },
+  {
+    icon: "🔍",
+    title: "Weekly deep dives",
+    body: "One company or one industry, written up properly — the filings, the numbers, the history — not posted as a chart with an arrow.",
+  },
+  {
+    icon: "❓",
+    title: "Bring a filing, get it explained",
+    body: "Stuck on a scheme of arrangement or a warrant issue? Post it. Someone who has read a hundred of them will walk you through it.",
+  },
+  {
+    icon: "🚨",
+    title: "Results season war room",
+    body: "When 1,300 filings land in a day, members split the work and flag what actually moved. Nobody reads that alone.",
+  },
+  {
+    icon: "👀",
+    title: "Watchlist alerts",
+    body: "Tell us the companies you hold. We message you when one of them files something that matters, instead of you checking.",
+  },
+  {
+    icon: "🧹",
+    title: "Moderated, properly",
+    body: "No tips, no forwards, no good-morning images, no operators. One warning, then out. That rule is the whole product.",
+  },
+  {
+    icon: "🎯",
+    title: "You shape what gets built",
+    body: "Members ask for a category, a filter, an alert — and it gets built. This dashboard exists because people asked for it.",
+  },
+];
 
 export default function Join() {
   const [email, setEmail] = useState("");
@@ -13,7 +61,7 @@ export default function Join() {
   const [error, setError] = useState("");
 
   const waLink = `https://wa.me/${SITE.phoneDigits}?text=${encodeURIComponent(
-    "Hi, I'd like to join the Market Tide community for Rs 99/month."
+    `Hi, I'd like a founding seat in the Market Tide community at Rs ${SITE.price}/year.`
   )}`;
 
   async function submit(e) {
@@ -46,19 +94,19 @@ export default function Join() {
 
       <main className="mk">
         <section className="mk-hero">
-          <div className="eyebrow">
-            <span className="live-dot" /> Founding members · opening soon
+          <div className="launch-banner">
+            🚀 Launch price · first {SITE.launchSeats} members only
           </div>
           <h1 className="mk-h1">
-            ₹99 a month keeps
+            ₹{SITE.price} a year keeps
             <br />
             <span className="grad">the tourists out.</span>
           </h1>
           <p className="mk-sub">
-            The filings are free — they always will be. What ₹99 buys is the room
-            next door: a group of investors and traders serious enough to pay to
-            be in it. <strong>That price isn&apos;t about covering our costs.</strong>{" "}
-            It&apos;s the filter.
+            The filings stay free — they always will. What you&apos;re paying for
+            is the room next door: investors and traders serious enough to put
+            money on the table to be in it.{" "}
+            <strong>The price isn&apos;t covering our costs. It&apos;s the filter.</strong>
           </p>
         </section>
 
@@ -67,60 +115,58 @@ export default function Join() {
           <div className="price-wrap">
             <div className="price-card">
               <p className="mk-kicker" style={{ marginBottom: 4 }}>
-                Membership
+                Founding membership
               </p>
+
               <div className="price-tag">
-                <b>₹{SITE.price}</b>
-                <span>/ month</span>
+                <span className="was">₹{SITE.fullPrice.toLocaleString("en-IN")}</span>
+                <b>₹{SITE.price.toLocaleString("en-IN")}</b>
+                <span>/ {SITE.period}</span>
               </div>
               <p className="price-note">
-                Cancel any time. No lock-in, no card stored by us.
+                Save ₹{SAVING} ({SAVING_PCT}% off) — works out to about ₹{PER_MONTH} a
+                month. Goes back to ₹{SITE.fullPrice.toLocaleString("en-IN")} once
+                the first {SITE.launchSeats} seats are gone.
               </p>
+
+              <div className="seatbar">
+                <div className="seatbar-track">
+                  <div className="seatbar-fill" style={{ width: "18%" }} />
+                </div>
+                <span>Founding seats are limited to {SITE.launchSeats}.</span>
+              </div>
 
               <ul className="tick-list">
                 <li>
                   <span className="ok">✓</span>
                   <span>
-                    <b>The full dashboard</b> — every relevant filing, all seven
-                    days, every category, Excel export.
+                    <b>Everything on the dashboard</b>, plus the members&apos; group,
+                    meetups, deep dives and watchlist alerts.
                   </span>
                 </li>
                 <li>
                   <span className="ok">✓</span>
                   <span>
-                    <b>The members&apos; group</b> — discuss what actually landed
-                    today with people who read the filings, not the headlines.
+                    <b>Your price is locked.</b> Founding members stay at ₹
+                    {SITE.price.toLocaleString("en-IN")} on renewal, for as long as
+                    you keep the membership.
                   </span>
                 </li>
                 <li>
                   <span className="ok">✓</span>
                   <span>
-                    <b>Offline meetups across India</b> — Mumbai first, then
-                    wherever enough members are.
-                  </span>
-                </li>
-                <li>
-                  <span className="ok">✓</span>
-                  <span>
-                    <b>Weekly deep dives</b> on a company or an industry, written
-                    up properly rather than posted as a chart.
-                  </span>
-                </li>
-                <li>
-                  <span className="ok">✓</span>
-                  <span>
-                    <b>Ask and get answered</b> — bring a filing you don&apos;t
-                    understand and have it pulled apart.
+                    <b>One year, paid once.</b> No monthly card charges, no
+                    auto-renewal surprises.
                   </span>
                 </li>
               </ul>
 
               {state === "done" ? (
                 <div className="done">
-                  <b>You&apos;re on the founding members list.</b>
+                  <b>Your founding seat is reserved.</b>
                   <p>
                     We&apos;ll message you the moment the doors open, with joining
-                    instructions.
+                    instructions and your locked price.
                   </p>
                   <a
                     className="wa-btn"
@@ -170,14 +216,15 @@ export default function Join() {
                         />
                       </div>
                       <button type="submit" disabled={state === "sending"}>
-                        {state === "sending" ? "Adding…" : "Claim a founding seat"}
+                        {state === "sending" ? "Reserving…" : "Reserve my seat"}
                       </button>
                     </div>
                     {error && <p className="err">{error}</p>}
                   </form>
                   <p className="note" style={{ marginTop: 10 }}>
-                    Nothing to pay now. We&apos;ll message you when the doors open
-                    — founding members keep ₹{SITE.price} for life.
+                    Nothing to pay today. We&apos;ll message you when the doors
+                    open — your ₹{SITE.price.toLocaleString("en-IN")} price is held
+                    until then.
                   </p>
                 </>
               )}
@@ -187,14 +234,16 @@ export default function Join() {
               <div className="why-card" style={{ marginBottom: 14 }}>
                 <h3>Why charge at all, if the filings are free?</h3>
                 <p>
-                  Because free groups fill up with people who don&apos;t read.
-                  Anyone will join a group that costs nothing, and within a month
-                  it&apos;s tips, forwards and good-morning images.
+                  Because free groups fill with people who don&apos;t read. Anyone
+                  joins a group that costs nothing, and within a month it&apos;s
+                  tips, forwards and good-morning images.
                 </p>
                 <p>
-                  <strong>₹99 is deliberately small and deliberately not zero.</strong>{" "}
-                  It&apos;s less than two cups of coffee, so nobody serious is
-                  priced out — and it&apos;s enough that nobody joins by accident.
+                  <strong>
+                    ₹{SITE.price.toLocaleString("en-IN")} a year is about ₹{PER_MONTH} a
+                    month — deliberately small, deliberately not zero.
+                  </strong>{" "}
+                  Nobody serious is priced out. Nobody joins by accident.
                 </p>
                 <p>
                   The money keeps the lights on. The <em>price</em> keeps the room
@@ -203,19 +252,43 @@ export default function Join() {
               </div>
 
               <div className="why-card">
-                <h3>What actually happens inside</h3>
+                <h3>Who this is for</h3>
                 <p>
-                  Every evening the day&apos;s filings land and members pick them
-                  apart — what an order win is really worth, whether a buyback is
-                  priced sensibly, what a scheme of arrangement does to minority
-                  holders.
+                  People who already read filings, or want to and don&apos;t know
+                  where to start. Investors holding twenty companies who can&apos;t
+                  track them all. Traders who want to know what actually landed
+                  before the noise starts.
                 </p>
                 <p>
-                  Once we have enough members in a city, we meet. Mumbai first.
-                  Real conversations, no stage, no selling.
+                  <strong>It is not for you</strong> if you want buy-sell calls or
+                  intraday tips. You will not get them here, and asking will get
+                  you removed.
                 </p>
               </div>
             </div>
+          </div>
+        </section>
+
+        {/* ---------------- what's inside ---------------- */}
+        <section className="mk-sec">
+          <div className="mk-sec-head">
+            <p className="mk-kicker">What you get</p>
+            <h2 className="mk-h2">Nine reasons it&apos;s worth ₹{PER_MONTH} a month</h2>
+            <p className="mk-lead">
+              The dashboard is the tool. The community is what makes it useful.
+            </p>
+          </div>
+
+          <div className="feat-grid">
+            {FEATURES.map((f) => (
+              <div className="feat" key={f.title}>
+                <div className="feat-ico" aria-hidden="true">
+                  {f.icon}
+                </div>
+                <h3>{f.title}</h3>
+                <p>{f.body}</p>
+              </div>
+            ))}
           </div>
         </section>
 
@@ -237,45 +310,60 @@ export default function Join() {
               </p>
             </details>
             <details>
-              <summary>Do I need to pay to read the filings?</summary>
+              <summary>Can I cancel? Do I get a refund?</summary>
               <p>
-                No. The dashboard and the daily WhatsApp brief are free and will
-                stay free. ₹{SITE.price} is for the community, the meetups and the
-                weekly deep dives.
+                You can leave the community whenever you like — there is no
+                lock-in and no notice period.{" "}
+                <strong>
+                  The annual fee is non-refundable once you have joined.
+                </strong>{" "}
+                It is a one-year membership paid up front, and access continues to
+                the end of the year you paid for. The two exceptions: if you are
+                charged twice, or if we stop running the service during your year,
+                you get your money back. Full detail is in the{" "}
+                <a href="/refund">refund policy</a>.
               </p>
             </details>
             <details>
-              <summary>Can I leave?</summary>
+              <summary>Do I need to pay to read the filings?</summary>
               <p>
-                Any time, no questions. Cancel within 7 days and we refund in
-                full; after that we refund the unused months. See the{" "}
-                <a href="/refund">refund policy</a>.
+                No. The dashboard and the daily WhatsApp brief are free and stay
+                free. ₹{SITE.price.toLocaleString("en-IN")} is for the community,
+                the meetups, the deep dives and the watchlist alerts.
+              </p>
+            </details>
+            <details>
+              <summary>What happens after the first {SITE.launchSeats} members?</summary>
+              <p>
+                The price goes to ₹{SITE.fullPrice.toLocaleString("en-IN")} a year
+                for everyone who joins after. If you are in the first{" "}
+                {SITE.launchSeats}, you stay at ₹{SITE.price.toLocaleString("en-IN")}{" "}
+                on every renewal for as long as you keep the membership.
               </p>
             </details>
             <details>
               <summary>When do the meetups start?</summary>
               <p>
                 As soon as there are enough members in one city to make it worth
-                everyone&apos;s evening. Mumbai is first — that&apos;s where we
-                are. We&apos;ll ask members before fixing anything.
+                everyone&apos;s evening. Mumbai is first — that is where we are.
+                We will ask members before fixing anything.
               </p>
             </details>
             <details>
-              <summary>What if the summaries are wrong?</summary>
+              <summary>What if a summary is wrong?</summary>
               <p>
-                They sometimes will be — they&apos;re written by AI. That&apos;s
-                exactly why every card links to the original PDF. Tell us when you
-                spot one and we&apos;ll fix it; members do this and it makes the
-                product better for everyone.
+                Sometimes one will be — they are written by AI. That is exactly why
+                every card links to the original PDF. Tell us when you spot one and
+                we fix it. Members do this, and it makes the product better for
+                everyone.
               </p>
             </details>
             <details>
               <summary>How do I pay?</summary>
               <p>
-                Not yet — we&apos;re opening to founding members first. Leave your
-                details above and we&apos;ll message you with joining
-                instructions. Founding members keep ₹{SITE.price} for life, even
-                when the price goes up.
+                Not yet — we are opening to founding members first. Leave your
+                details above and we will message you with joining instructions
+                and a payment link when the doors open.
               </p>
             </details>
           </div>

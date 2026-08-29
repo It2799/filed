@@ -24,9 +24,8 @@ export const LEGAL = {
 
   // Keep in step with the pricing you actually charge.
   plans: [
-    { name: "3 months", price: 699, months: 3 },
-    { name: "6 months", price: 1199, months: 6 },
-    { name: "12 months", price: 1899, months: 12 },
+    { name: "1 year (founding price)", price: 999, months: 12 },
+    { name: "1 year (standard)", price: 1499, months: 12 },
   ],
 
   updated: "August 2026",

@@ -1,0 +1,149 @@
+/* =====================================================================
+   Dashboard layout: a sticky filter rail beside the feed on desktop,
+   collapsing to a sheet on mobile. The old design put ~35 category pills
+   in a wrapped block above the results, which pushed the actual filings
+   below the fold and gave no sense of what was selected.
+   ===================================================================== */
+
+.dash-shell { max-width: 1240px; margin: 0 auto; padding: 0 20px; }
+
+.dash-top { padding: 26px 0 18px; }
+.dash-top h1 {
+  font-size: clamp(22px, 3.4vw, 30px);
+  letter-spacing: -0.03em; font-weight: 760; margin: 0 0 6px;
+}
+.dash-meta { color: var(--muted); font-size: 13.5px; margin: 0; }
+.dash-meta b { color: var(--ink); font-variant-numeric: tabular-nums; }
+
+.dash-grid { display: grid; grid-template-columns: 248px 1fr; gap: 26px; align-items: start; }
+@media (max-width: 900px) { .dash-grid { grid-template-columns: 1fr; gap: 0; } }
+
+/* ---------- filter rail ---------- */
+.rail { position: sticky; top: 74px; max-height: calc(100vh - 96px); overflow-y: auto;
+        padding-bottom: 24px; scrollbar-width: thin; }
+@media (max-width: 900px) {
+  .rail { position: static; max-height: none; display: none; padding-bottom: 8px; }
+  .rail.open { display: block; }
+}
+
+.rail-group { margin-bottom: 22px; }
+.rail-title {
+  font-size: 11px; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase;
+  color: var(--dim); margin: 0 0 9px; display: flex; justify-content: space-between;
+  align-items: center;
+}
+.rail-clear {
+  background: none; border: 0; padding: 0; cursor: pointer; font-family: inherit;
+  font-size: 11px; font-weight: 700; letter-spacing: 0.02em; text-transform: none;
+  color: var(--accent);
+}
+
+/* segmented control for the two scopes */
+.seg { display: grid; grid-template-columns: 1fr 1fr; gap: 3px; padding: 3px;
+       background: var(--panel-2); border: 1px solid var(--line); border-radius: 10px; }
+.seg button {
+  padding: 8px 6px; border: 0; border-radius: 7px; cursor: pointer;
+  background: transparent; color: var(--muted);
+  font-family: inherit; font-size: 13px; font-weight: 640;
+}
+.seg button.on { background: var(--panel); color: var(--ink); box-shadow: 0 1px 3px rgba(0,0,0,.25); }
+
+/* day list with counts */
+.daylist { display: flex; flex-direction: column; gap: 2px; }
+.dayrow {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  padding: 8px 10px; border-radius: 8px; border: 0; cursor: pointer;
+  background: transparent; color: var(--muted); font-family: inherit;
+  font-size: 13.5px; text-align: left; width: 100%;
+}
+.dayrow:hover { background: var(--panel); color: var(--ink); }
+.dayrow.on { background: var(--panel); color: var(--ink); font-weight: 650; }
+.dayrow .dw { color: var(--dim); font-size: 11.5px; }
+.dayrow.on .dw { color: var(--accent); }
+.dayrow .cnt { font-variant-numeric: tabular-nums; font-size: 12px; color: var(--dim); }
+
+/* category filter with its own search */
+.catsearch {
+  width: 100%; padding: 8px 11px; margin-bottom: 8px;
+  font-size: 13px; font-family: inherit; color: var(--ink);
+  background: var(--panel); border: 1px solid var(--line); border-radius: 8px;
+}
+.catsearch:focus { outline: none; border-color: var(--accent); }
+.catlist { display: flex; flex-direction: column; gap: 1px; max-height: 320px; overflow-y: auto; }
+.catrow {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  padding: 7px 10px; border-radius: 7px; border: 0; cursor: pointer;
+  background: transparent; color: var(--muted); font-family: inherit;
+  font-size: 13.5px; text-align: left; width: 100%;
+}
+.catrow:hover { background: var(--panel); color: var(--ink); }
+.catrow.on { background: color-mix(in srgb, var(--accent) 16%, transparent);
+             color: var(--ink); font-weight: 650; }
+.catrow .cnt { font-variant-numeric: tabular-nums; font-size: 12px; color: var(--dim); }
+.catrow.on .cnt { color: var(--accent); }
+
+/* ---------- feed toolbar ---------- */
+.feedbar {
+  position: sticky; top: 60px; z-index: 6;
+  background: color-mix(in srgb, var(--bg) 92%, transparent);
+  backdrop-filter: blur(10px);
+  padding: 10px 0 12px; margin-bottom: 4px;
+  border-bottom: 1px solid var(--line);
+}
+.feedbar-row { display: flex; gap: 8px; align-items: center; }
+.feedbar input[type="search"] {
+  flex: 1 1 auto; min-width: 0; padding: 10px 13px;
+  font-size: 14px; font-family: inherit; color: var(--ink);
+  background: var(--panel); border: 1px solid var(--line); border-radius: 9px;
+}
+.feedbar input[type="search"]:focus {
+  outline: none; border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(79,156,255,.15);
+}
+.filter-toggle {
+  display: none; padding: 10px 14px; border-radius: 9px;
+  background: var(--panel); border: 1px solid var(--line); color: var(--ink);
+  font-family: inherit; font-size: 14px; font-weight: 640; cursor: pointer;
+  white-space: nowrap;
+}
+@media (max-width: 900px) { .filter-toggle { display: inline-flex; gap: 7px; align-items: center; } }
+.filter-toggle .badge {
+  background: var(--accent); color: var(--accent-ink); border-radius: 999px;
+  padding: 0 6px; font-size: 11px; font-weight: 800;
+}
+
+/* active filters, so you always know what you are looking at */
+.active-row { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin-top: 9px; }
+.active-count { font-size: 13px; color: var(--muted); margin-right: 2px; }
+.active-count b { color: var(--ink); font-variant-numeric: tabular-nums; }
+.pill-x {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 4px 8px 4px 11px; border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 32%, transparent);
+  color: var(--ink); font-size: 12.5px; font-weight: 620;
+  cursor: pointer; font-family: inherit;
+}
+.pill-x span { color: var(--dim); font-size: 14px; line-height: 1; }
+.pill-x:hover span { color: var(--neg); }
+
+/* ---------- card refinements ---------- */
+.card { transition: border-color .15s ease; }
+.card:hover { border-color: color-mix(in srgb, var(--accent) 40%, var(--line)); }
+.card.imp-Positive { border-left: 3px solid var(--pos); }
+.card.imp-Negative { border-left: 3px solid var(--neg); }
+.card.imp-Neutral  { border-left: 3px solid var(--line); }
+
+.card .summary { font-size: 15px; line-height: 1.6; }
+.no-summary {
+  display: inline-block; margin-top: 10px; font-size: 12px;
+  color: var(--dim); font-style: italic;
+}
+
+/* ---------- skeleton loading ---------- */
+.sk { background: var(--panel); border: 1px solid var(--line);
+      border-radius: 12px; padding: 17px; margin-bottom: 11px; }
+.sk-line { height: 11px; border-radius: 6px; background: var(--panel-2);
+           margin-bottom: 9px; animation: pulse 1.6s ease-in-out infinite; }
+.sk-line.w40 { width: 40%; } .sk-line.w70 { width: 70%; }
+.sk-line.w90 { width: 90%; } .sk-line.w55 { width: 55%; }
