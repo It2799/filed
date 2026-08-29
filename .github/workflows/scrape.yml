@@ -1,8 +1,11 @@
 name: Scrape announcements
 
-# Covers 06:00 to 23:30 IST. Half-hourly from 08:30, when filings actually
-# start arriving, and hourly before that - almost nothing is filed between 6am
-# and 8am, and each run costs GitHub minutes we have a fixed budget of.
+# Every 45 minutes from 06:00 to 23:15 IST, then a final full pass at 23:30.
+#
+# Cron cannot say "every 45 minutes" - 45 does not divide into 60 - so the
+# slots are written out by minute below. A warm run takes about 45 seconds,
+# because summaries and market caps are cached by filing id and only genuinely
+# new filings cost anything.
 #
 # Two shapes of run:
 #   * the half-hourly ones only scrape TODAY, which takes about a minute
@@ -14,12 +17,13 @@ name: Scrape announcements
 
 on:
   schedule:
-    # UTC times. IST is UTC+5:30.
-    # 06:00, 07:00, 08:00 IST - quiet, so hourly is plenty.
-    - cron: "30 0,1,2 * * 1-5"
-    # 08:30 to 23:00 IST, every half hour - the working window.
-    - cron: "0,30 3-17 * * 1-5"
-    # 23:30 IST - the last pass, which rescrapes the full 7 days.
+    # UTC times; IST is UTC+5:30. Together these give 06:00, 06:45, 07:30 ...
+    # 23:15 IST on weekdays.
+    - cron: "30 0,3,6,9,12,15 * * 1-5"
+    - cron: "15 1,4,7,10,13,16 * * 1-5"
+    - cron: "0  2,5,8,11,14,17 * * 1-5"
+    - cron: "45 2,5,8,11,14,17 * * 1-5"
+    # 23:30 IST - the last pass of the day, which rescrapes the full 7 days.
     - cron: "0 18 * * 1-5"
     # Companies file at weekends too, just far less. Three passes is plenty.
     - cron: "0 6,12,16 * * 0,6"
