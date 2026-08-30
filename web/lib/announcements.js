@@ -74,7 +74,7 @@ async function readKeys(keys) {
 // "Mankind Pharma Limited" on the other - so the suffixes come off before
 // anything is compared.
 const NAME_NOISE =
-  /(limited|ltd|private|pvt|the|and|company|co|corporation|corp|india|indian|inc)/g;
+  /\b(limited|ltd|private|pvt|the|and|company|co|corporation|corp|india|indian|inc)\b/g;
 
 function normCompany(name) {
   return String(name || "").toLowerCase().replace(NAME_NOISE, " ").replace(/[^a-z0-9]/g, "");

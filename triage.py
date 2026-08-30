@@ -46,7 +46,7 @@ NEVER_PROMOTE = [
     r"reconciliation of share capital",
     r"shareholding pattern",
     r"investor complaint|grievance redressal",
-    r"iepf|unclaimed (dividend|share)",
+    r"\biepf\b|unclaimed (dividend|share)",
 ]
 
 

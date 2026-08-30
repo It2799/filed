@@ -40,29 +40,6 @@ def norm_company(name):
     return re.sub(r"[^a-z0-9]", "", n)
 
 
-# Words that appear in almost every headline and so tell two filings apart from
-# each other not at all.
-_NOISE = re.compile(
-    r"(announcement|announcements|under|regulation|reg|lodr|sebi|listing|"
-    r"obligations|disclosure|requirements|intimation|intimating|pursuant|"
-    r"regarding|company|limited|ltd|the|of|to|for|and|in|on|by|with|is|are|"
-    r"submission|submitted|please|find|attached|enclosed|herewith|copy|dated|"
-    r"date|update|updates|general|other|information|letter|read|clause|"
-    r"provisions|thereof|act|2015|2013)", re.I)
-
-
-def headline_sig(text):
-    """The words in a headline that actually identify the event."""
-    t = _NOISE.sub(" ", (text or "").lower())
-    return {w for w in re.findall(r"[a-z0-9]+", t) if len(w) > 2}
-
-
-def _overlap(a, b):
-    if not a or not b:
-        return 0.0
-    return len(a & b) / float(len(a | b))
-
-
 def fold_cross_exchange(rows, log=print):
     """
     One company, one day, one kind of news - one entry.
