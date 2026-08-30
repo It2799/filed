@@ -37,6 +37,15 @@ import pipeline
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 KEEP_DAYS = 7
+
+# The exchanges, the filings and the readers are all Indian, but the scheduler
+# runs on UTC. Between midnight and 05:30 IST, UTC is still on yesterday's
+# date - which built the window a day behind and left today off the dashboard.
+IST = datetime.timezone(datetime.timedelta(hours=5, minutes=30))
+
+
+def today_ist():
+    return datetime.datetime.now(IST).date()
 TTL_SECONDS = 60 * 60 * 24 * (KEEP_DAYS + 2)      # a little slack past 7 days
 
 
@@ -154,7 +163,7 @@ def main():
     provider_list = load_providers()
     print(f"AI providers configured: {[p['kind'] for p in provider_list] or 'none'}\n")
 
-    today = datetime.date.today()
+    today = today_ist()
     start = today - datetime.timedelta(days=max(0, args.days))
 
     raw, kept = pipeline.fetch_and_score(start, today, args.min_score)

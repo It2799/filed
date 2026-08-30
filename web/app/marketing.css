@@ -677,3 +677,21 @@
   font-size: clamp(16px, 2.2vw, 19px); font-weight: 640;
   color: var(--ink); margin: 0 auto; max-width: 46ch; line-height: 1.55;
 }
+
+/* ---------- marketing pages on a phone ---------- */
+@media (max-width: 720px) {
+  .mk { padding: 0 16px; }
+  .mk-hero { padding: 44px 0 34px; }
+  .mk-sec { padding: 52px 0 0; }
+  .mk-ctas { flex-direction: column; }
+  .btn-lg { width: 100%; justify-content: center; padding: 15px 20px; }
+  .livestrip { grid-template-columns: 1fr 1fr; }
+  .price-card, .why-card { padding: 24px 20px; }
+  .price-tag b { font-size: 42px; }
+  .finale { padding: 36px 20px; }
+  .ticker { margin-left: -16px; margin-right: -16px; }
+  .club-item, .feat, .step, .bx { padding: 20px 18px; }
+  .nav-in { padding: 11px 16px; }
+  .mk-foot-top { flex-direction: column; gap: 14px; }
+  .footer-links { gap: 12px; }
+}

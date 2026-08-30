@@ -169,7 +169,8 @@ def to_rows(kept):
 
 def run(days, min_score, max_summaries, provider_list, workers=4, log=print):
     """Full pipeline. Returns (rows, stats)."""
-    today = datetime.date.today()
+    ist = datetime.timezone(datetime.timedelta(hours=5, minutes=30))
+    today = datetime.datetime.now(ist).date()
     start = today - datetime.timedelta(days=max(0, days))
 
     raw, kept = fetch_and_score(start, today, min_score, log=log)

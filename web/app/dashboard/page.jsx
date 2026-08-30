@@ -107,6 +107,12 @@ export default function Dashboard() {
   const activeCount = (tag ? 1 : 0) + (day ? 1 : 0) + (q ? 1 : 0);
   const clearAll = () => { setTag(null); setDay(null); setQ(""); };
 
+  // Stop the page scrolling behind the filter sheet on a phone.
+  useEffect(() => {
+    document.body.classList.toggle("sheet-open", railOpen);
+    return () => document.body.classList.remove("sheet-open");
+  }, [railOpen]);
+
   return (
     <>
       <Nav />
@@ -133,6 +139,12 @@ export default function Dashboard() {
 
         <div className="dash-grid">
           {/* ---------------- filter rail ---------------- */}
+          <div
+            className={`sheet-backdrop ${railOpen ? "open" : ""}`}
+            onClick={() => setRailOpen(false)}
+            aria-hidden="true"
+          />
+
           <aside className={`rail ${railOpen ? "open" : ""}`}>
             <div className="rail-group">
               <p className="rail-title">Show</p>
@@ -231,6 +243,21 @@ export default function Dashboard() {
                   </p>
                 )}
               </div>
+            </div>
+
+            {/* Only shows on a phone, where the rail is a sheet that has to
+                be dismissed. On desktop the rail is always visible and the
+                filters apply as you click them. */}
+            <div className="sheet-done">
+              {activeCount > 0 && (
+                <button className="done-reset" onClick={clearAll}>
+                  Reset
+                </button>
+              )}
+              <button className="done-ok" onClick={() => setRailOpen(false)}>
+                Show {shown.length.toLocaleString("en-IN")}
+                {shown.length === 1 ? " filing" : " filings"}
+              </button>
             </div>
           </aside>
 

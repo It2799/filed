@@ -21,7 +21,8 @@ export async function GET(request) {
     const day = url.searchParams.get("day");
     const q = (url.searchParams.get("q") || "").toLowerCase().trim();
 
-    const { days, items, meta } = await recent({ scope });
+    const sort = url.searchParams.get("sort") === "important" ? "important" : "latest";
+    const { days, items, meta } = await recent({ scope, sort });
 
     // Narrow by day and text first. Whatever survives is the universe the
     // category counts describe, so the sidebar keeps showing every category
@@ -47,18 +48,16 @@ export async function GET(request) {
     const summarised = rows.filter((r) => r.summary).length;
     const cap = LIMIT[scope];
 
-    if (rows.length > cap) {
-      rows = scope === "all"
-        ? rows.slice(0, cap)
-        : [...rows.filter((r) => r.summary), ...rows.filter((r) => !r.summary)]
-            .slice(0, cap);
-    }
+    // The order above is the order we keep. Promoting summarised rows here
+    // would silently undo a "latest first" sort.
+    if (rows.length > cap) rows = rows.slice(0, cap);
 
     return Response.json(
       {
         days,
         meta,
         scope,
+        sort,
         total,
         tagCounts,
         summarised,

@@ -77,7 +77,7 @@ async function readKeys(keys) {
  * summaries. scope "all" also pulls the routine ones, which is a lot more data,
  * so the page only asks for it when someone clicks the All tab.
  */
-export async function recent({ scope = "important" } = {}) {
+export async function recent({ scope = "important", sort = "latest" } = {}) {
   if (!configured()) return { days: [], items: [], meta: null };
 
   const [indexRaw, metaRaw] = await redis(["MGET", "mt:index", "mt:meta"]);
@@ -97,17 +97,17 @@ export async function recent({ scope = "important" } = {}) {
     push(await readKeys(days.map((d) => `mt:all:${d}`)));
   }
 
-  if (scope === "all") {
-    // "All" is a feed - newest first, the way you'd scan the exchange site.
-    // Sorting it by score would just repeat the Important tab.
-    items.sort((a, b) =>
-      String(b.day).localeCompare(String(a.day)) ||
-      String(b.time).localeCompare(String(a.time)));
-  } else {
-    // "Important" is a ranking - the biggest news first.
-    items.sort((a, b) =>
-      (b.score - a.score) || String(b.time).localeCompare(String(a.time)));
-  }
+  // Newest first by default. Someone opening the dashboard wants to know what
+  // has just landed, not what scored highest across the whole week - a buyback
+  // from Tuesday should not sit above this evening's filings.
+  const byLatest = (a, b) =>
+    String(b.day).localeCompare(String(a.day)) ||
+    String(b.time).localeCompare(String(a.time));
+
+  const byImportance = (a, b) =>
+    (b.score - a.score) || byLatest(a, b);
+
+  items.sort(sort === "important" ? byImportance : byLatest);
 
   return { days, items, meta };
 }
