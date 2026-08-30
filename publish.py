@@ -190,6 +190,10 @@ def main():
                         "only if you want to cap AI calls for a run. Summaries "
                         "are cached, so a rerun only pays for what is new.")
     p.add_argument("--workers", type=int, default=4)
+    # Reading PDFs is waiting on a download, not on a model, so it can run
+    # far wider than summarising - which has a rate limit to respect.
+    p.add_argument("--read-workers", type=int, default=0,
+                   help="threads for downloading PDFs (default: 3x --workers)")
     p.add_argument("--no-mcap", action="store_true",
                    help="skip the market-cap lookup")
     p.add_argument("--dry-run", action="store_true")
@@ -200,6 +204,7 @@ def main():
         sys.exit("No Redis credentials. Set KV_REST_API_URL and KV_REST_API_TOKEN.")
 
     provider_list = load_providers()
+    print(f"Reading PDFs on {args.read_workers or max(1, args.workers) * 3} threads, summarising on {args.workers}")
     print(f"AI providers configured: {[p['kind'] for p in provider_list] or 'none'}\n")
 
     today = today_ist()
@@ -214,6 +219,8 @@ def main():
     day_list = [today - datetime.timedelta(days=k)
                 for k in range((today - first).days + 1)]
 
+    read_workers = args.read_workers or max(1, args.workers) * 3
+
     run = {"scanned": 0, "stored": 0, "read": 0, "promoted": 0, "summarised": 0}
 
     for n, day in enumerate(day_list, 1):
@@ -226,7 +233,7 @@ def main():
 
         raw, kept = pipeline.fetch_and_score(day, day, args.min_score)
         kept = dedupe.collapse(kept)
-        triage.triage(kept, important_at=args.important_at, workers=args.workers)
+        triage.triage(kept, important_at=args.important_at, workers=read_workers)
         tri = getattr(triage, "last_stats", {"read": 0, "promoted": 0})
 
         # Reading the PDFs re-labels filings, which can reveal that two entries
@@ -241,7 +248,7 @@ def main():
         pipeline.summarise(worth, provider_list, cap, workers=args.workers)
 
         if not args.no_mcap:
-            mcap.attach(kept, workers=args.workers)
+            mcap.attach(kept, workers=read_workers)
 
         rows = pipeline.to_rows(kept)
 

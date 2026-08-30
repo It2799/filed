@@ -92,6 +92,7 @@ jobs:
           --days "${{ steps.plan.outputs.days }}"
           --max-summaries "${{ github.event.inputs.max_summaries || 0 }}"
           --workers 8
+          --read-workers 32
 
       # Every bug that reached the dashboard so far would have been caught here.
       # If this fails the run goes red, so a broken dashboard is visible in the
