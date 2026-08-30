@@ -65,19 +65,22 @@ def _overlap(a, b):
 
 def fold_cross_exchange(rows, log=print):
     """
-    One document filed on both exchanges is one piece of news.
+    One company, one day, one kind of news - one entry.
 
-    Tags like Order and Acquisition are kept out of the tag-level merge above,
-    because two orders won on the same day are two orders. But the same order,
-    filed once with NSE and once with BSE, is not - and that is what was
-    showing up twice on the dashboard.
+    An earlier version tried to tell duplicates apart by comparing headlines,
+    and it did not work, because the two exchanges do not describe the same
+    document the same way. NSE prefixes everything with "X Limited has informed
+    the Exchange regarding..."; BSE quotes the covering letter. The same board
+    change came through as "Cessation of Independent Director" on one and
+    "completion of term of Independent Director" on the other - one event, no
+    words in common. No amount of tuning a similarity threshold fixes that.
 
-    So within one company, one day and one tag, filings whose headlines
-    describe the same thing are folded together. Two different orders name
-    different customers and different amounts, so their headlines diverge and
-    they stay apart. A generic headline that says nothing either way is treated
-    as a duplicate, which is what it almost always is - and the other exchange's
-    PDF is still linked from the entry that survives.
+    So the rule is now the blunt one, and it holds: the same company filing the
+    same kind of news on the same day is one piece of news. The cost is that a
+    company announcing two separate orders on one day shows as one entry - rare,
+    and the second document is still linked from the entry that survives. The
+    benefit is that the constant case, the same filing arriving from both NSE
+    and BSE, never shows twice again.
     """
     groups = {}
     for r in rows:
@@ -86,47 +89,25 @@ def fold_cross_exchange(rows, log=print):
         ).append(r)
 
     out, folded = [], 0
-    for rows_in_group in groups.values():
-        if len(rows_in_group) == 1:
-            out.append(rows_in_group[0])
+    for rs in groups.values():
+        if len(rs) == 1:
+            out.append(rs[0])
             continue
 
-        clusters = []
-        for r in sorted(rows_in_group,
-                        key=lambda x: (-(x.get("score") or 0), x.get("time") or "")):
-            sig = headline_sig(r.get("headline") or r.get("category"))
-            for c in clusters:
-                # A headline with nothing distinctive in it cannot argue that
-                # this is a different event, so it joins the first cluster.
-                if not sig or not c["sig"] or _overlap(sig, c["sig"]) >= 0.6:
-                    c["rows"].append(r)
-                    break
-            else:
-                clusters.append({"sig": sig, "rows": [r]})
-
-        for c in clusters:
-            rs = c["rows"]
-            best = dict(rs[0])
-            if len(rs) > 1:
-                others = rs[1:]
-                best["also_filed"] = (best.get("also_filed") or 0) + len(others)
-                best["also_pdfs"] = ([o["pdf_url"] for o in others if o.get("pdf_url")]
-                                     + list(best.get("also_pdfs") or []))[:4]
-                folded += len(others)
-            out.append(best)
+        # Keep the one carrying the most: summarised first, then best score,
+        # then whichever has the longest headline - the more descriptive filing.
+        rs.sort(key=lambda x: (bool(x.get("summary")), x.get("score") or 0,
+                               len(x.get("headline") or "")), reverse=True)
+        best, others = dict(rs[0]), rs[1:]
+        best["also_filed"] = (best.get("also_filed") or 0) + len(others)
+        best["also_pdfs"] = (list(best.get("also_pdfs") or [])
+                             + [o["pdf_url"] for o in others if o.get("pdf_url")])[:4]
+        folded += len(others)
+        out.append(best)
 
     if folded:
         log(f"Cross-exchange: folded {folded} repeats of a filing already shown")
     return out
-
-
-def bucket_for(tag):
-    """What this filing should be grouped under, or None to leave it alone."""
-    if tag in RESULTS_FAMILY:
-        return "results"
-    if tag in MERGE_SAME_TAG:
-        return tag              # only ever merges with an identical tag
-    return None
 
 
 def collapse(records, log=print):
