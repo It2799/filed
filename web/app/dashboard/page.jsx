@@ -32,6 +32,14 @@ export default function Dashboard() {
   const [catQ, setCatQ] = useState("");
   const [limit, setLimit] = useState(PAGE);
   const [railOpen, setRailOpen] = useState(false);
+  // On a phone each card is collapsed to a few lines; tapping opens it.
+  const [open, setOpen] = useState(() => new Set());
+  const toggle = (id) =>
+    setOpen((prev) => {
+      const n = new Set(prev);
+      n.has(id) ? n.delete(id) : n.add(id);
+      return n;
+    });
 
   // Filtering happens on the server. Doing it in the browser meant a small
   // category was searched inside an already-truncated list, so picking
@@ -337,75 +345,88 @@ export default function Dashboard() {
               </div>
             ) : (
               <>
-                {shown.slice(0, limit).map((it) => (
-                  <article className={`card imp-${it.impact || "Neutral"}`} key={it.id}>
-                    <div className="card-top">
-                      <div>
-                        <div className="co">
-                          {it.company}
+                {shown.slice(0, limit).map((it) => {
+                  const isOpen = open.has(it.id);
+                  const nums = Array.isArray(it.key_numbers) ? it.key_numbers : [];
+                  return (
+                    <article
+                      className={`card imp-${it.impact || "Neutral"} ${isOpen ? "open" : ""}`}
+                      key={it.id}
+                    >
+                      <div className="card-head" onClick={() => toggle(it.id)}>
+                        <div className="co-line">
+                          <span className="co">{it.company}</span>
                           {mcapLabel(it.mcap) && (
                             <span className={`mcap ${mcapTier(it.mcap)}`}>
                               {mcapLabel(it.mcap)}
                             </span>
-                          )}{" "}
-                          {it.ticker && <span className="meta">{it.ticker}</span>}
+                          )}
                         </div>
-                        <div className="meta">
-                          {it.exchange} · {it.category} · {it.time}
+                        <div className="meta-line">
+                          <span className="b tag">{it.tag}</span>
+                          {it.impact && (
+                            <span className={`b ${impactClass(it.impact)}`}>
+                              {it.impact}
+                            </span>
+                          )}
+                          <span className="meta">{it.time}</span>
+                          <span className="meta hide-sm">· {it.exchange}</span>
                         </div>
                       </div>
-                      <div className="badges">
-                        <span className="b tag">{it.tag}</span>
-                        {it.impact && (
-                          <span className={`b ${impactClass(it.impact)}`}>
-                            {it.impact}
+
+                      {it.summary ? (
+                        <p className={`summary ${isOpen ? "" : "clamp"}`}
+                           onClick={() => toggle(it.id)}>
+                          {it.summary}
+                        </p>
+                      ) : (
+                        <>
+                          <div className="head">{it.headline}</div>
+                          <span className="no-summary">
+                            Routine filing — not summarised
                           </span>
-                        )}
-                      </div>
-                    </div>
-
-                    {it.summary ? (
-                      <p className="summary">{it.summary}</p>
-                    ) : (
-                      <>
-                        <div className="head">{it.headline}</div>
-                        <span className="no-summary">
-                          Routine filing — not summarised
-                        </span>
-                      </>
-                    )}
-
-                    {Array.isArray(it.key_numbers) && it.key_numbers.length > 0 && (
-                      <div className="nums">
-                        {it.key_numbers.map((n, i) => (
-                          <span className="num" key={i}>{n}</span>
-                        ))}
-                      </div>
-                    )}
-                    {it.why_it_matters && <div className="why">{it.why_it_matters}</div>}
-
-                    {it.also_filed > 0 && (
-                      <div className="also">
-                        <span>Also filed as</span>
-                        {(it.also_tags || []).map((t) => (
-                          <span className="also-tag" key={t}>{t}</span>
-                        ))}
-                        <span>
-                          — {it.also_filed} related filing
-                          {it.also_filed === 1 ? "" : "s"} folded in
-                        </span>
-                      </div>
-                    )}
-
-                    <div className="card-links">
-                      {it.pdf_url && (
-                        <a href={it.pdf_url} target="_blank" rel="noopener noreferrer">
-                          Open the original filing
-                        </a>
+                        </>
                       )}
-                    </div>
-                  </article>
-                ))}
+
+                      {nums.length > 0 && (
+                        <div className="nums">
+                          {(isOpen ? nums : nums.slice(0, 2)).map((n, i) => (
+                            <span className="num" key={i}>{n}</span>
+                          ))}
+                          {!isOpen && nums.length > 2 && (
+                            <button className="num more-num" onClick={() => toggle(it.id)}>
+                              +{nums.length - 2} more
+                            </button>
+                          )}
+                        </div>
+                      )}
+
+                      {isOpen && it.why_it_matters && (
+                        <div className="why">{it.why_it_matters}</div>
+                      )}
+
+                      {isOpen && it.also_filed > 0 && (
+                        <div className="also">
+                          <span>Also filed as</span>
+                          {(it.also_tags || []).map((t) => (
+                            <span className="also-tag" key={t}>{t}</span>
+                          ))}
+                        </div>
+                      )}
+
+                      <div className="card-links">
+                        {it.pdf_url && (
+                          <a href={it.pdf_url} target="_blank" rel="noopener noreferrer">
+                            Open filing
+                          </a>
+                        )}
+                        <button className="expand" onClick={() => toggle(it.id)}>
+                          {isOpen ? "Less" : "More"}
+                        </button>
+                      </div>
+                    </article>
+                  );
+                })}
 
                 {shown.length > limit && (
                   <button className="more" onClick={() => setLimit(limit + PAGE)}>
