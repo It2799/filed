@@ -385,3 +385,15 @@ body.sheet-open { overflow: hidden; }
     font-size: 13.5px; font-weight: 620;
   }
 }
+
+/* =====================================================================
+   The mobile sheet backdrop must never take part in the desktop grid.
+   It was declared inside .dash-grid, so on a wide screen it claimed the
+   248px filter column, pushed the filter rail into the wide column and
+   left the filings squeezed into whatever was left.
+   ===================================================================== */
+.sheet-backdrop { display: none; }
+
+@media (max-width: 900px) {
+  .sheet-backdrop { display: block; }
+}
