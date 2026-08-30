@@ -18,7 +18,9 @@ export default function Landing() {
   }, []);
 
   const scanned = live?.meta?.scanned;
-  const summarised = live?.summarised;
+  // The same figure the dashboard shows under "worth reading". Two pages
+  // quoting different numbers for the same thing reads as a broken product.
+  const worthReading = live?.total;
   const days = live?.days?.length || 7;
 
   // A handful of genuinely interesting ones for the scrolling strip.
@@ -68,11 +70,11 @@ export default function Landing() {
             <div className="livestrip">
               <div className="livestat">
                 <b>{Number(scanned).toLocaleString("en-IN")}</b>
-                <span>filings read</span>
+                <span>filed on NSE &amp; BSE</span>
               </div>
               <div className="livestat hi">
-                <b>{Number(summarised || 0).toLocaleString("en-IN")}</b>
-                <span>were worth summarising</span>
+                <b>{Number(worthReading || 0).toLocaleString("en-IN")}</b>
+                <span>worth reading, all summarised</span>
               </div>
               <div className="livestat">
                 <b>{days}</b>

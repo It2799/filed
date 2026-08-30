@@ -22,7 +22,14 @@ export async function GET(request) {
     const q = (url.searchParams.get("q") || "").toLowerCase().trim();
 
     const sort = url.searchParams.get("sort") === "important" ? "important" : "latest";
-    const { days, items, meta } = await recent({ scope, sort });
+    let { days, items, meta } = await recent({ scope, sort });
+
+    // Worth reading means summarised - one set, not two. A day written before
+    // that rule existed can still hold a filing marked important with no
+    // summary against it, and showing "661 worth reading, 394 summarised" makes
+    // the product look like it gave up halfway. Anything without a summary is
+    // not offered as a headline item, whatever the stored data says.
+    if (scope === "important") items = items.filter((r) => r.summary);
 
     // Narrow by day and text first. Whatever survives is the universe the
     // category counts describe, so the sidebar keeps showing every category
@@ -45,7 +52,7 @@ export async function GET(request) {
     let rows = tag ? universe.filter((r) => r.tag === tag) : universe;
 
     const total = rows.length;
-    const summarised = rows.filter((r) => r.summary).length;
+    const summarised = rows.filter((r) => r.summary).length;   // == total when scope is important
     const cap = LIMIT[scope];
 
     // The order above is the order we keep. Promoting summarised rows here
