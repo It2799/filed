@@ -179,6 +179,7 @@ def main():
     # regex, no AI - and it happens before summarising so promoted filings get
     # a summary like any other.
     triage.triage(kept, important_at=args.important_at, workers=args.workers)
+    tri = getattr(triage, "last_stats", {"read": 0, "promoted": 0})
 
     # Only spend AI on filings that will actually appear under Important. The
     # store keeps everything down to score 20 for the All tab, but summarising a
@@ -197,7 +198,10 @@ def main():
 
     rows = pipeline.to_rows(kept)
     stats = {
-        "scanned": len(raw),
+        "scanned": len(raw),                       # every announcement filed
+        "stored": len(kept),                       # what survived dedupe
+        "read": tri.get("read", 0),                # PDFs actually opened
+        "promoted": tri.get("promoted", 0),        # rescued from a bad headline
         "summarised": sum(1 for a in kept if a.get("summary")),
         "from": start.isoformat(),
         "to": today.isoformat(),

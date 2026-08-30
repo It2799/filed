@@ -31,6 +31,9 @@ CACHE = os.path.join(HERE, "triage.json")
 
 _lock = threading.Lock()
 
+# What the last run did, so the dashboard can report it.
+last_stats = {"read": 0, "promoted": 0}
+
 # Read everything. The only filings a document cannot rescue are the ones that
 # are duplicates of another filing, or pure register-keeping - a newspaper
 # clipping of a buyback notice is a clipping, and the buyback itself is filed
@@ -90,7 +93,9 @@ def triage(records, important_at=55, workers=8, log=print):
     log(f"Triage: {len(todo)} filings to read "
         f"({from_cache} already read in an earlier run)")
 
+    stats = {"read": from_cache, "promoted": 0}
     if not todo:
+        globals()['last_stats'] = stats
         return records
 
     promoted, done = [0], [0]
@@ -129,5 +134,8 @@ def triage(records, important_at=55, workers=8, log=print):
         list(ex.map(look, todo))
 
     save_cache(cache)
+    stats["read"] = from_cache + done[0]
+    stats["promoted"] = promoted[0]
+    globals()['last_stats'] = stats
     log(f"Triage: read {done[0]}, promoted {promoted[0]} that the headline had buried")
     return records

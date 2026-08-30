@@ -120,23 +120,46 @@ export default function Dashboard() {
         <header className="dash-top">
           <h1>Corporate announcements</h1>
           <p className="dash-meta">
-            {data?.meta?.scanned ? (
-              <>
-                <b>{Number(data.summarised || 0).toLocaleString("en-IN")}</b>{" "}
-                summarised from{" "}
-                <b>{Number(data.meta.scanned).toLocaleString("en-IN")}</b> filings
-                <span className="stack-sm">
-                  {data.meta.updated
-                    ? `updated ${new Date(data.meta.updated).toLocaleString("en-IN", {
-                        day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit",
-                      })}`
-                    : ""}
-                </span>
-              </>
-            ) : (
-              "Loading…"
-            )}
+            {data?.meta?.updated
+              ? `Last 7 days · updated ${new Date(data.meta.updated).toLocaleString(
+                  "en-IN",
+                  { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }
+                )}`
+              : "Loading…"}
           </p>
+
+          {data?.meta ? (
+            <div className="funnel">
+              <div className="fstep">
+                <b>{Number(data.meta.scanned || 0).toLocaleString("en-IN")}</b>
+                <span>filed on NSE &amp; BSE</span>
+              </div>
+              <div className="fstep">
+                <b>
+                  {data.meta.read
+                    ? Number(data.meta.read).toLocaleString("en-IN")
+                    : Number(data.meta.stored || 0).toLocaleString("en-IN")}
+                </b>
+                <span>PDFs we read</span>
+              </div>
+              <div className="fstep hi">
+                <b>{Number(data.total || 0).toLocaleString("en-IN")}</b>
+                <span>worth reading</span>
+              </div>
+              <div className="fstep hi">
+                <b>{Number(data.summarised || 0).toLocaleString("en-IN")}</b>
+                <span>summarised</span>
+              </div>
+            </div>
+          ) : null}
+
+          {data?.meta?.promoted > 0 && (
+            <p className="rescued">
+              <b>{Number(data.meta.promoted).toLocaleString("en-IN")}</b> of these
+              were filed under a heading that gave nothing away — we found them by
+              reading the document.
+            </p>
+          )}
         </header>
 
         <div className="dash-grid">
