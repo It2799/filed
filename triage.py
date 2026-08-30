@@ -31,9 +31,20 @@ CACHE = os.path.join(HERE, "triage.json")
 
 _lock = threading.Lock()
 
-# These categories are duplicates or compliance boilerplate by definition. We
-# still read them, but reading cannot rescue them.
-NEVER_PROMOTE = rules.JUNK
+# Read everything. The only filings a document cannot rescue are the ones that
+# are duplicates of another filing, or pure register-keeping - a newspaper
+# clipping of a buyback notice is a clipping, and the buyback itself is filed
+# separately and gets found on its own. Everything else is judged on what the
+# PDF actually says, whatever the headline claimed.
+NEVER_PROMOTE = [
+    r"newspaper (publication|advertisement|clipping)|copy of newspaper|publication in newspaper",
+    r"trading window|closure of trading",
+    r"loss of (share )?certificate|duplicate (share )?certificate|issue of duplicate",
+    r"reconciliation of share capital",
+    r"shareholding pattern",
+    r"investor complaint|grievance redressal",
+    r"iepf|unclaimed (dividend|share)",
+]
 
 
 def load_cache():
