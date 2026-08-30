@@ -146,10 +146,6 @@ export default function Dashboard() {
                 <b>{Number(data.total || 0).toLocaleString("en-IN")}</b>
                 <span>worth reading</span>
               </div>
-              <div className="fstep hi">
-                <b>{Number(data.summarised || 0).toLocaleString("en-IN")}</b>
-                <span>summarised</span>
-              </div>
             </div>
           ) : null}
 

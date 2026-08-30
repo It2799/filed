@@ -137,6 +137,42 @@ def write_day(url, token, key, rows):
     return len(chunks)
 
 
+
+
+def publish_index(url, token, today, run_stats):
+    """
+    Rebuild the day index and the headline figures from what is genuinely in
+    the store. Called after every day so the site keeps pace with the work.
+    Returns (days, totals).
+    """
+    window = [(today - datetime.timedelta(days=i)).isoformat()
+              for i in range(KEEP_DAYS)]
+    marks = redis(url, token, ["MGET", *[f"mt:count:{d}" for d in window]]) or []
+
+    live_days, totals = [], {"important": 0, "other": 0, "summarised": 0}
+    for d, mark in zip(window, marks):
+        if not mark:
+            continue
+        live_days.append(d)
+        try:
+            c = json.loads(mark)
+            for k in totals:
+                totals[k] += int(c.get(k) or 0)
+        except Exception:
+            pass
+
+    meta = {
+        **run_stats,
+        "updated": datetime.datetime.now(datetime.timezone.utc)
+                   .strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "days": live_days,
+        **totals,
+    }
+    redis(url, token, ["SET", "mt:index", json.dumps(live_days)])
+    redis(url, token, ["SET", "mt:meta", json.dumps(meta, ensure_ascii=False)])
+    return live_days, totals
+
+
 # ---------------------------------------------------------------- main
 
 def main():
@@ -167,129 +203,80 @@ def main():
     print(f"AI providers configured: {[p['kind'] for p in provider_list] or 'none'}\n")
 
     today = today_ist()
-    start = today - datetime.timedelta(days=max(0, args.days))
-
-    raw, kept = pipeline.fetch_and_score(start, today, args.min_score)
-
-    # One event, filed four times, should be one entry - not four.
-    kept = dedupe.collapse(kept)
-
-    # Headlines lie by omission, so read the PDFs of anything that fell short
-    # and promote whatever turns out to be substantive. Free - a download and a
-    # regex, no AI - and it happens before summarising so promoted filings get
-    # a summary like any other.
-    triage.triage(kept, important_at=args.important_at, workers=args.workers)
-    tri = getattr(triage, "last_stats", {"read": 0, "promoted": 0})
-
-    # Only spend AI on filings that will actually appear under Important. The
-    # store keeps everything down to score 20 for the All tab, but summarising a
-    # routine board-meeting notice burns budget that a buyback should have had.
-    worth_reading = [a for a in kept if a.get("score", 0) >= args.important_at]
-    cap = args.max_summaries or len(worth_reading)      # 0 means no cap
-    how_many = "all of them" if not args.max_summaries else f"up to {cap}"
-    print(f"\nOf {len(kept)} stored, {len(worth_reading)} are relevant "
-          f"(score >= {args.important_at}). Summarising {how_many}.")
-
-    pipeline.summarise(worth_reading, provider_list, cap, workers=args.workers)
-
-    # Market cap, so a Rs 400 crore order means something next to the company.
-    if not args.no_mcap:
-        mcap.attach(kept, workers=args.workers)
-
-    rows = pipeline.to_rows(kept)
-    stats = {
-        "scanned": len(raw),                       # every announcement filed
-        "stored": len(kept),                       # what survived dedupe
-        "read": tri.get("read", 0),                # PDFs actually opened
-        "promoted": tri.get("promoted", 0),        # rescued from a bad headline
-        "summarised": sum(1 for a in kept if a.get("summary")),
-        "from": start.isoformat(),
-        "to": today.isoformat(),
-    }
-
-    # Two tiers per day, so the dashboard's default view stays small and fast:
-    #   mt:day:DATE  the important ones, with their summaries
-    #   mt:all:DATE  everything else, trimmed, for the "All" tab
+    first = today - datetime.timedelta(days=max(0, args.days))
     cutoff = (today - datetime.timedelta(days=KEEP_DAYS - 1)).isoformat()
-    important, rest = {}, {}
-    for r in rows:
-        day = r.get("date") or ""
-        if not day or day < cutoff:
+
+    # Work newest day first and publish each one the moment it is finished,
+    # rather than doing everything and writing at the end. A full read of a
+    # week takes the better part of an hour; publishing only at the end meant
+    # nothing appeared for that whole time, and a cancelled run threw away
+    # every bit of it. Today's filings now land within a couple of minutes.
+    day_list = [today - datetime.timedelta(days=k)
+                for k in range((today - first).days + 1)]
+
+    run = {"scanned": 0, "stored": 0, "read": 0, "promoted": 0, "summarised": 0}
+
+    for n, day in enumerate(day_list, 1):
+        iso = day.isoformat()
+        if iso < cutoff:
             continue
-        if r.get("score", 0) >= args.important_at:
-            important.setdefault(day, []).append(r)
-        else:
-            rest.setdefault(day, []).append(
-                {k: r.get(k, "") for k in SLIM_FIELDS})
+        print("=" * 62)
+        print(f"DAY {n}/{len(day_list)}   {iso}")
+        print("=" * 62)
 
-    # Every calendar date we scraped, not just the ones that had filings. A
-    # quiet Sunday is still one of the seven days - dropping it would make the
-    # window six days long and shift what "last 7 days" means.
-    scraped = [(start + datetime.timedelta(days=i)).isoformat()
-               for i in range((today - start).days + 1)]
-    days = sorted(set(scraped) | set(important) | set(rest), reverse=True)
-    days = [d for d in days if d >= cutoff]
-    print(f"\nGrouped into {len(days)} days:")
-    for d in days:
-        imp = len(important.get(d, []))
-        oth = len(rest.get(d, []))
-        s = sum(1 for x in important.get(d, []) if x.get("summary"))
-        print(f"  {d}   {imp:>4} important ({s:>3} summarised), {oth:>4} other")
+        raw, kept = pipeline.fetch_and_score(day, day, args.min_score)
+        kept = dedupe.collapse(kept)
+        triage.triage(kept, important_at=args.important_at, workers=args.workers)
+        tri = getattr(triage, "last_stats", {"read": 0, "promoted": 0})
 
-    if args.dry_run:
-        print("\n(dry run - nothing written)")
-        return
+        worth = [a for a in kept if a.get("score", 0) >= args.important_at]
+        cap = args.max_summaries or len(worth)
+        print(f"{len(kept)} stored, {len(worth)} relevant. Summarising "
+              + ("all." if not args.max_summaries else f"up to {cap}."))
+        pipeline.summarise(worth, provider_list, cap, workers=args.workers)
 
-    for d in days:
-        write_day(url, token, f"mt:day:{d}", important.get(d, []))
-        write_day(url, token, f"mt:all:{d}", rest.get(d, []))
-        # Per-day tallies, so the index and the headline figures can be rebuilt
-        # from what is genuinely in the store rather than from this one run.
-        # Written even when the day is empty, so the index can tell "we looked
-        # and there was nothing" apart from "we never scraped this day".
-        redis(url, token, ["SET", f"mt:count:{d}", json.dumps({
-            "important": len(important.get(d, [])),
-            "other": len(rest.get(d, [])),
-            "summarised": sum(1 for x in important.get(d, []) if x.get("summary")),
+        if not args.no_mcap:
+            mcap.attach(kept, workers=args.workers)
+
+        rows = pipeline.to_rows(kept)
+        important = [r for r in rows if r.get("score", 0) >= args.important_at]
+        rest = [{k: r.get(k, "") for k in SLIM_FIELDS}
+                for r in rows if r.get("score", 0) < args.important_at]
+        done = sum(1 for r in important if r.get("summary"))
+
+        run["scanned"] += len(raw)
+        run["stored"] += len(kept)
+        run["read"] += tri.get("read", 0)
+        run["promoted"] += tri.get("promoted", 0)
+        run["summarised"] += done
+
+        print(f"  -> {len(important)} important ({done} summarised), {len(rest)} other")
+
+        if args.dry_run:
+            continue
+
+        write_day(url, token, f"mt:day:{iso}", important)
+        write_day(url, token, f"mt:all:{iso}", rest)
+        redis(url, token, ["SET", f"mt:count:{iso}", json.dumps({
+            "important": len(important), "other": len(rest), "summarised": done,
         }), "EX", str(TTL_SECONDS)])
 
-    # The index must list every day still in the store, not just the days this
-    # run happened to touch. A quick top-up scrapes one day; writing that as the
-    # index would delist the other six even though they are sitting right there.
-    window = [(today - datetime.timedelta(days=i)).isoformat()
-              for i in range(KEEP_DAYS)]
-    marks = redis(url, token, ["MGET", *[f"mt:count:{d}" for d in window]]) or []
+        publish_index(url, token, today, run)
+        print(f"  -> published. The dashboard is showing {iso} now.")
 
-    live_days, totals = [], {"important": 0, "other": 0, "summarised": 0}
-    for d, mark in zip(window, marks):
-        if not mark:
-            continue
-        live_days.append(d)
-        try:
-            c = json.loads(mark)
-            for k in totals:
-                totals[k] += int(c.get(k) or 0)
-        except Exception:
-            pass
+    if args.dry_run:
+        print("(dry run - nothing written)")
+        return
 
-    meta = {
-        **stats,
-        "updated": datetime.datetime.now(datetime.timezone.utc)
-                   .strftime("%Y-%m-%dT%H:%M:%SZ"),
-        "days": live_days,
-        "important_at": args.important_at,
-        "scanned_last_run": stats.get("scanned"),
-        **totals,
-    }
-    redis(url, token, ["SET", "mt:index", json.dumps(live_days)])
-    redis(url, token, ["SET", "mt:meta", json.dumps(meta, ensure_ascii=False)])
+    live_days, totals = publish_index(url, token, today, run)
 
     span = f"{live_days[-1]} to {live_days[0]}" if live_days else "nothing"
-    imp, oth = meta["important"], meta["other"]
     print("")
     print(f"Index now lists {len(live_days)} days ({span})")
-    print(f"Holding {imp} important + {oth} other across {len(live_days)} days.")
-    print(f"Last updated: {meta['updated']}")
+    print(f"Holding {totals['important']} important + {totals['other']} other, "
+          f"{totals['summarised']} summarised.")
+    print(f"This run read {run['read']} PDFs and rescued {run['promoted']} "
+          f"that the headline had buried.")
 
 
 if __name__ == "__main__":

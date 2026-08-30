@@ -119,6 +119,13 @@ def triage(records, important_at=55, workers=8, log=print):
             # network blip, and caching that would bury the filing for good.
             if text:
                 cache[rec["id"]] = result
+            # Flush periodically. An hour of reading was lost once because the
+            # cache was only written at the end and the job was cancelled.
+            if done[0] % 100 == 0:
+                try:
+                    save_cache(cache)
+                except Exception:
+                    pass
             if result:
                 promoted[0] += 1
                 log(f"  promoted: {rec['company'][:34]:<36} "

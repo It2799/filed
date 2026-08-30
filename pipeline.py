@@ -99,7 +99,14 @@ def fetch_and_score(start, end, min_score, log=print):
 
 def summarise(kept, provider_list, max_summaries, workers=4, log=print):
     """Read PDFs and summarise a spread of the most important filings."""
-    todo = spread_across_tags(kept, max_summaries)
+    # Everything worth reading gets a summary. There is no second tier - if a
+    # filing is good enough to show, it is good enough to explain. The spread
+    # only decides the ORDER when a cap is in force; with no cap it is the
+    # whole list, best first.
+    if not max_summaries or max_summaries >= len(kept):
+        todo = sorted(kept, key=lambda a: -a.get("score", 0))
+    else:
+        todo = spread_across_tags(kept, max_summaries)
     if not provider_list or not todo:
         return []
 
@@ -139,6 +146,22 @@ def summarise(kept, provider_list, max_summaries, workers=4, log=print):
     log(f"Reading {len(todo)} PDFs and summarising...")
     with cf.ThreadPoolExecutor(max_workers=max(1, workers)) as ex:
         list(ex.map(work, todo))
+
+    # A rate limit or a timeout is not a verdict on the filing, so anything
+    # still without a summary goes round again. Two extra passes is enough to
+    # clear a transient failure without grinding on a PDF that cannot be read.
+    for attempt in (1, 2):
+        missing = [a for a in todo if not a.get("summary")]
+        if not missing:
+            break
+        log(f"Retry {attempt}: {len(missing)} filings still need a summary")
+        done[0] = 0
+        with cf.ThreadPoolExecutor(max_workers=max(1, workers)) as ex:
+            list(ex.map(work, missing))
+
+    still = [a for a in todo if not a.get("summary")]
+    if still:
+        log(f"  {len(still)} could not be summarised after 3 tries")
     save_cache(cache)
 
     # Correct labels now the PDFs have actually been read. A "Receipt of Order"
