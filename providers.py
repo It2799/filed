@@ -18,6 +18,8 @@ import time
 import requests
 
 GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
+# OpenRouter speaks the same dialect as Groq, so one function serves both.
+OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
 GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
 
 SCHEMA = {
@@ -94,7 +96,7 @@ def _estimate(text, pdf_bytes):
 
 # ---------------------------------------------------------------- Groq
 
-def _groq(key, model, system, user):
+def _groq(key, model, system, user, url=GROQ_URL):
     body = {
         "model": model,
         "messages": [{"role": "system", "content": system},
@@ -104,7 +106,7 @@ def _groq(key, model, system, user):
                             "json_schema": {"name": "filing_summary",
                                             "strict": True, "schema": SCHEMA}},
     }
-    r = requests.post(GROQ_URL, headers={"Authorization": "Bearer " + key,
+    r = requests.post(url, headers={"Authorization": "Bearer " + key,
                                          "Content-Type": "application/json"},
                       json=body, timeout=180)
     if r.status_code == 200:
@@ -176,8 +178,10 @@ def run(providers, system, user, pdf_b64=None):
     for p, model in order:
         for attempt in range(2):
             try:
-                if p["kind"] == "groq":
-                    out, err = _groq(p["key"], model, system, user)
+                if p["kind"] in ("groq", "openrouter"):
+                    out, err = _groq(
+                        p["key"], model, system, user,
+                        OPENROUTER_URL if p["kind"] == "openrouter" else GROQ_URL)
                 else:
                     parts = [{"text": system + "\n\n" + user}]
                     if pdf_b64:
