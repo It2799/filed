@@ -40,6 +40,86 @@ def norm_company(name):
     return re.sub(r"[^a-z0-9]", "", n)
 
 
+# Words that appear in almost every headline and so tell two filings apart from
+# each other not at all.
+_NOISE = re.compile(
+    r"(announcement|announcements|under|regulation|reg|lodr|sebi|listing|"
+    r"obligations|disclosure|requirements|intimation|intimating|pursuant|"
+    r"regarding|company|limited|ltd|the|of|to|for|and|in|on|by|with|is|are|"
+    r"submission|submitted|please|find|attached|enclosed|herewith|copy|dated|"
+    r"date|update|updates|general|other|information|letter|read|clause|"
+    r"provisions|thereof|act|2015|2013)", re.I)
+
+
+def headline_sig(text):
+    """The words in a headline that actually identify the event."""
+    t = _NOISE.sub(" ", (text or "").lower())
+    return {w for w in re.findall(r"[a-z0-9]+", t) if len(w) > 2}
+
+
+def _overlap(a, b):
+    if not a or not b:
+        return 0.0
+    return len(a & b) / float(len(a | b))
+
+
+def fold_cross_exchange(rows, log=print):
+    """
+    One document filed on both exchanges is one piece of news.
+
+    Tags like Order and Acquisition are kept out of the tag-level merge above,
+    because two orders won on the same day are two orders. But the same order,
+    filed once with NSE and once with BSE, is not - and that is what was
+    showing up twice on the dashboard.
+
+    So within one company, one day and one tag, filings whose headlines
+    describe the same thing are folded together. Two different orders name
+    different customers and different amounts, so their headlines diverge and
+    they stay apart. A generic headline that says nothing either way is treated
+    as a duplicate, which is what it almost always is - and the other exchange's
+    PDF is still linked from the entry that survives.
+    """
+    groups = {}
+    for r in rows:
+        groups.setdefault(
+            (norm_company(r.get("company")), r.get("date"), r.get("tag")), []
+        ).append(r)
+
+    out, folded = [], 0
+    for rows_in_group in groups.values():
+        if len(rows_in_group) == 1:
+            out.append(rows_in_group[0])
+            continue
+
+        clusters = []
+        for r in sorted(rows_in_group,
+                        key=lambda x: (-(x.get("score") or 0), x.get("time") or "")):
+            sig = headline_sig(r.get("headline") or r.get("category"))
+            for c in clusters:
+                # A headline with nothing distinctive in it cannot argue that
+                # this is a different event, so it joins the first cluster.
+                if not sig or not c["sig"] or _overlap(sig, c["sig"]) >= 0.6:
+                    c["rows"].append(r)
+                    break
+            else:
+                clusters.append({"sig": sig, "rows": [r]})
+
+        for c in clusters:
+            rs = c["rows"]
+            best = dict(rs[0])
+            if len(rs) > 1:
+                others = rs[1:]
+                best["also_filed"] = (best.get("also_filed") or 0) + len(others)
+                best["also_pdfs"] = ([o["pdf_url"] for o in others if o.get("pdf_url")]
+                                     + list(best.get("also_pdfs") or []))[:4]
+                folded += len(others)
+            out.append(best)
+
+    if folded:
+        log(f"Cross-exchange: folded {folded} repeats of a filing already shown")
+    return out
+
+
 def bucket_for(tag):
     """What this filing should be grouped under, or None to leave it alone."""
     if tag in RESULTS_FAMILY:
@@ -78,7 +158,8 @@ def collapse(records, log=print):
         folded += len(others)
         merged.append(best)
 
-    out = merged + singles
+    out = fold_cross_exchange(merged + singles, log=log)
     out.sort(key=lambda x: (-(x.get("score") or 0), x.get("time") or ""))
-    log(f"Deduplicated: {len(records)} filings -> {len(out)} events ({folded} folded in)")
+    log(f"Deduplicated: {len(records)} filings -> {len(out)} events "
+        f"({len(records) - len(out)} folded in)")
     return out

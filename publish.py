@@ -229,6 +229,11 @@ def main():
         triage.triage(kept, important_at=args.important_at, workers=args.workers)
         tri = getattr(triage, "last_stats", {"read": 0, "promoted": 0})
 
+        # Reading the PDFs re-labels filings, which can reveal that two entries
+        # sitting under different tags were the same event all along. So the
+        # duplicate check runs again now that the tags are trustworthy.
+        kept = dedupe.collapse(kept)
+
         worth = [a for a in kept if a.get("score", 0) >= args.important_at]
         cap = args.max_summaries or len(worth)
         print(f"{len(kept)} stored, {len(worth)} relevant. Summarising "
@@ -239,10 +244,19 @@ def main():
             mcap.attach(kept, workers=args.workers)
 
         rows = pipeline.to_rows(kept)
-        important = [r for r in rows if r.get("score", 0) >= args.important_at]
+
+        # Worth reading means summarised - the two are the same set, so the
+        # dashboard can never show one number for what matters and a smaller
+        # one for what was explained. A filing we genuinely could not read
+        # (a scan no model could see through) is not shown as a headline item
+        # with a blank where its summary belongs; it drops to the full list.
+        def is_headline(r):
+            return r.get("score", 0) >= args.important_at and r.get("summary")
+
+        important = [r for r in rows if is_headline(r)]
         rest = [{k: r.get(k, "") for k in SLIM_FIELDS}
-                for r in rows if r.get("score", 0) < args.important_at]
-        done = sum(1 for r in important if r.get("summary"))
+                for r in rows if not is_headline(r)]
+        done = len(important)
 
         run["scanned"] += len(raw)
         run["stored"] += len(kept)
