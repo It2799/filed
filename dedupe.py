@@ -40,6 +40,15 @@ def norm_company(name):
     return re.sub(r"[^a-z0-9]", "", n)
 
 
+def bucket_for(tag):
+    """What this filing should be grouped under, or None to leave it alone."""
+    if tag in RESULTS_FAMILY:
+        return "results"
+    if tag in MERGE_SAME_TAG:
+        return tag              # only ever merges with an identical tag
+    return None
+
+
 def fold_cross_exchange(rows, log=print):
     """
     One company, one day, one kind of news - one entry.
