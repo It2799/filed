@@ -17,16 +17,17 @@ name: Scrape announcements
 
 on:
   schedule:
-    # UTC times; IST is UTC+5:30. Together these give 06:00, 06:45, 07:30 ...
-    # 23:15 IST on weekdays.
-    - cron: "30 0,3,6,9,12,15 * * 1-5"
-    - cron: "15 1,4,7,10,13,16 * * 1-5"
-    - cron: "0  2,5,8,11,14,17 * * 1-5"
-    - cron: "45 2,5,8,11,14,17 * * 1-5"
+    # Every 45 minutes, 06:00 to 23:15 IST, seven days a week. IST is UTC+5:30,
+    # and cron cannot say "every 45 minutes" because 45 does not divide into 60,
+    # so the slots are spelled out by minute. Single spaces only - a malformed
+    # entry can void the whole block.
+    - cron: "30 0,3,6,9,12,15 * * *"
+    - cron: "15 1,4,7,10,13,16 * * *"
+    - cron: "0 2,5,8,11,14,17 * * *"
+    - cron: "45 2,5,8,11,14,17 * * *"
     # 23:30 IST - the last pass of the day, which rescrapes the full 7 days.
-    - cron: "0 18 * * 1-5"
-    # Companies file at weekends too, just far less. Three passes is plenty.
-    - cron: "0 6,12,16 * * 0,6"
+    - cron: "0 18 * * *"
+
   workflow_dispatch:
     inputs:
       days:
