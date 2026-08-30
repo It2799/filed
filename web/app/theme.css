@@ -1,0 +1,188 @@
+/* =====================================================================
+   THEME
+   Loaded after globals.css so it can restate the palette and typography
+   without the earlier files needing to change.
+
+   The old palette was a cool blue-grey with a bright accent - readable,
+   but it looked like a default. This one is warmer and darker, the
+   surfaces sit closer together in tone, and the accent is used sparingly
+   so the numbers carry the page instead of the chrome.
+   ===================================================================== */
+
+:root {
+  /* surfaces, near-black with a hint of warmth rather than blue */
+  --bg: #0a0b0d;
+  --panel: #121316;
+  --panel-2: #191b1f;
+  --line: #24262b;
+  --line-soft: #1b1d21;
+
+  /* text */
+  --ink: #f2f2f3;
+  --muted: #a1a3aa;
+  --dim: #6f727a;
+
+  /* accent, kept quiet */
+  --accent: #6f9dff;
+  --accent-ink: #06080d;
+  --grad-1: #6f9dff;
+  --grad-2: #9b7cff;
+  --grad-3: #35d39a;
+
+  --pos: #4ecf9a;
+  --pos-bg: rgba(78, 207, 154, 0.11);
+  --neg: #ff8079;
+  --neg-bg: rgba(255, 128, 121, 0.11);
+
+  --glass: rgba(255, 255, 255, 0.035);
+  --glass-line: rgba(255, 255, 255, 0.075);
+
+  /* depth - two soft layers rather than one hard drop */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 2px 4px rgba(0, 0, 0, 0.3), 0 8px 24px -12px rgba(0, 0, 0, 0.6);
+  --shadow-lg: 0 4px 8px rgba(0, 0, 0, 0.3), 0 24px 60px -20px rgba(0, 0, 0, 0.75);
+
+  --radius: 14px;
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    --bg: #fbfbfa;
+    --panel: #ffffff;
+    --panel-2: #f4f4f3;
+    --line: #e6e5e3;
+    --line-soft: #efeeec;
+    --ink: #16171a;
+    --muted: #5c5f66;
+    --dim: #8a8d94;
+    --accent: #2f6bdc;
+    --accent-ink: #ffffff;
+    --pos: #0f8a53;
+    --pos-bg: rgba(15, 138, 83, 0.09);
+    --neg: #c53329;
+    --neg-bg: rgba(197, 51, 41, 0.08);
+    --glass: rgba(0, 0, 0, 0.022);
+    --glass-line: rgba(0, 0, 0, 0.07);
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+    --shadow-md: 0 1px 3px rgba(0, 0, 0, 0.06), 0 8px 20px -12px rgba(0, 0, 0, 0.14);
+    --shadow-lg: 0 2px 6px rgba(0, 0, 0, 0.06), 0 24px 50px -20px rgba(0, 0, 0, 0.16);
+  }
+}
+
+/* ---------- typography ---------- */
+body {
+  font-family: var(--font-sans), -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-feature-settings: "cv05" 1, "ss03" 1;   /* single-storey l, nicer digits */
+  letter-spacing: -0.011em;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+h1, h2, h3, .co, .dash-title, .mk-h1, .mk-h2, .nl-title {
+  letter-spacing: -0.028em;
+}
+
+/* every figure aligns in a column */
+.num, .mcap, .cnt, .stat b, .livestat b, .hiw b, .bx-num, .price-tag b,
+.active-count b, .dash-meta b {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+}
+
+/* the serif appears only on the two marketing headlines */
+.mk-h1, .finale h2 {
+  font-family: var(--font-serif), Georgia, serif;
+  font-weight: 400;
+  letter-spacing: -0.02em;
+  line-height: 1.06;
+}
+.mk-h1 .grad { font-style: italic; }
+
+/* ---------- surfaces ---------- */
+.card, .stat, .hiw, .step, .bx, .feat, .club-item, .why-card,
+.count, .newsletter, .contact-card {
+  border-radius: var(--radius);
+  border-color: var(--line-soft);
+  box-shadow: var(--shadow-sm);
+  transition: border-color 0.18s ease, box-shadow 0.18s ease,
+              transform 0.18s ease;
+}
+
+.card:hover {
+  border-color: var(--line);
+  box-shadow: var(--shadow-md);
+}
+
+/* buttons get a little lift, nothing bouncy */
+.btn-lg, .nl-btn, .wa-btn, .dl-btn {
+  transition: transform 0.16s ease, box-shadow 0.16s ease, background 0.16s ease;
+}
+.btn-lg:hover, .nl-btn:hover, .wa-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
+.btn-lg:active, .nl-btn:active, .wa-btn:active, .dl-btn:active {
+  transform: translateY(0);
+}
+
+/* focus that is visible without being loud */
+:where(a, button, input, summary):focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+/* ---------- badges ---------- */
+.b {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  padding: 3px 9px;
+  border-radius: 6px;
+}
+.b.tag {
+  background: var(--glass);
+  border: 1px solid var(--glass-line);
+  color: var(--muted);
+}
+.b.pos { background: var(--pos-bg); color: var(--pos); border: 1px solid transparent; }
+.b.neg { background: var(--neg-bg); color: var(--neg); border: 1px solid transparent; }
+.b.neu { background: var(--glass); color: var(--dim); border: 1px solid var(--glass-line); }
+
+/* key figures read as data, not decoration */
+.num {
+  background: var(--glass);
+  border: 1px solid var(--glass-line);
+  border-radius: 7px;
+  color: var(--muted);
+  font-size: 12.5px;
+  padding: 3px 9px;
+}
+
+.mcap {
+  background: transparent;
+  border: 1px solid var(--glass-line);
+  color: var(--muted);
+  font-weight: 600;
+}
+.mcap.lg { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 34%, transparent); }
+
+/* the impact edge, thinner and softer than a 3px slab */
+.card.imp-Positive { border-left: 2px solid var(--pos); }
+.card.imp-Negative { border-left: 2px solid var(--neg); }
+.card.imp-Neutral { border-left: 2px solid var(--line); }
+
+.why {
+  border-left: 2px solid var(--line);
+  color: var(--muted);
+  font-size: 13.5px;
+  line-height: 1.6;
+}
+
+/* ---------- motion, only where it helps ---------- */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

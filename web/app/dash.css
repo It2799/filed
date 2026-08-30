@@ -289,19 +289,8 @@ body.sheet-open { overflow: hidden; }
 }
 .meta-line .meta { font-size: 12px; color: var(--dim); }
 
-/* three lines, then it cuts - tap to open the rest */
-.summary.clamp {
-  display: -webkit-box;
-  -webkit-line-clamp: 3;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-.summary { cursor: pointer; }
-
-.more-num {
-  border: 1px dashed var(--line); background: transparent;
-  color: var(--accent); font-family: inherit; cursor: pointer;
-}
+/* The summary is the product. It is never truncated - nobody taps "more"
+   to read the thing they came for. */
 
 .card-links { justify-content: space-between; }
 .expand {
@@ -354,4 +343,45 @@ body.sheet-open { overflow: hidden; }
   /* the header line was three deep on a phone */
   .dash-meta .sep-sm { display: none; }
   .dash-meta .stack-sm { display: block; }
+}
+
+/* =====================================================================
+   PHONE READING
+   The summary is shown in full, so the card earns its height from the
+   content and everything around it gets out of the way.
+   ===================================================================== */
+@media (max-width: 900px) {
+  .card { padding: 15px 15px 13px; margin-bottom: 10px; }
+
+  .co-line { gap: 7px; }
+  .co-line .co { font-size: 15.5px; font-weight: 660; line-height: 1.3; }
+  .mcap { font-size: 11px; padding: 1px 6px; }
+
+  .meta-line { margin-top: 7px; gap: 6px; }
+  .meta-line .b { font-size: 10.5px; padding: 2px 7px; }
+  .meta-line .meta { font-size: 11.5px; }
+
+  /* the summary is the reason the card exists - give it room */
+  .card .summary {
+    font-size: 15px;
+    line-height: 1.58;
+    margin-top: 11px;
+    color: var(--ink);
+    letter-spacing: -0.008em;
+  }
+
+  .nums { margin-top: 10px; gap: 5px; }
+  .num { font-size: 11.5px; padding: 2px 8px; }
+
+  .why {
+    margin-top: 10px; padding-left: 10px;
+    font-size: 13px; line-height: 1.55;
+  }
+
+  .also { margin-top: 9px; font-size: 11.5px; }
+
+  .card-links {
+    margin-top: 12px; padding-top: 10px;
+    font-size: 13.5px; font-weight: 620;
+  }
 }

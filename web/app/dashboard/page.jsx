@@ -32,14 +32,6 @@ export default function Dashboard() {
   const [catQ, setCatQ] = useState("");
   const [limit, setLimit] = useState(PAGE);
   const [railOpen, setRailOpen] = useState(false);
-  // On a phone each card is collapsed to a few lines; tapping opens it.
-  const [open, setOpen] = useState(() => new Set());
-  const toggle = (id) =>
-    setOpen((prev) => {
-      const n = new Set(prev);
-      n.has(id) ? n.delete(id) : n.add(id);
-      return n;
-    });
 
   // Filtering happens on the server. Doing it in the browser meant a small
   // category was searched inside an already-truncated list, so picking
@@ -348,14 +340,13 @@ export default function Dashboard() {
             ) : (
               <>
                 {shown.slice(0, limit).map((it) => {
-                  const isOpen = open.has(it.id);
                   const nums = Array.isArray(it.key_numbers) ? it.key_numbers : [];
                   return (
                     <article
-                      className={`card imp-${it.impact || "Neutral"} ${isOpen ? "open" : ""}`}
+                      className={`card imp-${it.impact || "Neutral"}`}
                       key={it.id}
                     >
-                      <div className="card-head" onClick={() => toggle(it.id)}>
+                      <div className="card-head">
                         <div className="co-line">
                           <span className="co">{it.company}</span>
                           {mcapLabel(it.mcap) && (
@@ -377,10 +368,7 @@ export default function Dashboard() {
                       </div>
 
                       {it.summary ? (
-                        <p className={`summary ${isOpen ? "" : "clamp"}`}
-                           onClick={() => toggle(it.id)}>
-                          {it.summary}
-                        </p>
+                        <p className="summary">{it.summary}</p>
                       ) : (
                         <>
                           <div className="head">{it.headline}</div>
@@ -392,22 +380,17 @@ export default function Dashboard() {
 
                       {nums.length > 0 && (
                         <div className="nums">
-                          {(isOpen ? nums : nums.slice(0, 2)).map((n, i) => (
+                          {nums.map((n, i) => (
                             <span className="num" key={i}>{n}</span>
                           ))}
-                          {!isOpen && nums.length > 2 && (
-                            <button className="num more-num" onClick={() => toggle(it.id)}>
-                              +{nums.length - 2} more
-                            </button>
-                          )}
                         </div>
                       )}
 
-                      {isOpen && it.why_it_matters && (
+                      {it.why_it_matters && (
                         <div className="why">{it.why_it_matters}</div>
                       )}
 
-                      {isOpen && it.also_filed > 0 && (
+                      {it.also_filed > 0 && (
                         <div className="also">
                           <span>Also filed as</span>
                           {(it.also_tags || []).map((t) => (
@@ -422,9 +405,7 @@ export default function Dashboard() {
                             Open filing
                           </a>
                         )}
-                        <button className="expand" onClick={() => toggle(it.id)}>
-                          {isOpen ? "Less" : "More"}
-                        </button>
+
                       </div>
                     </article>
                   );
