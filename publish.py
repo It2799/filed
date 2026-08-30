@@ -62,6 +62,7 @@ def load_providers():
     """Prefer environment keys (that's how the cloud gets them), else config.json."""
     groq = os.environ.get("GROQ_API_KEY", "")
     gem = os.environ.get("GEMINI_API_KEY", "")
+    orouter = os.environ.get("OPENROUTER_API_KEY", "")
 
     cfg = {}
     path = os.path.join(HERE, "config.json")
@@ -78,6 +79,8 @@ def load_providers():
             p["key"] = groq
         if p.get("kind") == "gemini" and gem:
             p["key"] = gem
+        if p.get("kind") == "openrouter" and orouter:
+            p["key"] = orouter
         if p.get("key") and not p["key"].startswith("PUT_YOUR"):
             out.append(p)
 
@@ -86,9 +89,23 @@ def load_providers():
             out.append({"kind": "groq", "key": groq, "tpm": 8000, "vision": False,
                         "models": ["openai/gpt-oss-120b", "openai/gpt-oss-20b"]})
         if gem:
+            # Gemini's free tier allows 500 requests a day PER MODEL, so the
+            # length of this list is the daily ceiling: five models is 2,500
+            # summaries, two was 1,000 and ran out halfway through a backfill.
+            # gemini-2.0-flash was retired by Google and 404s on every call.
             out.append({"kind": "gemini", "key": gem, "tpm": 250000, "vision": True,
-                        "models": ["gemini-flash-lite-latest", "gemini-3-flash-preview",
-                                   "gemini-2.0-flash"]})
+                        "models": ["gemini-3.6-flash", "gemini-3.5-flash",
+                                   "gemini-3.1-flash-lite",
+                                   "gemini-flash-lite-latest",
+                                   "gemini-3-flash-preview"]})
+        if orouter:
+            # Free models, checked to return valid JSON against our schema.
+            out.append({"kind": "openrouter", "key": orouter, "tpm": 60000,
+                        "vision": False,
+                        "models": ["dots-studio/dots-3-note-preview:free",
+                                   "z-ai/glm-5.2:free",
+                                   "google/gemma-4-31b-it:free",
+                                   "google/gemma-4-26b-a4b-it:free"]})
     return out
 
 
