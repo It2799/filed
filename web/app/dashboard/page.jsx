@@ -130,14 +130,16 @@ export default function Dashboard() {
           <p className="dash-meta">
             {data?.meta?.scanned ? (
               <>
+                <b>{Number(data.summarised || 0).toLocaleString("en-IN")}</b>{" "}
+                summarised from{" "}
                 <b>{Number(data.meta.scanned).toLocaleString("en-IN")}</b> filings
-                read · <b>{Number(data.summarised || 0).toLocaleString("en-IN")}</b>{" "}
-                summarised · last {data.days?.length || 7} days
-                {data.meta.updated
-                  ? ` · updated ${new Date(data.meta.updated).toLocaleString("en-IN", {
-                      day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit",
-                    })}`
-                  : ""}
+                <span className="stack-sm">
+                  {data.meta.updated
+                    ? `updated ${new Date(data.meta.updated).toLocaleString("en-IN", {
+                        day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit",
+                      })}`
+                    : ""}
+                </span>
               </>
             ) : (
               "Loading…"
@@ -285,7 +287,7 @@ export default function Dashboard() {
                   type="search"
                   value={q}
                   onChange={(e) => setQ(e.target.value)}
-                  placeholder="Search a company or ticker…"
+                  placeholder="Search company…"
                   aria-label="Search filings"
                 />
                 <a className="dl-btn" href={exportUrl()} download>

@@ -328,3 +328,30 @@ body.sheet-open { overflow: hidden; }
   .dash-top h1 { font-size: 20px; margin-bottom: 4px; }
   .dash-meta { font-size: 12px; line-height: 1.45; }
 }
+
+/* =====================================================================
+   SHEET VISIBILITY - fixed properly
+   translateY(100%) was measured against the border box, but the sticky
+   Done bar inside the sheet threw that off and left ~100px of it poking
+   into view over the filings. Hide it outright when closed instead of
+   relying on the transform alone.
+   ===================================================================== */
+@media (max-width: 900px) {
+  .rail {
+    transform: translateY(105%);
+    visibility: hidden;
+    transition: transform 0.24s ease, visibility 0s linear 0.24s;
+  }
+  .rail.open {
+    transform: translateY(0);
+    visibility: visible;
+    transition: transform 0.24s ease, visibility 0s;
+  }
+
+  /* shorter placeholder fits the narrow field */
+  .feedbar input[type="search"]::placeholder { font-size: 15px; }
+
+  /* the header line was three deep on a phone */
+  .dash-meta .sep-sm { display: none; }
+  .dash-meta .stack-sm { display: block; }
+}
