@@ -64,6 +64,7 @@ jobs:
           path: |
             cache.json
             mcap.json
+            triage.json
           key: caches-${{ github.run_id }}
           restore-keys: caches-
 
@@ -106,5 +107,6 @@ jobs:
           path: |
             cache.json
             mcap.json
+            triage.json
           retention-days: 3
           if-no-files-found: ignore

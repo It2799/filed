@@ -143,8 +143,10 @@ def main():
     p = argparse.ArgumentParser()
     p.add_argument("--days", type=int, default=KEEP_DAYS,
                    help=f"how many days back to scrape (default {KEEP_DAYS})")
-    p.add_argument("--min-score", type=int, default=20,
-                   help="lowest score worth storing at all (feeds the All tab)")
+    p.add_argument("--min-score", type=int, default=0,
+                   help="lowest score worth storing. 0 keeps everything, which "
+                        "is what triage needs - a filing scoring 18 on its "
+                        "headline can turn out to be a chief executive resigning.")
     p.add_argument("--important-at", type=int, default=55,
                    help="score at which a filing counts as Important")
     p.add_argument("--max-summaries", type=int, default=0,

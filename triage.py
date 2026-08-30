@@ -1,51 +1,88 @@
 """
-Read the PDF before deciding whether a filing matters.
+Read every filing's PDF before deciding whether it matters.
 
 Exchange headlines routinely say nothing. "Announcement under Regulation 30
 (LODR)-Press Release / Media Release" is what a company files for a Rs 260
-crore acquisition, and "Disclosure Under Regulation 30" is what a bank files
-when its chief executive is retiring. Scoring those on the headline alone puts
-them below the line and they never reach the dashboard.
+crore acquisition; "Disclosure Under Regulation 30" is what a bank files when
+its chief executive retires; "General Updates" is what a company files when it
+opens a new plant. Judged on the headline, all three score 18 and disappear.
 
-So: for every filing that did NOT clear the bar on its headline, download the
-PDF, pull the text out, and score that instead. Anything that turns out to be
-substantive gets promoted.
+So nothing is judged on its headline any more. Every filing we hold gets its
+PDF downloaded and its text scored, and whatever turns out to be substantive is
+promoted. It costs no AI - a download and a regex - and results are cached by
+filing id, so a filing is only ever read once no matter how many times the
+scraper runs over the same day.
 
-This costs nothing but time - it is a download and a regex, no AI - and it runs
-before the summarising step, so a promoted filing gets summarised like any
-other.
+The one thing a document cannot do is promote itself out of the hard-junk
+categories. A newspaper clipping of a buyback notice is still a clipping; the
+buyback itself is filed separately and gets found on its own.
 """
 
 import concurrent.futures as cf
+import json
+import os
 import threading
 
 import rules
 import summarize
 
+HERE = os.path.dirname(os.path.abspath(__file__))
+CACHE = os.path.join(HERE, "triage.json")
+
 _lock = threading.Lock()
 
-# Categories whose headline is worth distrusting. These are the buckets the
-# exchanges use when a company has not said what the filing is about.
-WORTH_A_LOOK_FROM = 15          # below this it is genuine paperwork
+# These categories are duplicates or compliance boilerplate by definition. We
+# still read them, but reading cannot rescue them.
+NEVER_PROMOTE = rules.JUNK
+
+
+def load_cache():
+    try:
+        with open(CACHE, encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return {}
+
+
+def save_cache(cache):
+    tmp = CACHE + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        json.dump(cache, f, ensure_ascii=False, separators=(",", ":"))
+    os.replace(tmp, CACHE)
+
+
+def _blocked(rec):
+    import re
+    blob = f"{rec.get('category','')} || {rec.get('headline','')}"
+    return any(re.search(p, blob, re.I) for p in NEVER_PROMOTE)
 
 
 def triage(records, important_at=55, workers=8, log=print):
-    """
-    Promote filings whose PDF turns out to matter. Mutates and returns records.
-    """
-    candidates = [
-        r for r in records
-        if WORTH_A_LOOK_FROM <= r.get("score", 0) < important_at and r.get("pdf_url")
-    ]
+    """Read every filing that hasn't already cleared the bar. Mutates records."""
+    cache = load_cache()
 
-    if not candidates:
-        log("Triage: nothing to re-read")
+    todo, from_cache = [], 0
+    for r in records:
+        if r.get("score", 0) >= important_at:
+            continue                       # already in, no need to re-read
+        if not r.get("pdf_url"):
+            continue
+        hit = cache.get(r["id"])
+        if hit is not None:
+            from_cache += 1
+            if hit:                        # {} means "read it, nothing there"
+                r["score"], r["tag"] = hit["s"], hit["t"]
+                r["promoted"] = True
+            continue
+        todo.append(r)
+
+    log(f"Triage: {len(todo)} filings to read "
+        f"({from_cache} already read in an earlier run)")
+
+    if not todo:
         return records
 
-    log(f"Triage: re-reading {len(candidates)} filings whose headline said little")
-
-    promoted = [0]
-    done = [0]
+    promoted, done = [0], [0]
 
     def look(rec):
         try:
@@ -54,28 +91,32 @@ def triage(records, important_at=55, workers=8, log=print):
         except Exception:
             text = ""
 
+        result = {}
+        if len(text) >= 200 and not _blocked(rec):
+            score, tag = rules.score_text(text, floor=important_at)
+            if score:
+                result = {"s": score, "t": tag}
+
         with _lock:
             done[0] += 1
-            if done[0] % 200 == 0:
-                log(f"  ...{done[0]}/{len(candidates)}")
+            # Only cache a definite answer. An empty read may be a scan or a
+            # network blip, and caching that would bury the filing for good.
+            if text:
+                cache[rec["id"]] = result
+            if result:
+                promoted[0] += 1
+                log(f"  promoted: {rec['company'][:34]:<36} "
+                    f"{rec['tag']}({rec['score']}) -> {result['t']}({result['s']})")
+            if done[0] % 250 == 0:
+                log(f"  ...read {done[0]}/{len(todo)}")
 
-        if len(text) < 200:
-            return                      # scanned or empty; leave it where it is
-
-        score, tag = rules.score_text(text, floor=important_at)
-        if not score:
-            return
-
-        with _lock:
-            promoted[0] += 1
-            log(f"  promoted: {rec['company'][:34]:<36} "
-                f"{rec['tag']}({rec['score']}) -> {tag}({score})")
-        rec["score"] = score
-        rec["tag"] = tag
-        rec["promoted"] = True
+        if result:
+            rec["score"], rec["tag"] = result["s"], result["t"]
+            rec["promoted"] = True
 
     with cf.ThreadPoolExecutor(max_workers=max(1, workers)) as ex:
-        list(ex.map(look, candidates))
+        list(ex.map(look, todo))
 
-    log(f"Triage: {promoted[0]} filings promoted after reading the document")
+    save_cache(cache)
+    log(f"Triage: read {done[0]}, promoted {promoted[0]} that the headline had buried")
     return records
