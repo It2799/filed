@@ -70,6 +70,44 @@ async function readKeys(keys) {
   return keys.map((k) => out.get(k) || []);
 }
 
+// Company names differ between the exchanges - "Mankind Pharma Ltd" on one,
+// "Mankind Pharma Limited" on the other - so the suffixes come off before
+// anything is compared.
+const NAME_NOISE =
+  /(limited|ltd|private|pvt|the|and|company|co|corporation|corp|india|indian|inc)/g;
+
+function normCompany(name) {
+  return String(name || "").toLowerCase().replace(NAME_NOISE, " ").replace(/[^a-z0-9]/g, "");
+}
+
+/**
+ * One company, one day, one kind of news - one entry.
+ *
+ * The scraper folds duplicates too, but a day written by an older run still
+ * holds its own, and re-reading a week of PDFs takes over an hour. Doing it
+ * here as well means the site is right straight away and stays right even if
+ * a future run writes something twice. It costs a few milliseconds.
+ */
+function foldDuplicates(items) {
+  const seen = new Map();
+  const out = [];
+  for (const r of items) {
+    const key = `${normCompany(r.company)}|${r.day}|${r.tag}`;
+    const first = seen.get(key);
+    if (!first) {
+      const copy = { ...r };
+      seen.set(key, copy);
+      out.push(copy);
+      continue;
+    }
+    first.also_filed = (first.also_filed || 0) + 1;
+    if (r.pdf_url && (first.also_pdfs || []).length < 4) {
+      first.also_pdfs = [...(first.also_pdfs || []), r.pdf_url];
+    }
+  }
+  return out;
+}
+
 /**
  * Filings from the last 7 days, newest first.
  *
@@ -109,5 +147,7 @@ export async function recent({ scope = "important", sort = "latest" } = {}) {
 
   items.sort(sort === "important" ? byImportance : byLatest);
 
-  return { days, items, meta };
+  // Sorted first, so the entry that survives a fold is the best one under the
+  // order the reader actually asked for.
+  return { days, items: foldDuplicates(items), meta };
 }
