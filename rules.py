@@ -288,3 +288,39 @@ def score(category, headline, critical=False):
             break
 
     return pts, tag
+
+def score_text(text, floor=0):
+    """
+    Score the actual contents of a filing rather than its headline.
+
+    Exchange headlines are frequently useless - "Announcement under Regulation
+    30 (LODR)-Press Release / Media Release" is what a company files for a
+    Rs 260 crore acquisition. The news is in the PDF. This scores that text so
+    a filing can be judged on what it says, not on how it was labelled.
+
+    Returns (score, tag). Only the strongest topic counts, and a filing has to
+    clear `floor` to be worth promoting.
+    """
+    if not text:
+        return 0, None
+
+    body = text[:4000]
+
+    hits = [(pts, tag) for tag, pts, rx in _TOPIC_RE if rx.search(body)]
+    if not hits:
+        return 0, None
+    pts, tag = max(hits)
+
+    # Several strong themes in one document usually means a substantive
+    # board outcome rather than a passing mention.
+    strong = [h for h in hits if h[0] >= 55]
+    if len(strong) > 1:
+        pts += 4
+
+    for r_tag, rx in _RETAG_RE:
+        if rx.search(body):
+            tag = r_tag
+            break
+
+    pts = min(pts, 100)
+    return (pts, tag) if pts >= floor else (0, None)

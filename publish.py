@@ -33,6 +33,7 @@ import requests
 
 import dedupe
 import mcap
+import triage
 import pipeline
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -170,6 +171,12 @@ def main():
 
     # One event, filed four times, should be one entry - not four.
     kept = dedupe.collapse(kept)
+
+    # Headlines lie by omission, so read the PDFs of anything that fell short
+    # and promote whatever turns out to be substantive. Free - a download and a
+    # regex, no AI - and it happens before summarising so promoted filings get
+    # a summary like any other.
+    triage.triage(kept, important_at=args.important_at, workers=args.workers)
 
     # Only spend AI on filings that will actually appear under Important. The
     # store keeps everything down to score 20 for the All tab, but summarising a
