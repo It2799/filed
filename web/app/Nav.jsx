@@ -9,9 +9,8 @@ export default function Nav() {
         </a>
         <div className="nav-links">
           <a href="/dashboard">Dashboard</a>
-          <a href={SITE.newsletterLink} target="_blank" rel="noopener noreferrer">
-            Free brief
-          </a>
+          <a href="/brief">Daily free brief</a>
+          <a href="/subscribe">Subscribe</a>
           <a className="nav-cta" href="/join">
             Join · ₹{SITE.price.toLocaleString("en-IN")}
           </a>

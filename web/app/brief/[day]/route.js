@@ -21,13 +21,17 @@ export async function GET(request, { params }) {
     });
   }
 
+  // ?download=1 saves the file instead of opening it in the browser's viewer.
+  // Both are wanted: reading it in a tab is the common case, but people share
+  // this in WhatsApp groups and need the file itself to do that.
+  const wantsFile = new URL(request.url).searchParams.has("download");
+
   return new Response(pdf, {
     headers: {
       "Content-Type": "application/pdf",
-      // inline: opens in the browser's viewer rather than dropping a file in
-      // Downloads. The filename is still used if the reader chooses to save.
       "Content-Disposition":
-        `inline; filename="market-tide-brief-${iso}.pdf"`,
+        `${wantsFile ? "attachment" : "inline"}; ` +
+        `filename="market-tide-brief-${iso}.pdf"`,
       "Cache-Control": "public, max-age=3600, s-maxage=86400, immutable",
     },
   });

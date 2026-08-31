@@ -54,6 +54,15 @@ SECTION_ORDER = [
     "Nclt", "Legal/Reg", "Change In Management",
 ]
 
+# The same details as web/app/site.js. Kept here rather than imported because
+# that file is JavaScript; if one changes, change the other.
+CONTACT = {
+    "site": "markettide.in",
+    "email": "market.tide27@gmail.com",
+    "phone": "+91 82004 40146",
+    "community": "join at markettide.in/subscribe",
+}
+
 CHROME_CANDIDATES = [
     os.environ.get("CHROME_PATH"),
     "/c/Program Files/Google/Chrome/Application/chrome.exe",
@@ -294,8 +303,18 @@ h1, h2, h3 { margin: 0; font-weight: 600; }
 
 /* ---------- closing ---------- */
 .end { margin-top: 9mm; padding-top: 5mm; border-top: 1.4px solid #14161a;
-       font-size: 8.6pt; color: #6b7280; line-height: 1.65; }
+       font-size: 8.6pt; color: #6b7280; line-height: 1.65;
+       break-inside: avoid; }
 .end b { color: #14161a; }
+.end-top { display: flex; gap: 12mm; align-items: flex-start; }
+.end-top > div:first-child { flex: 1; }
+.end-contact { display: flex; flex-direction: column; gap: 0.8mm;
+               min-width: 52mm; }
+.end-contact .end-h { font-size: 7.6pt; font-weight: 700; color: #14161a;
+                      letter-spacing: 0.06em; text-transform: uppercase;
+                      margin-bottom: 1mm; }
+.end-note { margin-top: 5mm; padding-top: 3mm; border-top: 1px solid #e4e7eb;
+            font-size: 8pt; color: #8a9099; }
 """
 
 
@@ -377,11 +396,26 @@ def render(rows, day_iso, meta, count):
 
     out.append(f"""
 <div class="end">
-  <b>Market Tide</b> reads every corporate announcement filed with NSE and BSE
-  and summarises the ones that matter. The full searchable archive, including
-  the filings left out of this brief, is at <b>markettide.in</b>.<br>
-  Summaries are written from the original filing and are for information only.
-  They are not investment advice. Always read the filing itself before acting.
+  <div class="end-top">
+    <div>
+      <b>Market Tide</b> reads every corporate announcement filed with NSE and
+      BSE and summarises the ones that matter. The full searchable archive,
+      including the filings left out of this brief, is at
+      <b>{e(CONTACT['site'])}</b>.
+    </div>
+    <div class="end-contact">
+      <span class="end-h">Get in touch</span>
+      <span>{e(CONTACT['email'])}</span>
+      <span>{e(CONTACT['phone'])}</span>
+      <span>{e(CONTACT['site'])}</span>
+      <span>WhatsApp community &middot; {e(CONTACT['community'])}</span>
+    </div>
+  </div>
+  <div class="end-note">
+    Summaries are written from the original filing and are for information only.
+    They are not investment advice, and Market Tide is not a registered
+    investment adviser. Always read the filing itself before acting.
+  </div>
 </div></body></html>""")
     return "\n".join(out), picked
 
