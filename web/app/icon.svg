@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Market Tide">
+  <title>Market Tide</title>
+  <!-- The site's own brand gradient, grad-1 into grad-2 from marketing.css.
+       Hard-coded rather than a CSS variable because a favicon is drawn by the
+       browser chrome, outside the page, where the stylesheet does not reach.
+       Keep these two in step with marketing.css if the brand ever changes. -->
+  <defs>
+    <linearGradient id="mt" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#4f9cff"/>
+      <stop offset="1" stop-color="#7c5cff"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="64" height="64" rx="15" fill="url(#mt)"/>
+
+  <!-- A filing: one page with a turned corner, two lines of text. The page is
+       deliberately large in the tile and the strokes heavy - at 16 pixels a
+       daintier version turned to mush, and 16 is the size a browser tab and a
+       search result actually use. -->
+  <g fill="none" stroke="#fff" stroke-width="4.6"
+     stroke-linecap="round" stroke-linejoin="round">
+    <path d="M20.5 12H36l10 10v27.5a2.5 2.5 0 0 1-2.5 2.5h-23A2.5 2.5 0 0 1 18 49.5v-35A2.5 2.5 0 0 1 20.5 12Z"/>
+    <path d="M25.5 33h13M25.5 42h13"/>
+  </g>
+</svg>
