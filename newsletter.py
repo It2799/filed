@@ -195,8 +195,9 @@ h1, h2, h3 { margin: 0; font-weight: 600; }
 .cover .rule { width: 46mm; height: 2px; background: rgba(255,255,255,.55);
                margin: 9mm 0 7mm; }
 .cover .date { font-size: 13pt; font-weight: 500; letter-spacing: .01em; }
-.cover .blurb { margin-top: 4mm; font-size: 10.5pt; line-height: 1.6;
-                max-width: 62ch; color: rgba(255,255,255,.92); }
+.cover .blurb { margin: 4mm 0 0; font-size: 10.8pt; line-height: 1.62;
+                max-width: 58ch; color: rgba(255,255,255,.93); }
+.cover .blurb b { font-weight: 600; color: #fff; }
 .cover .figs { position: absolute; left: 18mm; right: 18mm; bottom: 20mm;
                display: flex; gap: 0; border-top: 1px solid rgba(255,255,255,.35);
                padding-top: 6mm; }
@@ -284,10 +285,13 @@ def render(rows, day_iso, meta, count):
   <h1 class="serif">The morning brief</h1>
   <div class="rule"></div>
   <div class="date">{e(day_txt)}</div>
-  <p class="blurb">Every announcement filed with NSE and BSE yesterday, read
-     and sifted. These are the {len(picked)} worth your time - what was
-     announced, what the numbers were, and why it matters. Meeting notices and
-     slide decks are left out; this is for things that happened.</p>
+  <p class="blurb">Every day, we sift through all the announcements filed with
+     NSE &amp; BSE.</p>
+  <p class="blurb">In this newsletter, we bring you the Top {len(picked)} most
+     important announcements from yesterday &mdash; what happened, the key
+     numbers, and why it matters.</p>
+  <p class="blurb">To read all the important announcements, visit
+     <b>markettide.in</b>.</p>
   <div class="figs">
     <div class="fig"><b>{indian(meta.get('scanned') or 0)}</b><span>filed on NSE &amp; BSE</span></div>
     <div class="fig"><b>{indian(len(rows))}</b><span>worth reading</span></div>
