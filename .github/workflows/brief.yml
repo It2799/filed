@@ -1,0 +1,74 @@
+name: The morning brief
+
+# 07:00 IST every day. IST is UTC+5:30, so that is 01:30 UTC.
+#
+# It runs after the previous night's full pass (23:30 IST) has finished, so
+# yesterday's filings are complete and summarised by the time the brief is
+# built. newsletter.py picks yesterday in Indian time rather than "the newest
+# day in the store", because by 7am the scraper has usually already opened
+# today with a few overnight filings.
+
+on:
+  schedule:
+    - cron: "30 1 * * *"
+
+  workflow_dispatch:
+    inputs:
+      day:
+        description: "Which day to build (YYYY-MM-DD). Blank means yesterday."
+        required: false
+      count:
+        description: "How many filings in the brief"
+        required: false
+        default: "50"
+      publish:
+        description: "Put it on the site (uncheck to just build and download it)"
+        type: boolean
+        required: false
+        default: true
+
+concurrency:
+  group: brief
+  cancel-in-progress: false
+
+jobs:
+  brief:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - run: pip install --quiet requests
+
+      # The runner image ships Google Chrome. The brief is printed by it
+      # rather than a Python PDF library, because the layout is CSS and only
+      # a browser renders CSS the way a browser renders CSS.
+      - name: Check Chrome is here
+        run: google-chrome --version
+
+      - name: Build the brief
+        env:
+          KV_REST_API_URL: ${{ secrets.KV_REST_API_URL }}
+          KV_REST_API_TOKEN: ${{ secrets.KV_REST_API_TOKEN }}
+        run: >-
+          python -u newsletter.py
+          ${{ github.event.inputs.day && format('--day {0}', github.event.inputs.day) || '' }}
+          --count "${{ github.event.inputs.count || 50 }}"
+          ${{ github.event.inputs.publish == 'false' && ' ' || '--publish' }}
+
+      # Kept so a morning's issue can still be downloaded from the Actions tab
+      # if the site is having a bad day.
+      - name: Keep a copy
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: morning-brief
+          path: brief/*.pdf
+          retention-days: 14
+          if-no-files-found: warn

@@ -27,3 +27,8 @@ Thumbs.db
 triage.json
 web/.env.kv
 bse_scrips.json
+
+# Generated newsletters (published to the KV store, not the repo).
+# Leading slash: without it this also swallows web/app/brief, the route that
+# serves them.
+/brief/
