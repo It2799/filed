@@ -39,14 +39,21 @@ _lock = threading.Lock()
 
 
 def norm(name):
-    """Company names differ slightly between exchanges, so flatten them."""
+    """Company names differ slightly between exchanges, so flatten them.
+
+    India is folded to one spelling rather than deleted. Deleting it turned
+    both "Indian Oil Corporation" and "Oil India" into "oil", so the two
+    shared a cache entry and IOC was shown Oil India's market cap. NSE's
+    "Berger Paints (I)" and BSE's "Berger Paints India" still meet, because
+    the bracketed short form is rewritten to the same token instead.
+    """
     n = (name or "").lower()
-    # NSE writes "Berger Paints (I) Limited" where BSE writes "Berger Paints
-    # India Ltd". A short bracketed aside is never what tells two companies
-    # apart, so it comes off before anything else.
+    n = re.sub(r"\(\s*i\s*\)", " india ", n)
+    n = re.sub(r"\(\s*india\s*\)", " india ", n)
+    n = re.sub(r"\bindian\b", " india ", n)
     n = re.sub(r"\([^)]{1,7}\)", " ", n)
     n = re.sub(r"\b(limited|ltd|private|pvt|the|and|company|co|corporation|corp|"
-               r"india|indian|\(i\)|inc)\b", " ", n)
+               r"inc)\b", " ", n)
     return re.sub(r"[^a-z0-9]", "", n)
 
 

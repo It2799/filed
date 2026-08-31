@@ -35,7 +35,12 @@ JUNK = [
     r"corrigend",
     r"scrutinizer|postal ballot notice|notice of (the )?(agm|egm|annual general)",
     r"proceedings of (the )?(agm|annual general)",
-    r"\bfor the quarter ended.{0,10}$",
+    # A bare "<something> for the quarter ended <date>" heading is compliance
+    # paperwork - but only when the something is not the results themselves.
+    # Without the guard, whether a company's quarterly results survive came
+    # down to how the date was punctuated: "quarter ended 30.6.2025" is 9
+    # characters and was junked, "30.06.2025" is 10 and got through.
+    r"^(?!.*\b(results?|earnings|outcome)\b).*\bfor the quarter ended.{0,10}$",
 ]
 # NOTE: ESOP, annual reports and AoA/MoA amendments used to be dropped here.
 # They're now kept as their own low-scoring categories, so they show under
@@ -98,7 +103,12 @@ TOPICS = [
                                  r"integrated filing.{0,5}financial|q[1-4] ?(fy)?\s?\d* result|"
                                  r"results? for the (quarter|half|year)|"
                                  r"standalone and consolidated financial"),
-    ("Order",                62, r"bagging|receiv(ing|ed|t) of (orders?|contracts?|letter of award)|"
+    # "receipt of", not "receivt of" - the alternation used to read
+    # receiv(ing|ed|t), which spells receiving, received and receivt. The one
+    # spelling it missed is the one the exchanges actually use: "Receipt of
+    # Order" scored 18/Other whenever the category was too vague to save it.
+    ("Order",                62, r"bagging|(receipt|receiving|received) of "
+                                 r"(orders?|contracts?|letter of award)|"
                                  r"award of (order|contract)|order win|bags? (an? )?order|"
                                  r"letter of (intent|award)|\bloi\b|work order|purchase order|"
                                  r"contract (won|awarded|received|secured)|"

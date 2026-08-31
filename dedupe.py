@@ -42,9 +42,21 @@ MERGE_SAME_TAG = {
 
 
 def norm_company(name):
+    """Collapse the two ways NSE and BSE spell the same company.
+
+    India is kept as a token rather than deleted. Deleting it made "Indian Oil
+    Corporation" and "Oil India" - two separate listed PSUs that report in the
+    same window - both come out as "oil", so one of them lost its filings to
+    the other. Keeping the word means word order still tells them apart, while
+    "(I)" and "(India)" are folded to the same token so "Berger Paints (I)"
+    still meets "Berger Paints India".
+    """
     n = (name or "").lower()
+    n = re.sub(r"\(\s*i\s*\)", " india ", n)
+    n = re.sub(r"\(\s*india\s*\)", " india ", n)
+    n = re.sub(r"\bindian\b", " india ", n)
     n = re.sub(r"\b(limited|ltd|private|pvt|the|and|company|co|corporation|corp|"
-               r"india|indian|inc)\b", " ", n)
+               r"inc)\b", " ", n)
     return re.sub(r"[^a-z0-9]", "", n)
 
 

@@ -19,7 +19,7 @@
 "code": "540515",
 "at": 1788113024.941752
 },
-"oil": {
+"oilindia": {
 "cr": 78638.35,
 "code": "533106",
 "at": 1788113024.941752
@@ -89,19 +89,9 @@
 "code": "526263",
 "at": 1788113024.941752
 },
-"gammon": {
-"cr": 53.48,
-"code": "509550",
-"at": 1788113024.941752
-},
 "krishnainstituteofmedicalsciences": {
 "cr": 32332.1,
 "code": "543308",
-"at": 1788113024.941752
-},
-"embassyofficeparksreit": {
-"cr": 41463.72,
-"code": "542602",
 "at": 1788113024.941752
 },
 "baazarstyleretail": {
@@ -124,7 +114,7 @@
 "code": "533275",
 "at": 1788113024.941752
 },
-"bancoproducts": {
+"bancoproductsindia": {
 "cr": 8924.81,
 "code": "500039",
 "at": 1788113024.941752
@@ -184,7 +174,7 @@
 "code": "544238",
 "at": 1788113024.941752
 },
-"aksharchem": {
+"aksharchemindia": {
 "cr": 282.77,
 "code": "524598",
 "at": 1788113024.941752
@@ -219,11 +209,6 @@
 "code": "537326",
 "at": 1788113024.941752
 },
-"ajrinfratolling": {
-"cr": 64.04,
-"code": "532959",
-"at": 1788113024.941752
-},
 "bajajhealthcare": {
 "cr": 1084.27,
 "code": "539872",
@@ -239,7 +224,7 @@
 "code": "544684",
 "at": 1788113024.941752
 },
-"gravita": {
+"gravitaindia": {
 "cr": 13481.48,
 "code": "533282",
 "at": 1788113024.941752
@@ -284,7 +269,7 @@
 "code": "537392",
 "at": 1788113024.941752
 },
-"westerncarriers": {
+"westerncarriersindia": {
 "cr": 870.29,
 "code": "544258",
 "at": 1788113024.941752
@@ -292,11 +277,6 @@
 "moldtekpackaging": {
 "cr": 2299.11,
 "code": "533080",
-"at": 1788113024.941752
-},
-"manjeeraconstructions": {
-"cr": 45.03,
-"code": "533078",
 "at": 1788113024.941752
 },
 "khandelwalextractions": {
@@ -319,7 +299,7 @@
 "code": "533179",
 "at": 1788118538.5694108
 },
-"tourismdevelopment": {
+"indiatourismdevelopment": {
 "cr": 5684.37,
 "code": "532189",
 "at": 1788122015.992882
@@ -349,7 +329,7 @@
 "code": "530259",
 "at": 1788122015.992882
 },
-"mkexim": {
+"mkeximindia": {
 "cr": 251.69,
 "code": "538890",
 "at": 1788122015.992882
@@ -359,7 +339,7 @@
 "code": "532628",
 "at": 1788122015.992882
 },
-"transformersrectifiers": {
+"transformersrectifiersindia": {
 "cr": 9113.03,
 "code": "532928",
 "at": 1788122015.992882
@@ -434,7 +414,7 @@
 "code": "520086",
 "at": 1788122015.992882
 },
-"deepakbuildersengineers": {
+"deepakbuildersengineersindia": {
 "cr": 299.98,
 "code": "544276",
 "at": 1788122015.992882
@@ -462,11 +442,6 @@
 "ashokabuildcon": {
 "cr": 3163.75,
 "code": "533271",
-"at": 1788122015.992882
-},
-"winsomeyarns": {
-"cr": 16.55,
-"code": "514348",
 "at": 1788122015.992882
 },
 "northeasterncarrying": {
@@ -524,7 +499,7 @@
 "code": "533286",
 "at": 1788122015.992882
 },
-"nlc": {
+"nlcindia": {
 "cr": 37543.19,
 "code": "513683",
 "at": 1788122015.992882
@@ -624,11 +599,6 @@
 "code": "530267",
 "at": 1788122015.992882
 },
-"trinitytradelink": {
-"cr": 12.87,
-"code": "512417",
-"at": 1788122015.992882
-},
 "acutaaschemicals": {
 "cr": 26870.92,
 "code": "543349",
@@ -644,7 +614,7 @@
 "code": "512237",
 "at": 1788122015.992882
 },
-"signpost": {
+"signpostindia": {
 "cr": 1387.83,
 "code": "544117",
 "at": 1788122015.992882
@@ -677,11 +647,6 @@
 "europratiksales": {
 "cr": 2633.69,
 "code": "544519",
-"at": 1788122015.992882
-},
-"satiateagri": {
-"cr": 6.47,
-"code": "524546",
 "at": 1788122015.992882
 },
 "dilipbuildcon": {
@@ -779,7 +744,7 @@
 "code": "544279",
 "at": 1788122015.992882
 },
-"timexgroup": {
+"timexgroupindia": {
 "cr": 6594.05,
 "code": "500414",
 "at": 1788122015.992882
@@ -839,12 +804,12 @@
 "code": "526877",
 "at": 1788122015.992882
 },
-"apis": {
+"apisindia": {
 "cr": 739.04,
 "code": "506166",
 "at": 1788122015.992882
 },
-"khaitan": {
+"khaitanindia": {
 "cr": 69.04,
 "code": "590068",
 "at": 1788122015.992882
@@ -884,12 +849,7 @@
 "code": "531600",
 "at": 1788122015.992882
 },
-"roadstarinfrainvestmenttrust": {
-"cr": 2823.96,
-"code": "544374",
-"at": 1788122015.992882
-},
-"hardwyn": {
+"hardwynindia": {
 "cr": 620.89,
 "code": "541276",
 "at": 1788122015.992882
@@ -909,17 +869,17 @@
 "code": "540774",
 "at": 1788122015.992882
 },
-"prashant": {
+"prashantindia": {
 "cr": 6.41,
 "code": "519014",
 "at": 1788122015.992882
 },
-"southbank": {
+"southindiabank": {
 "cr": 11889.01,
 "code": "532218",
 "at": 1788122015.992882
 },
-"shaktipumps": {
+"shaktipumpsindia": {
 "cr": 6085.99,
 "code": "531431",
 "at": 1788122015.992882
@@ -954,11 +914,6 @@
 "code": "540221",
 "at": 1788122015.992882
 },
-"mideastintegratedsteels": {
-"cr": 132.08,
-"code": "540744",
-"at": 1788122015.992882
-},
 "mishdesigns": {
 "cr": 11.44,
 "code": "544015",
@@ -967,11 +922,6 @@
 "ceinsystech": {
 "cr": 1513.69,
 "code": "538734",
-"at": 1788122015.992882
-},
-"infraindustries": {
-"cr": 5.68,
-"code": "530777",
 "at": 1788122015.992882
 },
 "kothariproducts": {
@@ -989,7 +939,7 @@
 "code": "532007",
 "at": 1788122015.992882
 },
-"transvoylogistics": {
+"transvoylogisticsindia": {
 "cr": 23.43,
 "code": "543754",
 "at": 1788122015.992882
@@ -1029,7 +979,7 @@
 "code": "538921",
 "at": 1788122015.992882
 },
-"napsglobal": {
+"napsglobalindia": {
 "cr": 23.59,
 "code": "544373",
 "at": 1788122015.992882
@@ -1044,7 +994,7 @@
 "code": "539111",
 "at": 1788122015.992882
 },
-"precisionwires": {
+"precisionwiresindia": {
 "cr": 9282.07,
 "code": "523539",
 "at": 1788122015.992882
@@ -1062,11 +1012,6 @@
 "shreeshayengineers": {
 "cr": 31.69,
 "code": "541112",
-"at": 1788122015.992882
-},
-"kundanmineralsmetals": {
-"cr": 1.83,
-"code": "507528",
 "at": 1788122015.992882
 },
 "amkayproducts": {
@@ -1149,11 +1094,6 @@
 "code": "514332",
 "at": 1788122015.992882
 },
-"newevertradewings": {
-"cr": 5.17,
-"code": "536644",
-"at": 1788122015.992882
-},
 "krantiindustries": {
 "cr": 61.91,
 "code": "542459",
@@ -1224,7 +1164,7 @@
 "code": "516098",
 "at": 1788122015.992882
 },
-"dic": {
+"dicindia": {
 "cr": 548.21,
 "code": "500089",
 "at": 1788122015.992882
@@ -1244,7 +1184,7 @@
 "code": "530263",
 "at": 1788122015.992882
 },
-"electronicsmart": {
+"electronicsmartindia": {
 "cr": 6823.52,
 "code": "543626",
 "at": 1788122015.992882
@@ -1294,7 +1234,7 @@
 "code": "511626",
 "at": 1788122015.992882
 },
-"growingtonventures": {
+"growingtonventuresindia": {
 "cr": 48.81,
 "code": "539222",
 "at": 1788122015.992882
@@ -1319,7 +1259,7 @@
 "code": "543249",
 "at": 1788122015.992882
 },
-"tashi": {
+"tashiindia": {
 "cr": 8.65,
 "code": "512271",
 "at": 1788122015.992882
@@ -1334,7 +1274,7 @@
 "code": "544527",
 "at": 1788122015.992882
 },
-"ceenikexports": {
+"ceenikexportsindia": {
 "cr": 94.43,
 "code": "531119",
 "at": 1788122015.992882
@@ -1364,7 +1304,7 @@
 "code": "538942",
 "at": 1788122015.992882
 },
-"lakhotiapolyesters": {
+"lakhotiapolyestersindia": {
 "cr": 61.95,
 "code": "535387",
 "at": 1788122015.992882
@@ -1394,12 +1334,12 @@
 "code": "544774",
 "at": 1788122015.992882
 },
-"stallionfluorochemicals": {
+"stallionindiafluorochemicals": {
 "cr": 2473.79,
 "code": "544342",
 "at": 1788122015.992882
 },
-"fundvisercapital": {
+"fundvisercapitalindia": {
 "cr": 350.76,
 "code": "530197",
 "at": 1788122015.992882
@@ -1429,14 +1369,9 @@
 "code": "530577",
 "at": 1788122015.992882
 },
-"anmol": {
+"anmolindia": {
 "cr": 57.94,
 "code": "542437",
-"at": 1788122015.992882
-},
-"valechaengineering": {
-"cr": 42.81,
-"code": "532389",
 "at": 1788122015.992882
 },
 "ramkrishnaforgings": {
@@ -1519,11 +1454,6 @@
 "code": "543804",
 "at": 1788122015.992882
 },
-"shrimahalaxmiagriculturaldevelopment": {
-"cr": 6.95,
-"code": "539010",
-"at": 1788122015.992882
-},
 "finelistingstechnologies": {
 "cr": 3.64,
 "code": "544173",
@@ -1559,7 +1489,7 @@
 "code": "500193",
 "at": 1788122015.992882
 },
-"swarnsaritajewels": {
+"swarnsaritajewelsindia": {
 "cr": 71.82,
 "code": "526365",
 "at": 1788122015.992882
@@ -1594,7 +1524,7 @@
 "code": "544383",
 "at": 1788122015.992882
 },
-"aarshyaminvestment": {
+"aarshyamindiainvestment": {
 "cr": 4.49,
 "code": "542377",
 "at": 1788122015.992882
@@ -1624,7 +1554,7 @@
 "code": "544118",
 "at": 1788122015.992882
 },
-"inox": {
+"inoxindia": {
 "cr": 19282.25,
 "code": "544046",
 "at": 1788122015.992882
@@ -1644,7 +1574,7 @@
 "code": "543923",
 "at": 1788122015.992882
 },
-"polycab": {
+"polycabindia": {
 "cr": 137040.38,
 "code": "542652",
 "at": 1788122015.992882
@@ -1689,7 +1619,7 @@
 "code": "502445",
 "at": 1788122015.992882
 },
-"homes": {
+"indiahomes": {
 "cr": 1044.96,
 "code": "513361",
 "at": 1788122015.992882
@@ -1734,7 +1664,7 @@
 "code": "539725",
 "at": 1788122015.992882
 },
-"electrotherm": {
+"electrothermindia": {
 "cr": 1315.44,
 "code": "526608",
 "at": 1788122015.992882
@@ -1764,7 +1694,7 @@
 "code": "544432",
 "at": 1788122015.992882
 },
-"netwebtechnologies": {
+"netwebtechnologiesindia": {
 "cr": 31652.27,
 "code": "543945",
 "at": 1788122015.992882
@@ -1834,7 +1764,7 @@
 "code": "524818",
 "at": 1788122015.992882
 },
-"tempsensinstruments": {
+"tempsensinstrumentsindia": {
 "cr": 4919.3,
 "code": "544886",
 "at": 1788122015.992882
@@ -1859,7 +1789,7 @@
 "code": "512393",
 "at": 1788122015.992882
 },
-"esaar": {
+"esaarindia": {
 "cr": 101.15,
 "code": "531502",
 "at": 1788122015.992882
@@ -1884,7 +1814,7 @@
 "code": "544536",
 "at": 1788122015.992882
 },
-"khadim": {
+"khadimindia": {
 "cr": 218.45,
 "code": "540775",
 "at": 1788122015.992882
@@ -1899,14 +1829,9 @@
 "code": "532855",
 "at": 1788122015.992882
 },
-"aviproducts": {
+"aviproductsindia": {
 "cr": 17.33,
 "code": "523896",
-"at": 1788122015.992882
-},
-"viaanindustries": {
-"cr": 10.69,
-"code": "537524",
 "at": 1788122015.992882
 },
 "rasresortsaparthotels": {
@@ -1969,7 +1894,7 @@
 "code": "532475",
 "at": 1788122015.992882
 },
-"kamathotels": {
+"kamathotelsindia": {
 "cr": 672.29,
 "code": "526668",
 "at": 1788122015.992882
@@ -2024,7 +1949,7 @@
 "code": "517556",
 "at": 1788122015.992882
 },
-"scoobeedaygarments": {
+"scoobeedaygarmentsindia": {
 "cr": 109.3,
 "code": "531234",
 "at": 1788122015.992882
@@ -2044,7 +1969,7 @@
 "code": "519532",
 "at": 1788122015.992882
 },
-"raajmedisafe": {
+"raajmedisafeindia": {
 "cr": 152.39,
 "code": "524502",
 "at": 1788122015.992882
@@ -2089,11 +2014,6 @@
 "code": "507315",
 "at": 1788122015.992882
 },
-"kediaconstruction": {
-"cr": 1.47,
-"code": "508993",
-"at": 1788122015.992882
-},
 "gaekwarmills": {
 "cr": 3.01,
 "code": "502850",
@@ -2129,7 +2049,7 @@
 "code": "543978",
 "at": 1788122015.992882
 },
-"shippingoflandassets": {
+"shippingofindialandassets": {
 "cr": 1877.17,
 "code": "544142",
 "at": 1788122015.992882
@@ -2229,7 +2149,7 @@
 "code": "505368",
 "at": 1788122015.992882
 },
-"revathiequipment": {
+"revathiequipmentindia": {
 "cr": 222.35,
 "code": "544246",
 "at": 1788122015.992882
@@ -2259,19 +2179,14 @@
 "code": "531043",
 "at": 1788122015.992882
 },
-"maxgrow": {
+"maxgrowindia": {
 "cr": 631.81,
 "code": "521167",
 "at": 1788122015.992882
 },
-"triumphinternationalfinance": {
+"triumphinternationalfinanceindia": {
 "cr": 12.47,
 "code": "532131",
-"at": 1788122015.992882
-},
-"sunshinecapital": {
-"cr": 120.27,
-"code": "539574",
 "at": 1788122015.992882
 },
 "brgoyalinfrastructure": {
@@ -2389,7 +2304,7 @@
 "code": "527001",
 "at": 1788125165.9505968
 },
-"filatex": {
+"filatexindia": {
 "cr": 3498.74,
 "code": "526227",
 "at": 1788125165.9505968
@@ -2404,7 +2319,7 @@
 "code": "509709",
 "at": 1788125165.9505968
 },
-"wsindustries": {
+"wsindustriesindia": {
 "cr": 466.98,
 "code": "504220",
 "at": 1788125165.9505968
@@ -2444,7 +2359,7 @@
 "code": "540673",
 "at": 1788125165.9505968
 },
-"eastdrumsbarrelsmanufacturing": {
+"eastindiadrumsbarrelsmanufacturing": {
 "cr": 139.03,
 "code": "523874",
 "at": 1788125165.9505968
@@ -2464,10 +2379,10 @@
 "code": "500153",
 "at": 1788125165.9505968
 },
-"asianhotelswest": {
-"cr": 656.78,
-"code": "533221",
-"at": 1788125165.9505968
+"asianhotels": {
+"cr": 1556.97,
+"code": "500023",
+"at": 1788194499.8436923
 },
 "ganeshconsumerproducts": {
 "cr": 704.6,
@@ -2529,7 +2444,7 @@
 "code": "544534",
 "at": 1788125165.9505968
 },
-"powergridof": {
+"powergridofindia": {
 "cr": 248279.62,
 "code": "532898",
 "at": 1788125165.9505968
@@ -2574,7 +2489,7 @@
 "code": "544646",
 "at": 1788125165.9505968
 },
-"orosilsmiths": {
+"orosilsmithsindia": {
 "cr": 27.14,
 "code": "531626",
 "at": 1788125165.9505968
@@ -2609,17 +2524,17 @@
 "code": "526935",
 "at": 1788125165.9505968
 },
-"johncockerill": {
+"johncockerillindia": {
 "cr": 4012.17,
 "code": "500147",
 "at": 1788125165.9505968
 },
-"iirmholdings": {
+"iirmholdingsindia": {
 "cr": 891.33,
 "code": "526530",
 "at": 1788125165.9505968
 },
-"asahiglass": {
+"asahiindiaglass": {
 "cr": 24314.96,
 "code": "515030",
 "at": 1788125165.9505968
@@ -2699,11 +2614,6 @@
 "code": "530201",
 "at": 1788125165.9505968
 },
-"bkmindustries": {
-"cr": 11.93,
-"code": "539043",
-"at": 1788125165.9505968
-},
 "cressandarailwaysolutions": {
 "cr": 110.86,
 "code": "512379",
@@ -2719,12 +2629,7 @@
 "code": "501831",
 "at": 1788125165.9505968
 },
-"mcnallybharatengineering": {
-"cr": 55.78,
-"code": "532629",
-"at": 1788125165.9505968
-},
-"fosecocrucible": {
+"fosecocrucibleindia": {
 "cr": 965.19,
 "code": "523160",
 "at": 1788125165.9505968
@@ -2737,11 +2642,6 @@
 "kabraextrusiontechnik": {
 "cr": 2103.44,
 "code": "524109",
-"at": 1788125165.9505968
-},
-"jataliaglobalventures": {
-"cr": 0.53,
-"code": "519319",
 "at": 1788125165.9505968
 },
 "onelifecapitaladvisors": {
@@ -2757,11 +2657,6 @@
 "gvkpowerinfrastructure": {
 "cr": 334.79,
 "code": "532708",
-"at": 1788125165.9505968
-},
-"sungraniteexport": {
-"cr": 12.94,
-"code": "531013",
 "at": 1788125165.9505968
 },
 "premierpolyfilm": {
@@ -2789,12 +2684,12 @@
 "code": "532343",
 "at": 1788125165.9505968
 },
-"bhagyanagar": {
+"bhagyanagarindia": {
 "cr": 1249.4,
 "code": "512296",
 "at": 1788125165.9505968
 },
-"alfredherbert": {
+"alfredherbertindia": {
 "cr": 225.18,
 "code": "505216",
 "at": 1788125165.9505968
@@ -2839,17 +2734,12 @@
 "code": "516030",
 "at": 1788125165.9505968
 },
-"mapleinfrastructuretrust": {
-"cr": 6755.93,
-"code": "543925",
-"at": 1788125165.9505968
-},
 "walchandnagarindustries": {
 "cr": 1500.35,
 "code": "507410",
 "at": 1788125165.9505968
 },
-"kmcspecialityhospitals": {
+"kmcspecialityhospitalsindia": {
 "cr": 2253.02,
 "code": "524520",
 "at": 1788125165.9505968
@@ -2859,7 +2749,7 @@
 "code": "526173",
 "at": 1788125165.9505968
 },
-"bankof": {
+"bankofindia": {
 "cr": 65330.78,
 "code": "532149",
 "at": 1788125165.9505968
@@ -2874,14 +2764,9 @@
 "code": "521248",
 "at": 1788125165.9505968
 },
-"panelectronics": {
+"panelectronicsindia": {
 "cr": 10.2,
 "code": "517397",
-"at": 1788125165.9505968
-},
-"birlatransasiacarpets": {
-"cr": 2.13,
-"code": "503823",
 "at": 1788125165.9505968
 },
 "sunitatools": {
@@ -2904,7 +2789,7 @@
 "code": "532728",
 "at": 1788125165.9505968
 },
-"3m": {
+"3mindia": {
 "cr": 38865.79,
 "code": "523395",
 "at": 1788125165.9505968
@@ -2924,7 +2809,7 @@
 "code": "543533",
 "at": 1788125165.9505968
 },
-"hitachienergy": {
+"hitachienergyindia": {
 "cr": 148648.83,
 "code": "543187",
 "at": 1788125165.9505968
@@ -2934,7 +2819,7 @@
 "code": "505255",
 "at": 1788125165.9505968
 },
-"hemisphereproperties": {
+"hemispherepropertiesindia": {
 "cr": 3690.75,
 "code": "543242",
 "at": 1788125165.9505968
@@ -2984,11 +2869,6 @@
 "code": "540691",
 "at": 1788125165.9505968
 },
-"tirupatifincorp": {
-"cr": 74.16,
-"code": "539008",
-"at": 1788125165.9505968
-},
 "bharatforge": {
 "cr": 97291.04,
 "code": "500493",
@@ -3004,7 +2884,7 @@
 "code": "500300",
 "at": 1788125165.9505968
 },
-"gothiplascon": {
+"gothiplasconindia": {
 "cr": 36.73,
 "code": "531111",
 "at": 1788125165.9505968
@@ -3039,7 +2919,7 @@
 "code": "539875",
 "at": 1788125165.9505968
 },
-"radaanmediaworks": {
+"radaanmediaworksindia": {
 "cr": 12.41,
 "code": "590070",
 "at": 1788125165.9505968
@@ -3089,11 +2969,6 @@
 "code": "514060",
 "at": 1788125165.9505968
 },
-"sikozyrealtors": {
-"cr": 8.07,
-"code": "524642",
-"at": 1788125165.9505968
-},
 "moschiptechnologies": {
 "cr": 4281.72,
 "code": "532407",
@@ -3104,7 +2979,7 @@
 "code": "521005",
 "at": 1788125165.9505968
 },
-"betex": {
+"betexindia": {
 "cr": 74.23,
 "code": "512477",
 "at": 1788125165.9505968
@@ -3169,11 +3044,6 @@
 "code": "543235",
 "at": 1788125165.9505968
 },
-"srivenmultitech": {
-"cr": 1.34,
-"code": "531536",
-"at": 1788125165.9505968
-},
 "mothernutrifoods": {
 "cr": 200.56,
 "code": "544623",
@@ -3184,7 +3054,7 @@
 "code": "530127",
 "at": 1788125165.9505968
 },
-"sucrose": {
+"indiasucrose": {
 "cr": 140.2,
 "code": "500319",
 "at": 1788125165.9505968
@@ -3269,7 +3139,7 @@
 "code": "539398",
 "at": 1788125165.9505968
 },
-"birlacotsyn": {
+"birlacotsynindia": {
 "cr": 471.32,
 "code": "533006",
 "at": 1788125165.9505968
@@ -3354,7 +3224,7 @@
 "code": "544322",
 "at": 1788125165.9505968
 },
-"gail": {
+"gailindia": {
 "cr": 112434.2,
 "code": "532155",
 "at": 1788125165.9505968
@@ -3379,7 +3249,7 @@
 "code": "533029",
 "at": 1788125165.9505968
 },
-"capillarytechnologies": {
+"capillarytechnologiesindia": {
 "cr": 3982.62,
 "code": "544614",
 "at": 1788125165.9505968
@@ -3409,7 +3279,7 @@
 "code": "507813",
 "at": 1788125165.9505968
 },
-"nationalstandard": {
+"nationalstandardindia": {
 "cr": 206.7,
 "code": "504882",
 "at": 1788125165.9505968
@@ -3429,7 +3299,7 @@
 "code": "502219",
 "at": 1788125165.9505968
 },
-"tennecocleanair": {
+"tennecocleanairindia": {
 "cr": 21713.91,
 "code": "544612",
 "at": 1788125165.9505968
@@ -3469,32 +3339,22 @@
 "code": "517477",
 "at": 1788125165.9505968
 },
-"knowledgerealtytrust": {
-"cr": 50232.88,
-"code": "544481",
-"at": 1788125165.9505968
-},
 "kunststoffeindustries": {
 "cr": 14.62,
 "code": "523594",
 "at": 1788125165.9505968
 },
-"brookfieldrealestatetrustreit": {
-"cr": 28386.91,
-"code": "543261",
-"at": 1788125165.9505968
-},
-"nbcc": {
+"nbccindia": {
 "cr": 23625.0,
 "code": "534309",
 "at": 1788125165.9505968
 },
-"mcleodrussel": {
+"mcleodrusselindia": {
 "cr": 521.55,
 "code": "532654",
 "at": 1788125165.9505968
 },
-"unionbankof": {
+"unionbankofindia": {
 "cr": 141641.55,
 "code": "532477",
 "at": 1788125165.9505968
@@ -3534,7 +3394,7 @@
 "code": "532900",
 "at": 1788125165.9505968
 },
-"econotrade": {
+"econotradeindia": {
 "cr": 12.19,
 "code": "538708",
 "at": 1788125165.9505968
@@ -3559,7 +3419,7 @@
 "code": "513498",
 "at": 1788125165.9505968
 },
-"ipowersolutions": {
+"ipowersolutionsindia": {
 "cr": 9.61,
 "code": "512405",
 "at": 1788125165.9505968
@@ -3709,7 +3569,7 @@
 "code": "500041",
 "at": 1788125165.9505968
 },
-"daikaffilchemicals": {
+"daikaffilchemicalsindia": {
 "cr": 27.7,
 "code": "530825",
 "at": 1788125165.9505968
@@ -3729,7 +3589,7 @@
 "code": "541974",
 "at": 1788125165.9505968
 },
-"alphageo": {
+"alphageoindia": {
 "cr": 194.19,
 "code": "526397",
 "at": 1788125165.9505968
@@ -3904,7 +3764,7 @@
 "code": "543591",
 "at": 1788125165.9505968
 },
-"grauerweil": {
+"grauerweilindia": {
 "cr": 3231.01,
 "code": "505710",
 "at": 1788125165.9505968
@@ -3994,7 +3854,7 @@
 "code": "506808",
 "at": 1788125165.9505968
 },
-"foseco": {
+"fosecoindia": {
 "cr": 4791.47,
 "code": "500150",
 "at": 1788125165.9505968
@@ -4019,7 +3879,7 @@
 "code": "540738",
 "at": 1788125165.9505968
 },
-"dhp": {
+"dhpindia": {
 "cr": 153.41,
 "code": "531306",
 "at": 1788125165.9505968
@@ -4094,7 +3954,7 @@
 "code": "544036",
 "at": 1788125165.9505968
 },
-"prithviexchange": {
+"prithviexchangeindia": {
 "cr": 81.7,
 "code": "531688",
 "at": 1788125165.9505968
@@ -4119,12 +3979,7 @@
 "code": "505502",
 "at": 1788125165.9505968
 },
-"emmsonsinternational": {
-"cr": 2.64,
-"code": "532038",
-"at": 1788125165.9505968
-},
-"alfaica": {
+"alfaicaindia": {
 "cr": 33.77,
 "code": "530973",
 "at": 1788125165.9505968
@@ -4149,7 +4004,7 @@
 "code": "500260",
 "at": 1788125165.9505968
 },
-"winrocommercial": {
+"winrocommercialindia": {
 "cr": 30.62,
 "code": "512022",
 "at": 1788125165.9505968
@@ -4174,7 +4029,7 @@
 "code": "509546",
 "at": 1788125165.9505968
 },
-"cineline": {
+"cinelineindia": {
 "cr": 303.5,
 "code": "532807",
 "at": 1788125165.9505968
@@ -4194,7 +4049,7 @@
 "code": "519224",
 "at": 1788125165.9505968
 },
-"saraswaticommercial": {
+"saraswaticommercialindia": {
 "cr": 1191.49,
 "code": "512020",
 "at": 1788125165.9505968
@@ -4209,7 +4064,7 @@
 "code": "533316",
 "at": 1788125165.9505968
 },
-"ecosmobilityhospitality": {
+"ecosindiamobilityhospitality": {
 "cr": 684.3,
 "code": "544239",
 "at": 1788125165.9505968
@@ -4217,11 +4072,6 @@
 "haryanafinancial": {
 "cr": 1246.0,
 "code": "530927",
-"at": 1788125165.9505968
-},
-"rigasugar": {
-"cr": 7.58,
-"code": "507508",
 "at": 1788125165.9505968
 },
 "vishnuchemicals": {
@@ -4234,7 +4084,7 @@
 "code": "539399",
 "at": 1788125165.9505968
 },
-"novartis": {
+"novartisindia": {
 "cr": 3671.03,
 "code": "500672",
 "at": 1788125165.9505968
@@ -4374,7 +4224,7 @@
 "code": "512441",
 "at": 1788135648.2162187
 },
-"kanishkaluminium": {
+"kanishkaluminiumindia": {
 "cr": 33.6,
 "code": "544693",
 "at": 1788135648.2162187
@@ -4404,12 +4254,12 @@
 "code": "544560",
 "at": 1788135648.2162187
 },
-"nestle": {
+"nestleindia": {
 "cr": 280714.36,
 "code": "500790",
 "at": 1788135648.2162187
 },
-"kbs": {
+"kbsindia": {
 "cr": 15.04,
 "code": "530357",
 "at": 1788135648.2162187
@@ -4429,7 +4279,7 @@
 "code": "533096",
 "at": 1788135648.2162187
 },
-"woodproducts": {
+"indiawoodproducts": {
 "cr": 230.3,
 "code": "540954",
 "at": 1788135648.2162187
@@ -4452,11 +4302,6 @@
 "nclindustries": {
 "cr": 794.51,
 "code": "502168",
-"at": 1788135648.2162187
-},
-"netripplessoftware": {
-"cr": 3.76,
-"code": "542117",
 "at": 1788135648.2162187
 },
 "tunitextilemills": {
@@ -4509,7 +4354,7 @@
 "code": "505537",
 "at": 1788135648.2162187
 },
-"mitshi": {
+"mitshiindia": {
 "cr": 11.89,
 "code": "523782",
 "at": 1788135648.2162187
@@ -4529,7 +4374,7 @@
 "code": "544149",
 "at": 1788135648.2162187
 },
-"railtelof": {
+"railtelofindia": {
 "cr": 8949.37,
 "code": "543265",
 "at": 1788135648.2162187
@@ -4674,7 +4519,7 @@
 "code": "532940",
 "at": 1788135648.2162187
 },
-"stellantsecurities": {
+"stellantsecuritiesindia": {
 "cr": 596.86,
 "code": "526071",
 "at": 1788135648.2162187
@@ -4689,7 +4534,7 @@
 "code": "539917",
 "at": 1788135648.2162187
 },
-"gravity": {
+"gravityindia": {
 "cr": 101.27,
 "code": "532015",
 "at": 1788135648.2162187
@@ -4702,11 +4547,6 @@
 "pdpshippingprojects": {
 "cr": 15.2,
 "code": "544378",
-"at": 1788135648.2162187
-},
-"intelligentsupplychaininfrastructuretrust": {
-"cr": 3901.44,
-"code": "544005",
 "at": 1788135648.2162187
 },
 "petronetlng": {
@@ -4759,11 +4599,6 @@
 "code": "542580",
 "at": 1788135648.2162187
 },
-"irbinvitfund": {
-"cr": 8227.87,
-"code": "540526",
-"at": 1788135648.2162187
-},
 "shreemanufacturing": {
 "cr": 8.67,
 "code": "503863",
@@ -4814,11 +4649,6 @@
 "code": "544469",
 "at": 1788135648.2162187
 },
-"unistarmultimedia": {
-"cr": 8.33,
-"code": "532035",
-"at": 1788135648.2162187
-},
 "mahanagartelephonenigam": {
 "cr": 1724.31,
 "code": "500108",
@@ -4859,7 +4689,7 @@
 "code": "543458",
 "at": 1788135648.2162187
 },
-"junglecamps": {
+"junglecampsindia": {
 "cr": 70.36,
 "code": "544304",
 "at": 1788135648.2162187
@@ -4894,7 +4724,7 @@
 "code": "514302",
 "at": 1788135648.2162187
 },
-"gabriel": {
+"gabrielindia": {
 "cr": 24230.89,
 "code": "505714",
 "at": 1788135648.2162187
@@ -4934,7 +4764,7 @@
 "code": "543831",
 "at": 1788135648.2162187
 },
-"statetradingof": {
+"statetradingofindia": {
 "cr": 699.0,
 "code": "512531",
 "at": 1788135648.2162187
@@ -5014,11 +4844,6 @@
 "code": "521228",
 "at": 1788135648.2162187
 },
-"birlacapitalfinancialservices": {
-"cr": 0.94,
-"code": "512332",
-"at": 1788135648.2162187
-},
 "tvssrichakra": {
 "cr": 4050.12,
 "code": "509243",
@@ -5027,11 +4852,6 @@
 "apcotexindustries": {
 "cr": 3242.64,
 "code": "523694",
-"at": 1788135648.2162187
-},
-"capitalinfratrus": {
-"cr": 3784.95,
-"code": "544338",
 "at": 1788135648.2162187
 },
 "quess": {
@@ -5084,12 +4904,12 @@
 "code": "521064",
 "at": 1788135648.2162187
 },
-"dlink": {
+"dlinkindia": {
 "cr": 1574.11,
 "code": "533146",
 "at": 1788135648.2162187
 },
-"amco": {
+"amcoindia": {
 "cr": 26.73,
 "code": "530133",
 "at": 1788135648.2162187
@@ -5129,17 +4949,12 @@
 "code": "540961",
 "at": 1788135648.2162187
 },
-"asianhotelseast": {
-"cr": 242.0,
-"code": "533227",
-"at": 1788135648.2162187
-},
-"monotype": {
+"monotypeindia": {
 "cr": 22.5,
 "code": "505343",
 "at": 1788135648.2162187
 },
-"pan": {
+"panindia": {
 "cr": 19.51,
 "code": "511525",
 "at": 1788135648.2162187
@@ -5154,7 +4969,7 @@
 "code": "502281",
 "at": 1788135648.2162187
 },
-"hyundaimotor": {
+"hyundaimotorindia": {
 "cr": 184121.81,
 "code": "544274",
 "at": 1788135648.2162187
@@ -5254,7 +5069,7 @@
 "code": "538835",
 "at": 1788135648.2162187
 },
-"multicommodityexchangeof": {
+"multicommodityexchangeofindia": {
 "cr": 84912.28,
 "code": "534091",
 "at": 1788135648.2162187
@@ -5264,7 +5079,7 @@
 "code": "544613",
 "at": 1788135648.2162187
 },
-"confidencepetroleum": {
+"confidencepetroleumindia": {
 "cr": 2654.61,
 "code": "526829",
 "at": 1788135648.2162187
@@ -5474,7 +5289,7 @@
 "code": "538862",
 "at": 1788135648.2162187
 },
-"infotechsoftware": {
+"indiainfotechsoftware": {
 "cr": 95.44,
 "code": "509051",
 "at": 1788135648.2162187
@@ -5504,7 +5319,7 @@
 "code": "544683",
 "at": 1788135648.2162187
 },
-"trinityleague": {
+"trinityleagueindia": {
 "cr": 7.72,
 "code": "531846",
 "at": 1788135648.2162187
@@ -5579,16 +5394,6 @@
 "code": "538868",
 "at": 1788135648.2162187
 },
-"wisecglobal": {
-"cr": 3.44,
-"code": "511642",
-"at": 1788135648.2162187
-},
-"aadhaarventures": {
-"cr": 7.7,
-"code": "531611",
-"at": 1788135648.2162187
-},
 "frontlinefinancialservices": {
 "cr": 13.89,
 "code": "531685",
@@ -5599,7 +5404,7 @@
 "code": "524640",
 "at": 1788135648.2162187
 },
-"surya": {
+"suryaindia": {
 "cr": 12.75,
 "code": "539253",
 "at": 1788135648.2162187
@@ -5664,7 +5469,7 @@
 "code": "507747",
 "at": 1788135648.2162187
 },
-"steelauthorityof": {
+"steelauthorityofindia": {
 "cr": 82457.29,
 "code": "500113",
 "at": 1788135648.2162187
@@ -5739,11 +5544,6 @@
 "code": "523704",
 "at": 1788135648.2162187
 },
-"centeractechnologies": {
-"cr": 3.19,
-"code": "531621",
-"at": 1788135648.2162187
-},
 "epackdurable": {
 "cr": 1849.03,
 "code": "544095",
@@ -5789,7 +5589,7 @@
 "code": "524288",
 "at": 1788135648.2162187
 },
-"thakralservices": {
+"thakralservicesindia": {
 "cr": 16.51,
 "code": "509015",
 "at": 1788135648.2162187
@@ -5849,7 +5649,7 @@
 "code": "544431",
 "at": 1788135648.2162187
 },
-"amberenterprises": {
+"amberenterprisesindia": {
 "cr": 27089.17,
 "code": "540902",
 "at": 1788135648.2162187
@@ -5889,7 +5689,7 @@
 "code": "531324",
 "at": 1788135648.2162187
 },
-"sampannutpadan": {
+"sampannutpadanindia": {
 "cr": 128.91,
 "code": "534598",
 "at": 1788135648.2162187
@@ -5914,12 +5714,12 @@
 "code": "511571",
 "at": 1788135648.2162187
 },
-"kilitchdrugs": {
+"kilitchdrugsindia": {
 "cr": 590.85,
 "code": "524500",
 "at": 1788135648.2162187
 },
-"jtekt": {
+"jtektindia": {
 "cr": 3505.28,
 "code": "520057",
 "at": 1788135648.2162187
@@ -5974,7 +5774,7 @@
 "code": "513693",
 "at": 1788135648.2162187
 },
-"midindustries": {
+"midindiaindustries": {
 "cr": 9.86,
 "code": "500277",
 "at": 1788135648.2162187
@@ -6019,7 +5819,7 @@
 "code": "526546",
 "at": 1788135648.2162187
 },
-"hondapowerproducts": {
+"hondaindiapowerproducts": {
 "cr": 2090.77,
 "code": "522064",
 "at": 1788135648.2162187
@@ -6119,7 +5919,7 @@
 "code": "509567",
 "at": 1788135648.2162187
 },
-"anka": {
+"ankaindia": {
 "cr": 109.53,
 "code": "531673",
 "at": 1788135648.2162187
@@ -6154,14 +5954,9 @@
 "code": "504132",
 "at": 1788135648.2162187
 },
-"sicagen": {
+"sicagenindia": {
 "cr": 214.64,
 "code": "533014",
-"at": 1788135648.2162187
-},
-"alstonetextiles": {
-"cr": 100.4,
-"code": "539277",
 "at": 1788135648.2162187
 },
 "surajindustries": {
@@ -6179,12 +5974,12 @@
 "code": "530253",
 "at": 1788135648.2162187
 },
-"okplay": {
+"okplayindia": {
 "cr": 124.85,
 "code": "526415",
 "at": 1788135648.2162187
 },
-"kkalpanaindustries": {
+"kkalpanaindustriesindia": {
 "cr": 64.53,
 "code": "526409",
 "at": 1788135648.2162187
@@ -6204,7 +5999,7 @@
 "code": "544600",
 "at": 1788135648.2162187
 },
-"cosco": {
+"coscoindia": {
 "cr": 78.08,
 "code": "530545",
 "at": 1788135648.2162187
@@ -6249,7 +6044,7 @@
 "code": "526025",
 "at": 1788135648.2162187
 },
-"chemkart": {
+"chemkartindia": {
 "cr": 222.62,
 "code": "544442",
 "at": 1788135648.2162187
@@ -6329,7 +6124,7 @@
 "code": "542906",
 "at": 1788135648.2162187
 },
-"squarefourprojects": {
+"squarefourprojectsindia": {
 "cr": 16.05,
 "code": "526532",
 "at": 1788135648.2162187
@@ -6379,7 +6174,7 @@
 "code": "511523",
 "at": 1788135648.2162187
 },
-"tipcoengineering": {
+"tipcoengineeringindia": {
 "cr": 501.64,
 "code": "544740",
 "at": 1788135648.2162187
@@ -6444,11 +6239,6 @@
 "code": "523289",
 "at": 1788135648.2162187
 },
-"veronicaproduction": {
-"cr": 2.28,
-"code": "531695",
-"at": 1788135648.2162187
-},
 "kanoriaenergyinfrastructure": {
 "cr": 145.0,
 "code": "539620",
@@ -6474,7 +6264,7 @@
 "code": "532723",
 "at": 1788135648.2162187
 },
-"megafin": {
+"megafinindia": {
 "cr": 24.82,
 "code": "532105",
 "at": 1788135648.2162187
@@ -6674,7 +6464,7 @@
 "code": "544626",
 "at": 1788145137.5331903
 },
-"meenakshi": {
+"meenakshiindia": {
 "cr": 450.56,
 "code": "544831",
 "at": 1788145137.5331903
@@ -6714,7 +6504,7 @@
 "code": "532748",
 "at": 1788145137.5331903
 },
-"ceigall": {
+"ceigallindia": {
 "cr": 5948.22,
 "code": "544223",
 "at": 1788145137.5331903
@@ -6854,7 +6644,7 @@
 "code": "530073",
 "at": 1788145137.5331903
 },
-"ajmerarealtyinfra": {
+"ajmerarealtyinfraindia": {
 "cr": 2309.4,
 "code": "513349",
 "at": 1788145137.5331903
@@ -6929,12 +6719,12 @@
 "code": "543957",
 "at": 1788145137.5331903
 },
-"engineers": {
+"engineersindia": {
 "cr": 14267.45,
 "code": "532178",
 "at": 1788145137.5331903
 },
-"skmeggproductsexport": {
+"skmeggproductsexportindia": {
 "cr": 1356.0,
 "code": "532143",
 "at": 1788145137.5331903
@@ -6959,7 +6749,7 @@
 "code": "533676",
 "at": 1788145137.5331903
 },
-"coal": {
+"coalindia": {
 "cr": 247125.41,
 "code": "533278",
 "at": 1788145137.5331903
@@ -6979,7 +6769,7 @@
 "code": "507180",
 "at": 1788145137.5331903
 },
-"radhedevelopers": {
+"radhedevelopersindia": {
 "cr": 78.49,
 "code": "531273",
 "at": 1788145137.5331903
@@ -7079,7 +6869,7 @@
 "code": "539150",
 "at": 1788145137.5331903
 },
-"basf": {
+"basfindia": {
 "cr": 16656.31,
 "code": "500042",
 "at": 1788145137.5331903
@@ -7149,7 +6939,7 @@
 "code": "500660",
 "at": 1788145137.5331903
 },
-"bdindustriespune": {
+"bdindustries": {
 "cr": 153.47,
 "code": "544468",
 "at": 1788145137.5331903
@@ -7174,7 +6964,7 @@
 "code": "500304",
 "at": 1788145137.5331903
 },
-"voithpaperfabrics": {
+"voithpaperfabricsindia": {
 "cr": 640.7,
 "code": "522122",
 "at": 1788145137.5331903
@@ -7219,7 +7009,7 @@
 "code": "539636",
 "at": 1788145137.5331903
 },
-"manindustries": {
+"manindustriesindia": {
 "cr": 5759.23,
 "code": "513269",
 "at": 1788145137.5331903
@@ -7304,7 +7094,7 @@
 "code": "544864",
 "at": 1788145137.5331903
 },
-"laxmifinance": {
+"laxmiindiafinance": {
 "cr": 663.82,
 "code": "544465",
 "at": 1788145137.5331903
@@ -7389,7 +7179,7 @@
 "code": "544673",
 "at": 1788145137.5331903
 },
-"shreebalajimalatextiles": {
+"shreebalajitextiles": {
 "cr": 67.01,
 "code": "544835",
 "at": 1788145137.5331903
@@ -7409,7 +7199,7 @@
 "code": "533090",
 "at": 1788145137.5331903
 },
-"mfl": {
+"mflindia": {
 "cr": 14.41,
 "code": "526622",
 "at": 1788145137.5331903
@@ -7554,11 +7344,6 @@
 "code": "544337",
 "at": 1788145137.5331903
 },
-"alpsindustries": {
-"cr": 13.46,
-"code": "530715",
-"at": 1788145137.5331903
-},
 "rmcswitchgears": {
 "cr": 261.0,
 "code": "540358",
@@ -7594,7 +7379,7 @@
 "code": "512217",
 "at": 1788145137.5331903
 },
-"denora": {
+"denoraindia": {
 "cr": 439.02,
 "code": "590031",
 "at": 1788145137.5331903
@@ -7619,7 +7404,7 @@
 "code": "538833",
 "at": 1788145137.5331903
 },
-"shippingof": {
+"shippingofindia": {
 "cr": 13920.4,
 "code": "523598",
 "at": 1788145137.5331903
@@ -7664,7 +7449,7 @@
 "code": "544257",
 "at": 1788145137.5331903
 },
-"gelatinechemicals": {
+"indiagelatinechemicals": {
 "cr": 257.49,
 "code": "531253",
 "at": 1788145137.5331903
@@ -7714,12 +7499,12 @@
 "code": "500350",
 "at": 1788145137.5331903
 },
-"kesar": {
+"kesarindia": {
 "cr": 3470.16,
 "code": "543542",
 "at": 1788145137.5331903
 },
-"cybermedia": {
+"cybermediaindia": {
 "cr": 39.13,
 "code": "532640",
 "at": 1788145137.5331903
@@ -7774,7 +7559,7 @@
 "code": "514171",
 "at": 1788145137.5331903
 },
-"dolphinoffshoreenterprises": {
+"dolphinoffshoreenterprisesindia": {
 "cr": 2459.88,
 "code": "522261",
 "at": 1788145137.5331903
@@ -7844,11 +7629,6 @@
 "code": "521034",
 "at": 1788145137.5331903
 },
-"garlonpolyfabindustries": {
-"cr": 1.53,
-"code": "514306",
-"at": 1788145137.5331903
-},
 "gttdatasolutions": {
 "cr": 180.94,
 "code": "530457",
@@ -7884,7 +7664,7 @@
 "code": "532022",
 "at": 1788145137.5331903
 },
-"tonersdevelopers": {
+"indiatonersdevelopers": {
 "cr": 239.89,
 "code": "523586",
 "at": 1788145137.5331903
@@ -7899,19 +7679,9 @@
 "code": "532966",
 "at": 1788145137.5331903
 },
-"mindspacebusinessparksreit": {
-"cr": 32630.98,
-"code": "543217",
-"at": 1788145137.5331903
-},
 "solvexedibles": {
 "cr": 19.18,
 "code": "544539",
-"at": 1788145137.5331903
-},
-"swordedgecommercials": {
-"cr": 5.0,
-"code": "512359",
 "at": 1788145137.5331903
 },
 "bharatcokingcoal": {
@@ -8014,7 +7784,7 @@
 "code": "531968",
 "at": 1788145137.5331903
 },
-"investmenttrustof": {
+"investmenttrustofindia": {
 "cr": 500.22,
 "code": "530023",
 "at": 1788145137.5331903
@@ -8064,7 +7834,7 @@
 "code": "531553",
 "at": 1788145137.5331903
 },
-"teamguaranty": {
+"teamindiaguaranty": {
 "cr": 218.53,
 "code": "511559",
 "at": 1788145137.5331903
@@ -8074,7 +7844,7 @@
 "code": "543229",
 "at": 1788145137.5331903
 },
-"southpapermills": {
+"southindiapapermills": {
 "cr": 223.41,
 "code": "516108",
 "at": 1788145137.5331903
@@ -8169,7 +7939,7 @@
 "code": "514454",
 "at": 1788145137.5331903
 },
-"kennametal": {
+"kennametalindia": {
 "cr": 10066.47,
 "code": "505890",
 "at": 1788145137.5331903
@@ -8314,11 +8084,6 @@
 "code": "538476",
 "at": 1788145137.5331903
 },
-"futurapolyesters": {
-"cr": 21.13,
-"code": "500720",
-"at": 1788145137.5331903
-},
 "vivobiotech": {
 "cr": 40.45,
 "code": "511509",
@@ -8374,11 +8139,6 @@
 "code": "526614",
 "at": 1788194499.8436923
 },
-"arssinfrastructureprojects": {
-"cr": 124.7,
-"code": "533163",
-"at": 1788194499.8436923
-},
 "pvrinox": {
 "cr": 11819.35,
 "code": "532689",
@@ -8419,17 +8179,17 @@
 "code": "544199",
 "at": 1788194499.8436923
 },
-"astrazenecapharma": {
+"astrazenecapharmaindia": {
 "cr": 17426.88,
 "code": "506820",
 "at": 1788194499.8436923
 },
-"gourmetgateway": {
+"gourmetgatewayindia": {
 "cr": 151.32,
 "code": "506134",
 "at": 1788194499.8436923
 },
-"rotographics": {
+"rotographicsindia": {
 "cr": 396.51,
 "code": "539922",
 "at": 1788194499.8436923
@@ -8447,11 +8207,6 @@
 "nitco": {
 "cr": 2258.92,
 "code": "532722",
-"at": 1788194499.8436923
-},
-"saharaonemediaentertainment": {
-"cr": 33.69,
-"code": "503691",
 "at": 1788194499.8436923
 },
 "bmwventures": {
@@ -8474,7 +8229,7 @@
 "code": "543416",
 "at": 1788194499.8436923
 },
-"datapatterns": {
+"datapatternsindia": {
 "cr": 25322.39,
 "code": "543428",
 "at": 1788194499.8436923
@@ -8599,11 +8354,6 @@
 "code": "544287",
 "at": 1788194499.8436923
 },
-"ratnakarsecurities": {
-"cr": 0.03,
-"code": "530243",
-"at": 1788194499.8436923
-},
 "jindaldrillingindustries": {
 "cr": 1801.18,
 "code": "511034",
@@ -8627,16 +8377,6 @@
 "panamapetrochem": {
 "cr": 2845.62,
 "code": "524820",
-"at": 1788194499.8436923
-},
-"gangotritextiles": {
-"cr": 2.02,
-"code": "521176",
-"at": 1788194499.8436923
-},
-"telephonecables": {
-"cr": 1.68,
-"code": "517159",
 "at": 1788194499.8436923
 },
 "elixircapital": {
@@ -8789,7 +8529,7 @@
 "code": "500160",
 "at": 1788194499.8436923
 },
-"railwayfinance": {
+"indiarailwayfinance": {
 "cr": 108860.65,
 "code": "543257",
 "at": 1788194499.8436923
@@ -8824,11 +8564,6 @@
 "code": "511038",
 "at": 1788194499.8436923
 },
-"asianhotelsnorth": {
-"cr": 1556.97,
-"code": "500023",
-"at": 1788194499.8436923
-},
 "shreeajitpulppaper": {
 "cr": 244.32,
 "code": "538795",
@@ -8844,7 +8579,7 @@
 "code": "543941",
 "at": 1788194499.8436923
 },
-"rossell": {
+"rossellindia": {
 "cr": 219.66,
 "code": "533168",
 "at": 1788194499.8436923
@@ -8884,7 +8619,7 @@
 "code": "502294",
 "at": 1788194499.8436923
 },
-"powerinstrumentationgujarat": {
+"powerinstrumentation": {
 "cr": 210.31,
 "code": "543912",
 "at": 1788194499.8436923
@@ -8899,7 +8634,7 @@
 "code": "531911",
 "at": 1788194499.8436923
 },
-"susanelectricals": {
+"susanelectricalsindia": {
 "cr": 628.93,
 "code": "544793",
 "at": 1788194499.8436923
@@ -8989,7 +8724,7 @@
 "code": "532648",
 "at": 1788194499.8436923
 },
-"evereadyindustries": {
+"evereadyindustriesindia": {
 "cr": 2397.23,
 "code": "531508",
 "at": 1788194499.8436923
@@ -9074,7 +8809,7 @@
 "code": "532951",
 "at": 1788194499.8436923
 },
-"azadmobility": {
+"azadindiamobility": {
 "cr": 493.31,
 "code": "504731",
 "at": 1788194499.8436923
@@ -9092,11 +8827,6 @@
 "geetanjalicreditcapital": {
 "cr": 3.58,
 "code": "539486",
-"at": 1788194499.8436923
-},
-"maajagdambetradelinks": {
-"cr": 552.5,
-"code": "511082",
 "at": 1788194499.8436923
 },
 "sihoraindustries": {
@@ -9159,7 +8889,7 @@
 "code": "512345",
 "at": 1788194499.8436923
 },
-"lactose": {
+"lactoseindia": {
 "cr": 134.2,
 "code": "524202",
 "at": 1788194499.8436923
@@ -9174,7 +8904,7 @@
 "code": "531769",
 "at": 1788194499.8436923
 },
-"agritech": {
+"agritechindia": {
 "cr": 63.8,
 "code": "537292",
 "at": 1788194499.8436923
@@ -9289,7 +9019,7 @@
 "code": "544630",
 "at": 1788194499.8436923
 },
-"infoedge": {
+"infoedgeindia": {
 "cr": 85802.26,
 "code": "532777",
 "at": 1788194499.8436923
@@ -9314,14 +9044,9 @@
 "code": "544615",
 "at": 1788194499.8436923
 },
-"godfreyphillips": {
+"godfreyphillipsindia": {
 "cr": 32818.56,
 "code": "500163",
-"at": 1788194499.8436923
-},
-"arihantinstitute": {
-"cr": 1.47,
-"code": "541401",
 "at": 1788194499.8436923
 },
 "shankeshjewellers": {
@@ -9394,11 +9119,6 @@
 "code": "543520",
 "at": 1788194499.8436923
 },
-"bagmaneprimeofficereit": {
-"cr": 36216.8,
-"code": "544758",
-"at": 1788194499.8436923
-},
 "gsbfinance": {
 "cr": 28.06,
 "code": "511543",
@@ -9414,17 +9134,12 @@
 "code": "526755",
 "at": 1788194499.8436923
 },
-"powergridinfrastructureinvestmenttrust": {
-"cr": 9094.53,
-"code": "543290",
-"at": 1788194499.8436923
-},
 "harishtextileengineers": {
 "cr": 20.65,
 "code": "542682",
 "at": 1788194499.8436923
 },
-"apollofinvest": {
+"apollofinvestindia": {
 "cr": 142.76,
 "code": "512437",
 "at": 1788194499.8436923
@@ -9489,7 +9204,7 @@
 "code": "531199",
 "at": 1788194499.8436923
 },
-"sharp": {
+"sharpindia": {
 "cr": 321.84,
 "code": "523449",
 "at": 1788194499.8436923
@@ -9549,7 +9264,7 @@
 "code": "521244",
 "at": 1788194499.8436923
 },
-"cements": {
+"indiacements": {
 "cr": 11473.94,
 "code": "530005",
 "at": 1788194499.8436923
@@ -9584,7 +9299,7 @@
 "code": "500463",
 "at": 1788194499.8436923
 },
-"nirmiteerobotics": {
+"nirmiteeroboticsindia": {
 "cr": 33.31,
 "code": "543194",
 "at": 1788194499.8436923
@@ -9644,17 +9359,12 @@
 "code": "504240",
 "at": 1788194499.8436923
 },
-"jiyaecoproducts": {
-"cr": 10.86,
-"code": "539225",
-"at": 1788194499.8436923
-},
 "kddl": {
 "cr": 4828.45,
 "code": "532054",
 "at": 1788194499.8436923
 },
-"gillette": {
+"gilletteindia": {
 "cr": 23851.24,
 "code": "507815",
 "at": 1788194499.8436923
@@ -9679,7 +9389,7 @@
 "code": "526519",
 "at": 1788194499.8436923
 },
-"abiramifinancialservices": {
+"abiramifinancialservicesindia": {
 "cr": 18.51,
 "code": "511756",
 "at": 1788194499.8436923
