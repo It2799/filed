@@ -15,8 +15,11 @@
 .dash-meta { color: var(--muted); font-size: 13.5px; margin: 0; }
 .dash-meta b { color: var(--ink); font-variant-numeric: tabular-nums; }
 
-.dash-grid { display: grid; grid-template-columns: 248px 1fr; gap: 26px; align-items: start; }
-@media (max-width: 900px) { .dash-grid { grid-template-columns: 1fr; gap: 0; } }
+/* minmax(0,…) not 1fr: a grid track's default floor is its min-content width, and
+   the feed holds unbreakable strings (badges, the "Show 40 more" button). On a
+   375px phone that floor was 415px, so the whole feed hung off the right edge. */
+.dash-grid { display: grid; grid-template-columns: 248px minmax(0, 1fr); gap: 26px; align-items: start; }
+@media (max-width: 900px) { .dash-grid { grid-template-columns: minmax(0, 1fr); gap: 0; } }
 
 /* ---------- filter rail ---------- */
 .rail { position: sticky; top: 74px; max-height: calc(100vh - 96px); overflow-y: auto;
@@ -183,6 +186,10 @@
   /* the rail becomes a sheet that slides up from the bottom */
   .rail {
     position: fixed;
+    /* top: auto undoes the desktop sticky rail's top: 74px. Left in place it
+       over-constrains the box against bottom: 0, top wins, and the sheet ends
+       72px above the bottom of the screen with the page showing underneath. */
+    top: auto;
     left: 0; right: 0; bottom: 0;
     max-height: 82vh;
     z-index: 60;
