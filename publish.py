@@ -207,6 +207,8 @@ def main():
                         "only if you want to cap AI calls for a run. Summaries "
                         "are cached, so a rerun only pays for what is new.")
     p.add_argument("--workers", type=int, default=4)
+    p.add_argument("--force", action="store_true",
+                   help="overwrite a day even if the stored one is fuller")
     # Reading PDFs is waiting on a download, not on a model, so it can run
     # far wider than summarising - which has a rate limit to respect.
     p.add_argument("--read-workers", type=int, default=0,
@@ -292,6 +294,24 @@ def main():
 
         if args.dry_run:
             continue
+
+        # A day that is already richer than what this run produced is left
+        # alone. Summaries depend on a daily AI quota, and a run that starts
+        # after that quota is spent will summarise almost nothing - without
+        # this guard the nightly full pass would overwrite a complete day with
+        # a threadbare one, and a week of reading would be gone. Growth is
+        # always allowed; only a large drop is refused.
+        held = redis(url, token, ["GET", f"mt:count:{iso}"])
+        if held and not args.force:
+            try:
+                was = int(json.loads(held).get("important") or 0)
+            except Exception:
+                was = 0
+            if was and len(important) < was * 0.7:
+                print(f"  -> KEPT the stored day: it has {was} summarised, "
+                      f"this run only managed {len(important)}. "
+                      f"Re-run with --force to overwrite anyway.")
+                continue
 
         write_day(url, token, f"mt:day:{iso}", important)
         write_day(url, token, f"mt:all:{iso}", rest)
