@@ -1,14 +1,20 @@
 """The morning brief: one PDF, the fifty filings worth knowing about.
 
-Reads the same data the website serves, drops the three meeting categories
-(a concall invitation is a diary entry, not news), picks fifty across the
-remaining categories so one busy results day cannot fill the whole issue, and
-writes an A4 document.
+Reads the same data the website serves and covers everything filed from the
+start of yesterday up to 06:45 this morning, so an announcement made overnight
+reaches the reader at breakfast rather than a day later. The issue goes out at
+07:30 IST.
 
-    python newsletter.py                    # yesterday's filings, today's brief
-    python newsletter.py --day 2026-08-31
+Left out: concalls, investor presentations and investor meets (a diary entry is
+not news), and dividends and splits (routine, and frequent enough to crowd out
+everything else). What remains is picked across categories so one busy results
+day cannot fill the whole issue.
+
+    python newsletter.py                    # today's issue
+    python newsletter.py --day 2026-09-01   # rebuild a particular issue
     python newsletter.py --count 30
     python newsletter.py --html-only        # skip the PDF step
+    python newsletter.py --publish          # put it on the site
 
 The PDF is printed by headless Chrome, which every runner already has and
 which is the only renderer that makes CSS look the way a browser does.
@@ -29,13 +35,20 @@ OUT_DIR = os.path.join(HERE, "brief")
 API = "https://markettide.in/api/announcements?scope=important"
 
 # A call, a slide deck and a meeting invitation are things an investor puts in
-# a diary, not things that happened. The brief is for what happened.
-SKIP_TAGS = {"Concall", "Investor Presentation", "Investor Meet"}
+# a diary, not things that happened. Dividends and splits are left out too -
+# they are routine enough, and frequent enough, to crowd out the news.
+SKIP_TAGS = {"Concall", "Investor Presentation", "Investor Meet",
+             "Dividend", "Split"}
+
+# The issue goes out at 7:30am IST and covers everything filed since the start
+# of yesterday up to 06:45 that morning - so an announcement made overnight is
+# in the reader's hands at breakfast rather than a day later.
+CUTOFF_HOUR, CUTOFF_MIN = 6, 45
 
 # The order sections appear in. Anything not named here follows, alphabetically.
 SECTION_ORDER = [
     "Results", "Acquisition", "Scheme Of Arrangement", "Order", "Buyback",
-    "Dividend", "Bonus", "Split", "Rights Issue", "Open Offer", "Delisting",
+    "Bonus", "Rights Issue", "Open Offer", "Delisting",
     "Qip", "Qip Allotment", "Pref", "Warrants", "Fund Raising",
     "Capacity Increase", "Business Update", "Operations", "Ratings Update",
     "Nclt", "Legal/Reg", "Change In Management",
@@ -97,24 +110,51 @@ def pick(rows, count):
     return out
 
 
-def choose_day(rows):
-    """Which day the brief covers: yesterday, in Indian time.
+IST = datetime.timezone(datetime.timedelta(hours=5, minutes=30))
 
-    Not simply "the newest day in the store". The brief goes out at 7am IST,
-    by which time the scraper has usually already opened today with a handful
-    of overnight filings - so the newest day is today, nearly empty, and the
-    brief would go out with four items in it. Yesterday is what the reader
-    wants at breakfast. If yesterday was a Sunday and nothing was filed, fall
-    back to the most recent day that has anything.
+
+def filed_at(row):
+    """The clock time on a filing, as minutes past midnight, or None.
+
+    The feed gives it as a display string - "31 Aug, 23:40" - so the date part
+    is already covered by `day` and only the clock is wanted here.
     """
-    have = {r.get("day") for r in rows if r.get("day")}
-    ist = datetime.timezone(datetime.timedelta(hours=5, minutes=30))
-    day = datetime.datetime.now(ist).date() - datetime.timedelta(days=1)
-    for _ in range(7):
-        if day.isoformat() in have:
-            return day.isoformat()
-        day -= datetime.timedelta(days=1)
-    return max(have)
+    t = (row.get("time") or "").strip()
+    if "," in t:
+        t = t.split(",")[-1].strip()
+    try:
+        h, m = t.split(":")[:2]
+        return int(h) * 60 + int(m)
+    except Exception:
+        return None
+
+
+def window(rows, issue_date=None):
+    """Everything filed from the start of yesterday to 06:45 this morning.
+
+    A newsletter that stopped at midnight would hold anything filed overnight
+    for a further twenty-four hours. Running to 06:45, three quarters of an
+    hour before the issue goes out, means the reader gets it the same morning.
+
+    Returns (rows in the window, the issue's date). The issue is dated the day
+    it is published, not the day it reports on, because it spans both.
+    """
+    today = issue_date or datetime.datetime.now(IST).date()
+    if isinstance(today, str):
+        today = datetime.date.fromisoformat(today)
+    yesterday = today - datetime.timedelta(days=1)
+    cutoff = CUTOFF_HOUR * 60 + CUTOFF_MIN
+
+    keep = []
+    for r in rows:
+        day = r.get("day")
+        if day == yesterday.isoformat():
+            keep.append(r)
+        elif day == today.isoformat():
+            mins = filed_at(r)
+            if mins is None or mins <= cutoff:
+                keep.append(r)
+    return keep, today.isoformat()
 
 
 def group(picked):
@@ -389,6 +429,72 @@ def store(day_iso, pdf_path, url, token):
     return len(chunks), len(days)
 
 
+# -------------------------------------------------------------------- email
+
+# The waitlist, as web/lib/store.js writes it: one hash, email -> JSON record.
+WAITLIST_KEY = "waitlist"
+
+
+def subscribers(url, token):
+    flat = _redis(url, token, ["HGETALL", WAITLIST_KEY]) or []
+    out = []
+    for i in range(0, len(flat), 2):
+        addr = flat[i]
+        try:
+            rec = json.loads(flat[i + 1])
+            addr = rec.get("email") or addr
+        except Exception:
+            pass
+        if addr and "@" in addr:
+            out.append(addr.strip().lower())
+    return sorted(set(out))
+
+
+def email_body(day_txt, count, day_iso):
+    link = f"https://markettide.in/brief/{day_iso}"
+    return (
+        f"The morning brief for {day_txt} is attached.\n\n"
+        f"Every day we sift through all the announcements filed with NSE & BSE. "
+        f"This issue carries the top {count} from yesterday - what happened, the "
+        f"key numbers, and why it matters.\n\n"
+        f"Read it online: {link}\n"
+        f"Every important announcement, searchable: https://markettide.in\n\n"
+        f"Market Tide summarises public exchange filings. It is not investment "
+        f"advice. Always read the filing itself before acting.\n"
+    )
+
+
+def send_email(pdf_path, day_iso, count, to, api_key, from_addr):
+    """One Resend call per recipient, so one bad address cannot sink the batch."""
+    import base64
+    import requests
+
+    day_txt = pretty_day(day_iso)
+    attachment = {
+        "filename": f"market-tide-brief-{day_iso}.pdf",
+        "content": base64.b64encode(open(pdf_path, "rb").read()).decode(),
+    }
+    ok, failed = 0, []
+    for addr in to:
+        try:
+            r = requests.post(
+                "https://api.resend.com/emails",
+                headers={"Authorization": f"Bearer {api_key}",
+                         "Content-Type": "application/json"},
+                json={"from": from_addr, "to": [addr],
+                      "subject": f"The morning brief - {day_txt}",
+                      "text": email_body(day_txt, count, day_iso),
+                      "attachments": [attachment]},
+                timeout=45)
+            if r.ok:
+                ok += 1
+            else:
+                failed.append(f"{addr}: {r.status_code} {r.text[:120]}")
+        except Exception as exc:
+            failed.append(f"{addr}: {type(exc).__name__}")
+    return ok, failed
+
+
 # ---------------------------------------------------------------------- pdf
 
 def find_chrome():
@@ -421,7 +527,7 @@ def to_pdf(html_path, pdf_path):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--day", help="which day's filings (YYYY-MM-DD). Default: latest.")
+    ap.add_argument("--day", help="issue date (YYYY-MM-DD). Default: today in IST.")
     ap.add_argument("--count", type=int, default=50)
     ap.add_argument("--source", help="read a saved API response instead of the network")
     ap.add_argument("--out", default=OUT_DIR)
@@ -430,14 +536,13 @@ def main():
                     help="put the PDF in the KV store so the site can serve it")
     args = ap.parse_args()
 
-    rows, meta = fetch(args.day, args.source)
+    rows, meta = fetch(None, args.source)
     if not rows:
-        sys.exit("no filings for that day")
+        sys.exit("the API returned no filings")
 
-    day_iso = args.day or choose_day(rows)
-    rows = [r for r in rows if r.get("day") == day_iso]
+    rows, day_iso = window(rows, args.day)
     if not rows:
-        sys.exit(f"no filings on {day_iso}")
+        sys.exit(f"nothing filed in the window ending {day_iso} 06:45")
 
     doc, picked = render(rows, day_iso, meta, args.count)
     os.makedirs(args.out, exist_ok=True)

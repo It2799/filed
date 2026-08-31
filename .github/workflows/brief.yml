@@ -1,21 +1,20 @@
 name: The morning brief
 
-# 07:00 IST every day. IST is UTC+5:30, so that is 01:30 UTC.
+# 07:30 IST every day. IST is UTC+5:30, so that is 02:00 UTC.
 #
-# It runs after the previous night's full pass (23:30 IST) has finished, so
-# yesterday's filings are complete and summarised by the time the brief is
-# built. newsletter.py picks yesterday in Indian time rather than "the newest
-# day in the store", because by 7am the scraper has usually already opened
-# today with a few overnight filings.
+# The issue covers everything filed from the start of yesterday up to 06:45
+# that morning. The 45 minutes between the cutoff and the send give the 06:30
+# scrape time to land, so an announcement made overnight is in the brief the
+# same morning instead of waiting a day.
 
 on:
   schedule:
-    - cron: "30 1 * * *"
+    - cron: "0 2 * * *"
 
   workflow_dispatch:
     inputs:
       day:
-        description: "Which day to build (YYYY-MM-DD). Blank means yesterday."
+        description: "Issue date (YYYY-MM-DD). Blank means today."
         required: false
       count:
         description: "How many filings in the brief"
