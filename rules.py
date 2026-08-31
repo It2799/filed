@@ -78,9 +78,17 @@ TOPICS = [
     ("Split",                67, r"stock split|sub-?division of (equity |the )?share|"
                                  r"split of (equity )?share|face value.{0,30}split"),
     ("Bonus",                67, r"bonus (issue|share)|issue of bonus"),
+    # "SAST" is the name of the regulations, not the name of an event. BSE
+    # files every routine "someone's holding crossed a threshold" disclosure
+    # under "Insider Trading / SAST", and "Substantial Acquisition of Shares"
+    # is simply what the S and the A stand for - so both matched a promoter
+    # buying 25,000 shares, scored it 66, and put it on the front page as an
+    # open offer. They now carry their own label, below the bar. A real open
+    # offer still announces itself in the words below.
     ("Open Offer",           66, r"open offer|detailed public statement|regulation 3\(1\)|"
-                                 r"public announcement.{0,25}(acquisition|offer)|delisting|"
-                                 r"substantial acquisition of shares|\bsast\b"),
+                                 r"public announcement.{0,25}(acquisition|offer)"),
+    ("Delisting",            64, r"\bdelist(ing|ed)?\b"),
+    ("Stake Change",         50, r"\bsast\b|substantial acquisition of shares"),
     ("Acquisition",          65, r"\bacquisition\b|has acquired|proposed acquisition|amalgamation|"
                                  r"\bmerger\b|slump sale|divestment|divestiture|stake sale|"
                                  r"sale of (the )?(subsidiary|business|undertaking|division)|"
