@@ -14,6 +14,7 @@ import os
 import threading
 
 import providers
+import numfmt
 import rules
 import sources
 import summarize
@@ -187,7 +188,10 @@ FIELDS = ("id", "exchange", "company", "ticker", "category", "headline", "time",
 
 def to_rows(kept):
     """Trim to the fields the dashboard and the Excel export actually use."""
-    return [{k: a.get(k, "") for k in FIELDS} for a in kept]
+    # Figures get tidied on the way out rather than at summarising time, so a
+    # summary that has been sitting in the cache since before this existed is
+    # corrected too, without paying to generate it again.
+    return [numfmt.fix_all({k: a.get(k, "") for k in FIELDS}) for a in kept]
 
 
 def run(days, min_score, max_summaries, provider_list, workers=4, log=print):

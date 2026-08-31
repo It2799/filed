@@ -166,7 +166,8 @@ def publish_index(url, token, today, run_stats):
               for i in range(KEEP_DAYS)]
     marks = redis(url, token, ["MGET", *[f"mt:count:{d}" for d in window]]) or []
 
-    live_days, totals = [], {"important": 0, "other": 0, "summarised": 0}
+    live_days, totals = [], {"important": 0, "other": 0, "summarised": 0,
+                            "scanned": 0, "read": 0}
     for d, mark in zip(window, marks):
         if not mark:
             continue
@@ -179,11 +180,17 @@ def publish_index(url, token, today, run_stats):
             pass
 
     meta = {
+        # Run tallies first, then the window-wide totals on top - the whole
+        # week is what the dashboard claims to describe, so the week wins.
         **run_stats,
         "updated": datetime.datetime.now(datetime.timezone.utc)
                    .strftime("%Y-%m-%dT%H:%M:%SZ"),
         "days": live_days,
-        **totals,
+        # Days written before per-day tallies existed carry none, and a zero
+        # there would blank the headline rather than correct it. So a summed
+        # figure only replaces the run's own when it actually adds up to
+        # something.
+        **{k: v for k, v in totals.items() if v},
     }
     redis(url, token, ["SET", "mt:index", json.dumps(live_days)])
     redis(url, token, ["SET", "mt:meta", json.dumps(meta, ensure_ascii=False)])
@@ -317,6 +324,11 @@ def main():
         write_day(url, token, f"mt:all:{iso}", rest)
         redis(url, token, ["SET", f"mt:count:{iso}", json.dumps({
             "important": len(important), "other": len(rest), "summarised": done,
+            # Per-day, so the headline figures describe the whole week rather
+            # than whichever days the last run happened to touch. A 45-minute
+            # top-up scrapes one day; without this it would report that day's
+            # filing count as the week's.
+            "scanned": len(raw), "read": tri.get("read", 0),
         }), "EX", str(TTL_SECONDS)])
 
         publish_index(url, token, today, run)
