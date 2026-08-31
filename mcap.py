@@ -41,6 +41,10 @@ _lock = threading.Lock()
 def norm(name):
     """Company names differ slightly between exchanges, so flatten them."""
     n = (name or "").lower()
+    # NSE writes "Berger Paints (I) Limited" where BSE writes "Berger Paints
+    # India Ltd". A short bracketed aside is never what tells two companies
+    # apart, so it comes off before anything else.
+    n = re.sub(r"\([^)]{1,7}\)", " ", n)
     n = re.sub(r"\b(limited|ltd|private|pvt|the|and|company|co|corporation|corp|"
                r"india|indian|\(i\)|inc)\b", " ", n)
     return re.sub(r"[^a-z0-9]", "", n)
@@ -79,14 +83,65 @@ def _fetch(scrip):
         return None
 
 
+MASTER_URL = "https://api.bseindia.com/BseIndiaAPI/api/ListofScripData/w"
+MASTER = os.path.join(HERE, "bse_scrips.json")
+MASTER_DAYS = 14
+
+
+def load_master(log=print):
+    """
+    Every active BSE equity and its scrip code, by normalised name.
+
+    The old index was built only from the BSE filings in the batch being
+    processed, so a company that filed with NSE alone that day had no market
+    cap - which is why PVR INOX, Berger Paints and SJVN were showing blank
+    despite all three being listed on BSE. This list covers all of them, is
+    fetched once a fortnight, and is kept on disk between runs.
+    """
+    try:
+        st = os.stat(MASTER)
+        if (time.time() - st.st_mtime) < MASTER_DAYS * 86400:
+            with open(MASTER, encoding="utf-8") as f:
+                return json.load(f)
+    except Exception:
+        pass
+
+    try:
+        r = requests.get(MASTER_URL,
+                         params={"Group": "", "Scripcode": "", "industry": "",
+                                 "segment": "Equity", "status": "Active"},
+                         headers=HEADERS, timeout=120)
+        rows = r.json() if r.status_code == 200 else []
+    except Exception as e:
+        log(f"  (could not fetch the BSE scrip list: {e})")
+        rows = []
+
+    idx = {}
+    for row in rows:
+        code = str(row.get("SCRIP_CD") or "").strip()
+        name = row.get("Scrip_Name") or ""
+        if code.isdigit() and name:
+            idx.setdefault(norm(name), code)
+    if idx:
+        try:
+            with open(MASTER, "w", encoding="utf-8") as f:
+                json.dump(idx, f, separators=(",", ":"))
+        except Exception:
+            pass
+        log(f"  BSE scrip list: {len(idx)} companies")
+    return idx
+
+
 def scrip_index(records):
     """company-name -> BSE scrip code, built from the BSE records we already have."""
-    idx = {}
+    # The full list first, then today's BSE filings on top - a code seen in an
+    # actual filing beats one matched by name.
+    idx = dict(load_master())
     for r in records:
         if r.get("exchange", "").startswith("BSE") or r.get("exchange") == "NSE + BSE":
             code = str(r.get("ticker") or "").strip()
             if code.isdigit():
-                idx.setdefault(norm(r.get("company")), code)
+                idx[norm(r.get("company"))] = code
     return idx
 
 

@@ -8,6 +8,25 @@ export const revalidate = 0;
 // capped and relies on the filters below.
 const LIMIT = { important: 1500, all: 600 };
 
+// Market cap bands, in crore. A Rs 400 crore order means something entirely
+// different at a Rs 900 crore company than at a Rs 2 lakh crore one, so the
+// dashboard can be narrowed to the size of company a reader actually follows.
+const BANDS = {
+  mega: [100000, Infinity],   // above Rs 1 lakh crore
+  large: [50000, 100000],     // Rs 50,000 crore to 1 lakh crore
+  mid: [10000, 50000],        // Rs 10,000 to 50,000 crore
+  small: [1000, 10000],       // Rs 1,000 to 10,000 crore
+  micro: [0, 1000],           // below Rs 1,000 crore
+};
+
+function inBand(row, band) {
+  const range = BANDS[band];
+  if (!range) return true;
+  const cap = Number(row.mcap);
+  if (!cap) return false;              // unknown size cannot claim a band
+  return cap >= range[0] && cap < range[1];
+}
+
 export async function GET(request) {
   if (!configured()) {
     return Response.json(
@@ -20,6 +39,7 @@ export async function GET(request) {
     const tag = url.searchParams.get("tag");
     const day = url.searchParams.get("day");
     const q = (url.searchParams.get("q") || "").toLowerCase().trim();
+    const band = url.searchParams.get("band");
 
     const sort = url.searchParams.get("sort") === "important" ? "important" : "latest";
     let { days, items, meta } = await recent({ scope, sort });
@@ -42,6 +62,16 @@ export async function GET(request) {
           .toLowerCase()
           .includes(q));
     }
+
+    // Counts for the size bands are taken before the band filter is applied,
+    // so every band keeps showing its total while one of them is selected.
+    const bandCounts = {};
+    for (const key of Object.keys(BANDS)) {
+      bandCounts[key] = universe.filter((r) => inBand(r, key)).length;
+    }
+    bandCounts.unknown = universe.filter((r) => !Number(r.mcap)).length;
+
+    if (band && BANDS[band]) universe = universe.filter((r) => inBand(r, band));
 
     const tagCounts = {};
     for (const r of universe) tagCounts[r.tag] = (tagCounts[r.tag] || 0) + 1;
@@ -67,6 +97,8 @@ export async function GET(request) {
         sort,
         total,
         tagCounts,
+        bandCounts,
+        band: band || null,
         summarised,
         truncated: total > rows.length,
         count: rows.length,

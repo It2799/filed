@@ -20,6 +20,16 @@ function dayLabel(iso) {
   return { d: dt.toLocaleDateString("en-IN", { day: "2-digit", month: "short" }), w };
 }
 
+// Company size bands, matching the ones the API filters on. Labelled the way
+// an Indian investor says them out loud rather than in raw rupees.
+const BANDS = [
+  ["mega", "Above Rs 1 lakh cr"],
+  ["large", "Rs 50,000 cr - 1 lakh cr"],
+  ["mid", "Rs 10,000 - 50,000 cr"],
+  ["small", "Rs 1,000 - 10,000 cr"],
+  ["micro", "Below Rs 1,000 cr"],
+];
+
 export default function Dashboard() {
   const [data, setData] = useState(null);
   const [error, setError] = useState("");
@@ -28,6 +38,7 @@ export default function Dashboard() {
   const [scope, setScope] = useState("important");
   const [tag, setTag] = useState(null);
   const [day, setDay] = useState(null);
+  const [band, setBand] = useState(null);
   const [q, setQ] = useState("");
   const [catQ, setCatQ] = useState("");
   const [limit, setLimit] = useState(PAGE);
@@ -48,6 +59,7 @@ export default function Dashboard() {
     const p = new URLSearchParams({ scope });
     if (tag) p.set("tag", tag);
     if (day) p.set("day", day);
+    if (band) p.set("band", band);
     if (debouncedQ) p.set("q", debouncedQ);
 
     fetch(`/api/announcements?${p}`, { cache: "no-store" })
@@ -63,7 +75,7 @@ export default function Dashboard() {
       .catch(() => !dead && setError("Couldn't load the filings. Please refresh."))
       .finally(() => !dead && setLoading(false));
     return () => { dead = true; };
-  }, [scope, tag, day, debouncedQ]);
+  }, [scope, tag, day, band, debouncedQ]);
 
   useEffect(() => { setLimit(PAGE); }, [scope, tag, day, debouncedQ]);
 
@@ -105,7 +117,7 @@ export default function Dashboard() {
   };
 
   const activeCount = (tag ? 1 : 0) + (day ? 1 : 0) + (q ? 1 : 0);
-  const clearAll = () => { setTag(null); setDay(null); setQ(""); };
+  const clearAll = () => { setTag(null); setDay(null); setBand(null); setQ(""); };
 
   // Stop the page scrolling behind the filter sheet on a phone.
   useEffect(() => {
@@ -215,6 +227,35 @@ export default function Dashboard() {
                     </button>
                   );
                 })}
+              </div>
+            </div>
+
+            <div className="rail-group">
+              <p className="rail-title">
+                Company size
+                {band && (
+                  <button className="rail-clear" onClick={() => setBand(null)}>
+                    clear
+                  </button>
+                )}
+              </p>
+              <div className="catlist">
+                <button
+                  className={`catrow ${!band ? "on" : ""}`}
+                  onClick={() => setBand(null)}
+                >
+                  <span>Any size</span>
+                </button>
+                {BANDS.map(([key, label]) => (
+                  <button
+                    key={key}
+                    className={`catrow ${band === key ? "on" : ""}`}
+                    onClick={() => setBand(band === key ? null : key)}
+                  >
+                    <span>{label}</span>
+                    <span className="cnt">{data?.bandCounts?.[key] ?? 0}</span>
+                  </button>
+                ))}
               </div>
             </div>
 
