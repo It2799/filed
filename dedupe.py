@@ -2,9 +2,13 @@
 Collapse the same event filed several times into one entry.
 
 The genuine duplicate is a quarterly result. It arrives the same day as the
-board-meeting outcome, a press release, an investor presentation and a concall
-intimation - four filings, one piece of news - and again on the second
-exchange. Left alone it fills the dashboard and the AI summarises it four times.
+board-meeting outcome and a prior intimation of the meeting - three filings,
+one piece of news - and again on the second exchange. Left alone it fills the
+dashboard and the AI summarises it three times.
+
+The concall, the investor meet and the investor presentation that arrive
+alongside are NOT folded in. They are separate events a reader plans around,
+and each is its own category on the dashboard.
 
 Everything else only merges with its own kind. An earlier version lumped QIPs,
 preferential issues, warrants and fund raising into one bucket, which meant a
@@ -15,13 +19,17 @@ news, and the same goes for two orders or two acquisitions.
 
 import re
 
-# The one case where different filing types really are the same event.
-RESULTS_FAMILY = {"Results", "Outcome", "Concall", "Presentation", "Board Meeting"}
+# The same results announcement filed under variant headings. Concall,
+# Investor Meet and Investor Presentation are deliberately NOT here any
+# more: they are their own categories now, and folding them into the
+# result would make them unfilterable again.
+RESULTS_FAMILY = {"Results", "Outcome", "Board Meeting"}
 
 # Tags where a same-day repeat is a genuine duplicate worth folding - usually
 # the same document filed on both exchanges, or filed twice.
 MERGE_SAME_TAG = {
-    "Results", "Outcome", "Concall", "Presentation", "Board Meeting",
+    "Results", "Outcome", "Board Meeting",
+    "Concall", "Investor Meet", "Investor Presentation", "Press Release",
     "Dividend", "Buyback", "Bonus", "Split", "Rights Issue",
     "Scheme Of Arrangement", "Open Offer", "Ratings Update",
     "Annual Report", "Meeting", "Esop", "Corp Action",

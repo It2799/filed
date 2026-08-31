@@ -150,12 +150,24 @@ TOPICS = [
                                  r"stepped down|relinquish"),
 
     # ---- meetings and talk ---------------------------------------------------
-    ("Concall",              45, r"analysts?.{0,14}meet|institutional investor meet|"
-                                 r"con\.? ?call|conference call|earnings call|"
+    # These three used to share one "Concall" tag scored at 45, which put them
+    # below the bar for Important - so a reader could not filter for them at
+    # all. They are what an investor actually plans a week around, so each is
+    # now its own category and each clears the bar on its own.
+    ("Investor Presentation", 57, r"investor presentation|analyst presentation|"
+                                  r"earnings presentation|corporate presentation"),
+    ("Concall",              56, r"con\.? ?call|conference call|earnings call|"
                                  r"audio recording|video recording|transcript"),
+    ("Investor Meet",        55, r"analysts?.{0,14}meet|institutional investor meet|"
+                                 r"investor meet|"
+                                 # "meet" has to be in it - without that,
+                                 # "Intimation of Investor Presentation" was
+                                 # being filed as a meeting.
+                                 r"(schedule|intimation) of (the )?"
+                                 r"(analyst|investor)[a-z /]{0,18}meet"),
     ("Outcome",              43, r"outcome of (the )?board meeting|outcome of the meeting"),
     ("Board Meeting",        41, r"board meeting|meeting of the board of directors"),
-    ("Presentation",         44, r"investor presentation|press release|media release"),
+    ("Press Release",        44, r"press release|media release"),
 
     # ---- housekeeping, kept but low so they stay out of "Important" ----------
     ("Corp Action",          50, r"change of name|name change|\bisin\b change|"
@@ -179,9 +191,16 @@ TOPICS = [
 #    These cap the score no matter what else matched.
 # ---------------------------------------------------------------------------
 DOWNGRADE = [
-    ("Concall",       45, r"audio recording|video recording|transcript|earnings call|"
-                          r"con\.? ?call|conference call|analysts?.{0,14}meet|investor meet|"
-                          r"schedule of (the )?(analyst|investor)|intimation of (analyst|investor)"),
+    # An earnings call is still not the earnings, and a presentation is still
+    # not the deal it describes - so these stay capped. The caps are just no
+    # longer low enough to hide them from the reader entirely.
+    ("Investor Presentation", 57, r"investor presentation|analyst presentation|"
+                                  r"earnings presentation|corporate presentation"),
+    ("Concall",       56, r"audio recording|video recording|transcript|earnings call|"
+                          r"con\.? ?call|conference call"),
+    ("Investor Meet", 55, r"analysts?.{0,14}meet|investor meet|"
+                          r"(schedule|intimation) of (the )?"
+                          r"(analyst|investor)[a-z /]{0,18}meet"),
     ("Board Meeting", 41, r"(intimation|notice|prior intimation) (of|for|regarding).{0,45}board meeting|"
                           r"board meeting (will be|is scheduled|to be held|shall be|has been scheduled)|"
                           r"meeting of the board of directors.{0,90}(will be held|is scheduled|shall be held|"

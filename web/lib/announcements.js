@@ -111,9 +111,10 @@ const FAMILY = {
   "Fund Raising": "raise",
   Results: "results",
   Outcome: "results",
-  Concall: "results",
-  Presentation: "results",
   "Board Meeting": "results",
+  // Concall, Investor Meet and Investor Presentation are their own
+  // categories and stay separate - a reader filtering for next week's
+  // earnings calls should find them, not have them folded into the result.
   Dividend: "payout",
   Buyback: "payout",
   Bonus: "payout",
