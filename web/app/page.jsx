@@ -37,10 +37,6 @@ export default function Landing() {
       <main className="mk">
         {/* ---------------- hero ---------------- */}
         <section className="mk-hero">
-          <div className="eyebrow">
-            <span className="live-dot" /> Updated every evening · free to read
-          </div>
-
           <h1 className="mk-h1">
             Every filing read.
             <br />

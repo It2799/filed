@@ -321,17 +321,10 @@ input.phone { padding-left: 52px; width: 100%; }
   padding: 4px 11px;
   margin-bottom: 14px;
 }
-.live-dot {
-  width: 7px; height: 7px; border-radius: 50%;
-  background: var(--pos);
-  animation: pulse 2s ease-in-out infinite;
-}
+/* Still used by the dashboard's loading skeletons (.sk-line in dash.css). */
 @keyframes pulse {
   0%, 100% { opacity: 1; }
   50%      { opacity: 0.35; }
-}
-@media (prefers-reduced-motion: reduce) {
-  .live-dot { animation: none; }
 }
 
 /* .section h2 is uppercase by default; this heading is a real title, so it

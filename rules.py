@@ -239,6 +239,47 @@ _RETAG_RE = [(tag, re.compile(p, re.I)) for tag, p in RETAG]
 _VAGUE_RE = [re.compile(p, re.I) for p in VAGUE]
 _TOPIC_RE = [(tag, pts, re.compile(p, re.I)) for tag, pts, p in TOPICS]
 
+# ---------------------------------------------------------------------------
+# 6. THE THREE MEETING KINDS
+#    BSE files calls and meetings under ONE heading - "Analysts/Institutional
+#    Investor Meet/Con. Call Updates" - which matches all three patterns at
+#    once. The generic machinery could not cope: the three sit in TOPICS at
+#    57/56/55 AND in DOWNGRADE at the same numbers, so whichever scored highest
+#    was immediately capped by the next one down, and every filing in that
+#    shared bucket came out "Investor Meet" no matter what it said. "Audio
+#    recording of the earnings conference call" was an Investor Meet.
+#
+#    They are three alternatives, not a ranking, so they are settled here
+#    instead. The headline names the actual event and is trusted first; only
+#    if it says nothing does the category get a vote, and a category naming
+#    more than one of them means BSE's shared bucket, where a plain meet is by
+#    far the most common thing and the safest default.
+# ---------------------------------------------------------------------------
+MEETING_KINDS = [
+    ("Investor Presentation", r"investor presentation|analyst presentation|"
+                              r"earnings presentation|corporate presentation"),
+    ("Concall",               r"con\.? ?call|conference call|earnings call|"
+                              r"audio recording|video recording|transcript"),
+    ("Investor Meet",         r"analysts?.{0,14}meet|institutional investor meet|"
+                              r"investor meet|road ?show|non-?deal roadshow"),
+]
+_MEETING_RE = [(tag, re.compile(p, re.I)) for tag, p in MEETING_KINDS]
+_MEETING_TAGS = {tag for tag, _ in MEETING_KINDS}
+# The score each kind carries, kept in step with TOPICS above so a concall out
+# of BSE's shared bucket ranks the same as one filed under a clear heading.
+MEETING_SCORE = {"Investor Presentation": 57, "Concall": 56, "Investor Meet": 55}
+
+
+def meeting_kind(category, headline):
+    """Which of the three this filing actually is. Headline wins."""
+    for tag, rx in _MEETING_RE:
+        if rx.search(headline or ""):
+            return tag
+    hits = [tag for tag, rx in _MEETING_RE if rx.search(category or "")]
+    if len(hits) == 1:
+        return hits[0]
+    return "Investor Meet" if hits else None
+
 
 def retag(text):
     """
@@ -307,6 +348,14 @@ def score(category, headline, critical=False):
     for d_tag, cap, rx in _DOWN_RE:
         if pts > cap and rx.search(both):
             pts, tag = cap, d_tag
+
+    # Once a filing has landed on any of the three meeting kinds, which one it
+    # is gets settled by meeting_kind() rather than by whichever DOWNGRADE rule
+    # happened to fire last. See section 6.
+    if tag in _MEETING_TAGS:
+        kind = meeting_kind(category, headline)
+        if kind:
+            tag, pts = kind, MEETING_SCORE[kind]
 
     # Correct the label where the category word is misleading. Score stands -
     # a tax demand is just as worth reading as an order win, it's not the same
