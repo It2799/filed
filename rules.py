@@ -118,7 +118,10 @@ TOPICS = [
                                  r"amalgamation|"
                                  r"\bmerger\b|slump sale|divestment|divestiture|stake sale|"
                                  r"sale of (the )?(subsidiary|business|undertaking|division)|"
-                                 r"joint venture|strategic (partnership|alliance|investment)|"
+                                 r"(enter\w*|form\w*|incorporat\w*|sign\w*|establish\w*|announc\w*) "
+                                 r"[^.]{0,30}joint venture|"
+                                 r"joint venture (agreement|with|company is|will be)|"
+                                 r"strategic (partnership|alliance|investment)|"
                                  r"share purchase agreement|\bspa\b executed"),
 
     # ---- raising money -------------------------------------------------------
@@ -274,11 +277,26 @@ DOWNGRADE = [
     # only headlines were scored - they are short - and ruinous the moment the
     # same list is run over 4,000 characters of a board-outcome PDF, which is
     # what applying DOWNGRADE inside score_text() does.
-    ("Board Meeting", 41, r"(intimation|notice|prior intimation) (of|for|regarding).{0,45}board meeting|"
+    # "...this Board Meeting regarding the financial results for the quarter"
+    # is a notice that results are coming, and the trading-window paragraph
+    # that carries it appears in every one of them.
+    ("Board Meeting", 41, r"board meeting.{0,60}(regarding|to consider|to approve)"
+                          r"[^.]{0,40}(financial )?results|"
+                          r"trading window.{0,80}board meeting|"
+                          r"(intimation|notice|prior intimation) (of|for|regarding).{0,45}board meeting|"
                           r"board meeting (will be|is scheduled|to be held|shall be|has been scheduled|"
                           r"scheduled to be held)|"
                           r"meeting of the board of directors.{0,90}(will be held|is scheduled|"
                           r"shall be held|to consider and approve|to consider)"),
+    # An AGM notice, recognised from the document rather than the category.
+    # Physicswallah filed one under "General Updates", so nothing blocked it
+    # from being read, and the notice carries a website breadcrumb reading
+    # "investor-relations > Financial Results > Annual Report" - which was
+    # enough to publish a meeting notice as Results.
+    ("Meeting", 22, r"notice (is hereby given|of the [0-9]{1,3}(st|nd|rd|th))"
+                    r"[^.]{0,80}annual general meeting|"
+                    r"[0-9]{1,3}(st|nd|rd|th) annual general meeting (of|will|is)"),
+
     # Labelled "Change In Management", not "Resignation" - the pattern matches
     # appointments as readily as departures, and calling an appointment a
     # resignation is the opposite of the truth.

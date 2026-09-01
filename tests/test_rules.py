@@ -296,6 +296,50 @@ check(triage.stake_verdict(
 
 
 # ---------------------------------------------------------------------------
+# 6. Words that belong to something else in the document.
+#
+# Every one of these was live on the site. None is about the thing it was
+# filed under; in each case the phrase belongs to a different sentence
+# entirely - a party's name, a trading-window paragraph, a website breadcrumb.
+# ---------------------------------------------------------------------------
+BORROWED = [
+    # "Joint Venture of OHL International" is the name of the other side in a
+    # lawsuit. Voltas was filed as an Acquisition.
+    ("legal matter relating to the claim and counter claim filed by the Company "
+     "and Joint Venture of OHL International, Spain, and Contrack Cyprus",
+     "Acquisition"),
+    # The trading-window paragraph in every board-meeting notice mentions the
+    # results that are coming. Natural Capsules was filed as Results.
+    ("The trading window shall remain closed till 48 hours after declaration of "
+     "the outcome of this Board Meeting regarding the financial results for the "
+     "quarter ended June 30 2026", "Results"),
+    # A navigation path printed inside an AGM notice. Physicswallah was filed
+    # as Results.
+    ("Notice of the 6th Annual General Meeting. The annual report is at "
+     "Path: www.pw.live/investor-relations > Financial Results > Annual Report",
+     "Results"),
+]
+for text, must_not_be in BORROWED:
+    pts, tag = rules.score_text(text * 3, floor=55)
+    check(tag != must_not_be and pts < 55,
+          f"a borrowed phrase still promotes a filing to {must_not_be}",
+          f"{(pts, tag)} <- {text[:64]!r}")
+
+# The same words, genuinely used, must still work.
+GENUINE = [
+    ("The Company has entered into a joint venture with Beta Limited to build "
+     "a plant at Dahej", "Acquisition"),
+    ("Unaudited Financial Results for the quarter ended June 2026 were approved. "
+     "Revenue Rs 412 crore, profit after tax Rs 38 crore", "Results"),
+]
+for text, want in GENUINE:
+    pts, tag = rules.score_text(text * 3, floor=55)
+    check(tag == want,
+          "tightening a pattern lost the thing it was written for",
+          f"wanted {want}, got {(pts, tag)} <- {text[:56]!r}")
+
+
+# ---------------------------------------------------------------------------
 
 print(f"{CHECKS[0]} checks")
 if FAILURES:
