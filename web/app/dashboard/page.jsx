@@ -86,6 +86,14 @@ export default function Dashboard() {
     [data]
   );
 
+  // Filings across every category, not the number of categories. The row read
+  // "All categories 25" above "Results 412", which made the total look like a
+  // subset of its own children - 25 was how many categories there were.
+  const tagTotal = useMemo(
+    () => tags.reduce((sum, [, n]) => sum + n, 0),
+    [tags]
+  );
+
   const visibleTags = useMemo(() => {
     const n = catQ.toLowerCase().trim();
     return n ? tags.filter(([t]) => t.toLowerCase().includes(n)) : tags;
@@ -209,7 +217,8 @@ export default function Dashboard() {
                 >
                   <span>All days</span>
                   <span className="cnt">
-                    {Object.values(dayCounts).reduce((a, b) => a + b, 0) || items.length}
+                    {(Object.values(dayCounts).reduce((a, b) => a + b, 0)
+                      || items.length).toLocaleString("en-IN")}
                   </span>
                 </button>
                 {(data?.days || []).map((d) => {
@@ -245,6 +254,7 @@ export default function Dashboard() {
                   onClick={() => setBand(null)}
                 >
                   <span>Any size</span>
+                  <span className="cnt">{tagTotal.toLocaleString("en-IN")}</span>
                 </button>
                 {BANDS.map(([key, label]) => (
                   <button
@@ -253,7 +263,9 @@ export default function Dashboard() {
                     onClick={() => setBand(band === key ? null : key)}
                   >
                     <span>{label}</span>
-                    <span className="cnt">{data?.bandCounts?.[key] ?? 0}</span>
+                    <span className="cnt">
+                      {(data?.bandCounts?.[key] ?? 0).toLocaleString("en-IN")}
+                    </span>
                   </button>
                 ))}
               </div>
@@ -283,7 +295,7 @@ export default function Dashboard() {
                   onClick={() => setTag(null)}
                 >
                   <span>All categories</span>
-                  <span className="cnt">{tags.length}</span>
+                  <span className="cnt">{tagTotal.toLocaleString("en-IN")}</span>
                 </button>
                 {visibleTags.map(([t, n]) => (
                   <button
