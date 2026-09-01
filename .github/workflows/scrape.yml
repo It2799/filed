@@ -1,19 +1,15 @@
 name: Scrape announcements
 
-# Every 45 minutes from 06:00 to 23:15 IST, then a final full pass at 23:30.
-#
-# Cron cannot say "every 45 minutes" - 45 does not divide into 60 - so the
-# slots are written out by minute below. A warm run takes about 45 seconds,
-# because summaries and market caps are cached by filing id and only genuinely
-# new filings cost anything.
+# Every 15 minutes from 06:00 to 23:30 IST, then a full 7-day pass at 23:37.
 #
 # Two shapes of run:
-#   * the half-hourly ones only scrape TODAY, which takes about a minute
-#   * the last run of the night rescrapes the whole 7-day window, so the
-#     dashboard stays complete even if a run was missed
+#   * the quarter-hourly ones scrape TODAY only - a warm one takes 5-10 min,
+#     nearly all of it reading PDFs the cache has not seen yet
+#   * the last of the night rescrapes the whole 7-day window, so the dashboard
+#     stays complete even if runs were missed
 #
-# Summaries are cached by filing id, so a repeat pass only pays for filings it
-# has not seen before - usually a handful.
+# Summaries, market caps and PDF reads are all cached by filing id, so a repeat
+# pass only pays for genuinely new filings.
 
 # NOTE ON RELIABILITY
 # GitHub's schedule event is best effort. Their documentation says runs are
@@ -29,21 +25,12 @@ name: Scrape announcements
 
 on:
   schedule:
-    # Every 45 minutes, 06:00 to 23:15 IST, seven days a week. IST is UTC+5:30,
-    # and cron cannot say "every 45 minutes" because 45 does not divide into 60,
-    # so the slots are spelled out by minute. Single spaces only - a malformed
-    # entry can void the whole block.
-    # Odd minutes on purpose. GitHub's own documentation says scheduled runs
-    # are delayed at times of high load, and that load peaks on the hour and
-    # on the quarters - which is exactly where these used to sit. On 1
-    # September 16 of 23 slots were never created at all, leaving a 3h54m hole
-    # over the middle of the day. Moving off the boundary is not a cure, only
-    # a nudge; the cure is the dispatch trigger described at the top.
-    - cron: "37 0,3,6,9,12,15 * * *"
-    - cron: "22 1,4,7,10,13,16 * * *"
-    - cron: "7 2,5,8,11,14,17 * * *"
-    - cron: "52 2,5,8,11,14,17 * * *"
-    # 23:30 IST - the last pass of the day, which rescrapes the full 7 days.
+    # Every 15 minutes, 06:07 to 23:22 IST (00:37-17:52 UTC). Minutes 7, 22, 37
+    # and 52 rather than 0, 15, 30 and 45: GitHub's documentation says scheduled
+    # runs are delayed at times of high load, and load peaks on the hour and the
+    # quarters, which is exactly where these used to sit.
+    - cron: "7,22,37,52 0-17 * * *"
+    # 23:37 IST - the last pass of the day, which rescrapes the full 7 days.
     - cron: "7 18 * * *"
 
   workflow_dispatch:
@@ -64,14 +51,18 @@ concurrency:
 jobs:
   scrape:
     runs-on: ubuntu-latest
-    # Forty minutes, not 330. The old ceiling was five and a half hours, and
-    # because runs queue rather than cancel, one hung download held the whole
-    # schedule for that long - on 1 September a run sat there 5h29m while
-    # seven scheduled runs behind it were cancelled and the site went stale.
-    # A pass that has not finished in forty minutes is not going to produce
-    # anything the next one won't, and each day is published as it completes,
-    # so a run cut short still leaves everything it had already written.
-    timeout-minutes: 40
+    # A top-up must finish inside its own 15 minute slot, or it holds up the
+    # next one - runs queue rather than cancel. Thirteen minutes leaves a
+    # margin, and a cut-short run is no longer wasted now that the cache saves
+    # either way, so the next run picks up where this one stopped.
+    #
+    # The nightly full pass gets 40: it has seven days to get through, and
+    # nothing is waiting behind it at that hour.
+    # A full 7-day pass needs the longer ceiling however it was started: on
+    # the nightly cron, by hand, or by the dispatch endpoint asking for days=7.
+    timeout-minutes: >-
+      ${{ (github.event.schedule == '7 18 * * *'
+           || github.event.inputs.days == '7') && 40 || 13 }}
 
     steps:
       - uses: actions/checkout@v4
@@ -83,8 +74,15 @@ jobs:
 
       - run: pip install --quiet -r requirements.txt
 
+      # restore + save as separate steps, so the save can run `if: always()`.
+      # actions/cache saves only when the job succeeded, so a run that was cut
+      # short - by the timeout, or by a failed verify - threw away every PDF it
+      # had read. At a 15 minute cadence that matters: a run that does not
+      # quite finish must still hand its work to the next one, or the same
+      # documents get read over and over and no run ever gets ahead.
       - name: Restore summary and market-cap caches
-        uses: actions/cache@v4
+        id: caches
+        uses: actions/cache/restore@v4
         with:
           path: |
             cache.json
@@ -133,12 +131,10 @@ jobs:
 
       - name: Keep the caches for the next run
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/cache/save@v4
         with:
-          name: caches
           path: |
             cache.json
             mcap.json
             triage.json
-          retention-days: 3
-          if-no-files-found: ignore
+          key: caches-${{ github.run_id }}
