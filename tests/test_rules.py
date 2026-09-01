@@ -60,6 +60,11 @@ INNOCUOUS = [
     # routine compliance
     "Certificate under Regulation 74(5) of the SEBI (Depositories) Regulations",
     "Intimation of the record date for the purpose of the annual general meeting",
+    # "acquired" as plain English - caught while widening Acquisition to cover
+    # the future tense, which briefly scored all four of these at 65
+    "The auditor acquired an understanding of the internal controls",
+    "knowledge acquired through years of operating experience in the sector",
+    "The land was acquired long ago and is recorded at historical cost",
 ]
 
 for text in INNOCUOUS:
@@ -92,12 +97,61 @@ REAL = [
     ("Open Offer to the public shareholders of Alpha Limited",     "Open Offer"),
     ("Scheme of Amalgamation between Alpha and Beta",              "Scheme Of Arrangement"),
     ("Completed acquisition of 100% of Alpha Private Limited",     "Acquisition"),
+    # the future tense, which is how a deal is announced on the day it is news
+    ("The Company will acquire a 51% stake in Alpha Limited",       "Acquisition"),
+    ("Agreed to acquire the packaging business of Beta Ltd",        "Acquisition"),
+    ("Company is acquiring control of Gamma LLP",                   "Acquisition"),
 ]
 
 for text, want in REAL:
     pts, tag = rules.score("General Updates", text)
     check(tag == want and pts >= 55,
           "a real filing stopped being recognised",
+          f"wanted {want}, got {(pts, tag)} <- {text[:60]!r}")
+
+
+# ---------------------------------------------------------------------------
+# 2b. A promoter dealing in shares is not the company acquiring anything.
+#
+# Both are written with the same verbs, so points alone cannot separate them -
+# Acquisition scores 65 and always beat Promoter Buy/Sell at 58. 52 of 216
+# filings under Acquisition were a promoter buying or selling shares in his own
+# company. What separates them is the actor, not the wording.
+# ---------------------------------------------------------------------------
+PROMOTER = [
+    "Mr Halwasiya, a promoter of the Company, has acquired 8,60,688 equity shares",
+    "Promoter entity Epsilon Bidco Pte Ltd has sold its entire stake in the Company",
+    "Internal transfer of shares between members of the promoter group",
+    "Inter-se transfer of equity shares among members of the promoter group",
+    "A promoter group entity has pledged 15,00,000 equity shares with the lender",
+    "Promoters plan to sell up to 2% of their stake in the open market",
+    "Creation of encumbrance over shares held by the promoter group",
+]
+for text in PROMOTER:
+    for label, got in (("headline", rules.score("General Updates", text)),
+                       ("document", rules.score_text(text * 3, floor=55))):
+        check(got[1] == "Promoter Buy/Sell",
+              f"promoter share dealing filed as something else ({label})",
+              f"{got} <- {text[:66]!r}")
+
+# ...and the other half: a real corporate deal must not be dragged into it,
+# even when a promoter is named in the same document.
+CORPORATE = [
+    ("The Board approved the acquisition of 100% of Alpha Private Limited",
+     "Acquisition"),
+    ("ITC subsidiary will acquire a 22.1% stake in Happiest Minds Limited",
+     "Acquisition"),
+    ("Promoter-led company completes acquisition of Beta Limited as a "
+     "wholly-owned subsidiary", "Acquisition"),
+    ("Scheme of Amalgamation between Alpha and Beta approved by the promoters",
+     "Scheme Of Arrangement"),
+    ("Buyback of equity shares approved by the promoters and the board",
+     "Buyback"),
+]
+for text, want in CORPORATE:
+    pts, tag = rules.score("General Updates", text)
+    check(tag == want,
+          "a corporate deal was mistaken for promoter share dealing",
           f"wanted {want}, got {(pts, tag)} <- {text[:60]!r}")
 
 
@@ -115,6 +169,7 @@ ORDINARY = [
     "guidance", "capex", "warrant", "warrants", "order", "orders", "update",
     "meeting", "issue", "notice", "report", "change", "approval", "scheme",
     "plan", "record", "action", "offer", "result", "capital", "shares",
+    "acquired", "acquire",
     "board", "director", "auditor", "letter", "statement", "disclosure",
 ]
 

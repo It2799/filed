@@ -88,8 +88,34 @@ TOPICS = [
     ("Open Offer",           66, r"open offer|detailed public statement|regulation 3\(1\)|"
                                  r"public announcement.{0,25}(acquisition|offer)"),
     ("Delisting",            64, r"\bdelist(ing|ed)?\b"),
+    # A promoter buying or selling their own company's shares is news in its
+    # own right - buying reads as confidence, selling as the opposite - but it
+    # is NOT the company acquiring anything, which is what it used to be filed
+    # as. 52 of 216 filings under Acquisition were a promoter dealing in shares.
+    # See promoter_deal() below, which is what actually settles this: the words
+    # here overlap Acquisition's, so points alone cannot separate them.
+    ("Promoter Buy/Sell",    58, r"promoter.{0,40}(acquir|purchas|bought|sold|sell|"
+                                 r"dispos|transferr?|gift|pledg|encumbr)|"
+                                 r"(acquir|purchas|bought|sold|dispos|pledg).{0,40}"
+                                 r"by (the )?promoter|"
+                                 r"promoter group.{0,40}(stake|shares|holding)|"
+                                 r"(creation|invocation|release) of (encumbrance|pledge)"),
     ("Stake Change",         50, r"\bsast\b|substantial acquisition of shares"),
-    ("Acquisition",          65, r"\bacquisition\b|has acquired|proposed acquisition|amalgamation|"
+    # Every tense of "acquire". The list used to hold "has acquired" and
+    # "acquisition" but nothing in the future, so "ITC's subsidiary WILL
+    # ACQUIRE a 22.1% stake in Happiest Minds" - which is how a deal is
+    # announced on the day it is agreed, the day it is news - scored nothing at
+    # all and came out Other(18).
+    # The verb needs an object, or it is just English: "the auditor ACQUIRED an
+    # understanding of the internal controls" scored 65 on the first attempt at
+    # this. It has to be acquiring a stake, a percentage, a business, or a
+    # named company.
+    ("Acquisition",          65, r"\bacquisition\b|"
+                                 r"acquir(e|es|ed|ing)\b[^.]{0,60}"
+                                 r"(stake|shareholding|control of|\d[\d.]*\s?%|"
+                                 r"per cent|business|undertaking|subsidiar|"
+                                 r"private limited|\blimited\b|\bltd\b|\bllp\b|\binc\b)|"
+                                 r"amalgamation|"
                                  r"\bmerger\b|slump sale|divestment|divestiture|stake sale|"
                                  r"sale of (the )?(subsidiary|business|undertaking|division)|"
                                  r"joint venture|strategic (partnership|alliance|investment)|"
@@ -320,6 +346,54 @@ _MEETING_TAGS = {tag for tag, _ in MEETING_KINDS}
 # of BSE's shared bucket ranks the same as one filed under a clear heading.
 MEETING_SCORE = {"Investor Presentation": 57, "Concall": 56, "Investor Meet": 55}
 
+# ---------------------------------------------------------------------------
+# 7. PROMOTER DEALING vs THE COMPANY ACQUIRING SOMETHING
+#
+# Both are written with the same verbs - acquired, purchased, sold, transferred
+# - so points cannot separate them: "Acquisition" scores 65 and would always
+# beat "Promoter Buy/Sell" at 58, which is why 52 filings about a promoter
+# buying shares in his own company were published as corporate acquisitions.
+#
+# What separates them is WHO. A promoter or promoter-group entity dealing in
+# the company's own shares is a promoter deal, however it is phrased. A company
+# buying a stake in another company is an acquisition, even when a promoter is
+# mentioned somewhere in the document.
+# ---------------------------------------------------------------------------
+_PROMOTER_ACTOR = re.compile(
+    r"promoter|promotor|\bpac\b|person acting in concert", re.I)
+
+_PROMOTER_DEAL = re.compile(
+    r"(acquir|purchas|bought|sold|sell|dispos|transferr?|gift|pledg|encumbr)", re.I)
+
+# A real corporate deal, which wins even when a promoter is named nearby.
+_CORPORATE_DEAL = re.compile(
+    r"acquisition of .{0,40}(private limited|pvt\.? ?ltd|limited|ltd\b|inc\b|"
+    r"llp\b|business|undertaking|division|subsidiar)|"
+    r"scheme of (arrangement|amalgamation|merger|demerger)|"
+    r"slump sale|joint venture|share purchase agreement|"
+    r"acquire[sd]? .{0,30}(stake|shareholding) in .{0,40}(limited|ltd|inc|llp)|"
+    r"wholly[- ]owned subsidiary", re.I)
+
+
+def promoter_deal(text):
+    """Is this a promoter dealing in their own company's shares?
+
+    Requires both a promoter and a dealing verb, and yields to anything that
+    reads as a real corporate transaction - a company can buy another company
+    on a day its promoter also happened to buy shares.
+    """
+    if not text:
+        return False
+    if _CORPORATE_DEAL.search(text):
+        return False
+    return bool(_PROMOTER_ACTOR.search(text) and _PROMOTER_DEAL.search(text))
+
+
+# Tags a promoter deal is allowed to take over from. Anything else - a buyback,
+# a scheme, an open offer with a formal public announcement - keeps its label.
+_DEALING_TAGS = {"Acquisition", "Stake Change", "Promoter Buy/Sell", "Other"}
+PROMOTER_SCORE = 58
+
 
 def meeting_kind(category, headline):
     """Which of the three this filing actually is. Headline wins."""
@@ -387,6 +461,12 @@ def score(category, headline, critical=False):
         for r_tag, rx in _RETAG_RE:
             if rx.search(category + " || " + headline):
                 return 50, r_tag
+        # A promoter deal is recognised by its actor rather than by a topic
+        # pattern, so it has to be asked about here too. "Internal transfer of
+        # shares between members of the promoter group" matches no topic at
+        # all and would otherwise leave as Other(18).
+        if promoter_deal(category + " || " + headline):
+            return PROMOTER_SCORE, "Promoter Buy/Sell"
         return 18, "Other"
 
     if head_n > 1:                 # several important themes in one filing
@@ -407,6 +487,11 @@ def score(category, headline, critical=False):
         kind = meeting_kind(category, headline)
         if kind:
             tag, pts = kind, MEETING_SCORE[kind]
+
+    # A promoter dealing in their own shares is not the company acquiring
+    # anything. See section 7 - points cannot separate these, only the actor.
+    if tag in _DEALING_TAGS and promoter_deal(both):
+        tag, pts = "Promoter Buy/Sell", PROMOTER_SCORE
 
     # Correct the label where the category word is misleading. Score stands -
     # a tax demand is just as worth reading as an order win, it's not the same
@@ -464,6 +549,9 @@ def score_text(text, floor=0):
         kind = meeting_kind("", body)
         if kind:
             tag, pts = kind, MEETING_SCORE[kind]
+
+    if tag in _DEALING_TAGS and promoter_deal(body):
+        tag, pts = "Promoter Buy/Sell", PROMOTER_SCORE
 
     for r_tag, rx in _RETAG_RE:
         if rx.search(body):
