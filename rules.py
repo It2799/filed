@@ -99,7 +99,16 @@ TOPICS = [
     ("Qip Allotment",        63, r"qip allotment|allotment.{0,30}qualified institution|"
                                  r"allotment of (equity )?shares.{0,40}\bqip\b"),
     ("Qip",                  62, r"\bqip\b|qualified institution(s)? placement"),
-    ("Warrants",             61, r"\bwarrant(s)?\b|convertible warrant"),
+    # A warrant has to be the instrument, not the verb. "\bwarrants?\b" alone
+    # matched "the matter warrants disclosure" and "search warrant issued by
+    # the Income Tax Department" - and over PDF prose, where "warrants further
+    # clarification" is a stock phrase, it was a steady source of filings
+    # promoted to a fund-raising item on nothing at all.
+    ("Warrants",             61, r"convertible warrants?|share warrants?|"
+                                 r"warrants? (allotment|conversion|holders?|"
+                                 r"into|at rs|of rs)|"
+                                 r"(issue|issuance|allotment|conversion|subscription|"
+                                 r"exercise) of[^.]{0,30}warrants?"),
     ("Pref",                 60, r"preferential (issue|allotment|basis)|on a preferential"),
     ("Fund Raising",         58, r"fund ?rais|capital raising|further public offer|\bfpo\b|"
                                  r"issue of (ncd|debenture|bond|commercial paper)|"
@@ -219,13 +228,35 @@ DOWNGRADE = [
     ("Investor Meet", 55, r"analysts?.{0,14}meet|investor meet|"
                           r"(schedule|intimation) of (the )?"
                           r"(analyst|investor)[a-z /]{0,18}meet"),
+    # The last two alternatives used to sit at the top level, not inside the
+    # "meeting of the board of directors" group the indentation implied. So
+    # "scheduled to be held on" and "to consider and approve" matched ANY text
+    # containing them, and a completed acquisition that happened to mention an
+    # EGM date was capped to 41 and relabelled a board meeting. Harmless while
+    # only headlines were scored - they are short - and ruinous the moment the
+    # same list is run over 4,000 characters of a board-outcome PDF, which is
+    # what applying DOWNGRADE inside score_text() does.
     ("Board Meeting", 41, r"(intimation|notice|prior intimation) (of|for|regarding).{0,45}board meeting|"
-                          r"board meeting (will be|is scheduled|to be held|shall be|has been scheduled)|"
-                          r"meeting of the board of directors.{0,90}(will be held|is scheduled|shall be held|"
-                          r"to consider)|to consider and approve|scheduled to be held on"),
-    ("Resignation",   32, r"internal auditor|secretarial auditor|cost auditor|"
-                          r"appointment of (the )?(internal|secretarial|cost)"),
+                          r"board meeting (will be|is scheduled|to be held|shall be|has been scheduled|"
+                          r"scheduled to be held)|"
+                          r"meeting of the board of directors.{0,90}(will be held|is scheduled|"
+                          r"shall be held|to consider and approve|to consider)"),
+    # Labelled "Change In Management", not "Resignation" - the pattern matches
+    # appointments as readily as departures, and calling an appointment a
+    # resignation is the opposite of the truth.
+    ("Change In Management", 32, r"internal auditor|secretarial auditor|cost auditor|"
+                                 r"appointment of (the )?(internal|secretarial|cost)"),
 ]
+
+# Downgrades that only make sense against a headline.
+#
+# The rest of the list describes what a document IS - a transcript, a slide
+# deck, a notice that a board will meet - and that is just as true of 4,000
+# characters as of forty. The auditor rule is different: it names one routine
+# item on an agenda. Board minutes list a dozen such items, so over the body
+# of a document it capped a genuine Rs 40 crore acquisition to 32 because the
+# same meeting also appointed an internal auditor.
+HEADLINE_ONLY = {"Change In Management"}
 
 # ---------------------------------------------------------------------------
 # 5. RETAG - the exchanges file a tax or court ORDER under the same category as
@@ -402,6 +433,25 @@ def score_text(text, floor=0):
     strong = [h for h in hits if h[0] >= 55]
     if len(strong) > 1:
         pts += 4
+
+    # The same "this only REFERS to the big thing" test score() applies. It was
+    # missing here, and that asymmetry was the single largest source of wrong
+    # categories on the site: two thirds of everything filed under Acquisition,
+    # Pref and Warrants had been promoted by this function on a passing mention
+    # somewhere in the PDF. "The proposal of fund raising is being placed
+    # seeking approval" is a notice that a board will meet to consider raising
+    # money; "Took note of the preferential issue" is a line in the minutes.
+    # Neither is the event, and score() has always known that.
+    for d_tag, cap, rx in _DOWN_RE:
+        if d_tag in HEADLINE_ONLY:
+            continue
+        if pts > cap and rx.search(body):
+            pts, tag = cap, d_tag
+
+    if tag in _MEETING_TAGS:
+        kind = meeting_kind("", body)
+        if kind:
+            tag, pts = kind, MEETING_SCORE[kind]
 
     for r_tag, rx in _RETAG_RE:
         if rx.search(body):

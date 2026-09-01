@@ -46,7 +46,14 @@ concurrency:
 jobs:
   scrape:
     runs-on: ubuntu-latest
-    timeout-minutes: 330
+    # Forty minutes, not 330. The old ceiling was five and a half hours, and
+    # because runs queue rather than cancel, one hung download held the whole
+    # schedule for that long - on 1 September a run sat there 5h29m while
+    # seven scheduled runs behind it were cancelled and the site went stale.
+    # A pass that has not finished in forty minutes is not going to produce
+    # anything the next one won't, and each day is published as it completes,
+    # so a run cut short still leaves everything it had already written.
+    timeout-minutes: 40
 
     steps:
       - uses: actions/checkout@v4

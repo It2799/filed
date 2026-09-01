@@ -58,8 +58,9 @@ export default function Subscribe() {
               <div className="sub-done">
                 <b>You're in.</b>
                 <p>
-                  The next brief lands tomorrow at 7:30 in the morning. In the
-                  meantime, today's issue is on the{" "}
+                  The next brief lands tomorrow at 7:30 in the morning. Now
+                  join the WhatsApp community below — that's where the day
+                  gets discussed. Today's issue is on the{" "}
                   <a href="/brief">brief page</a>.
                 </p>
               </div>
@@ -96,13 +97,15 @@ export default function Subscribe() {
                 {error && <p className="sub-error">{error}</p>}
                 <p className="sub-note">
                   Free, and we won't pass your address to anyone. Unsubscribe
-                  any time.
+                  any time. One more step after this.
                 </p>
               </form>
             )}
           </div>
 
-          <div className="sub-or"><span>or</span></div>
+          <div className="sub-and">
+            <span className="sub-step">Then</span>
+          </div>
 
           <a
             className="btn-lg btn-wa"
@@ -113,7 +116,8 @@ export default function Subscribe() {
             Join the Market Tide WhatsApp community
           </a>
           <p className="mk-ctanote">
-            The same brief, posted every morning in the group. Free to join.
+            Do both. The email brings you the PDF each morning; the group is
+            where the day gets discussed.
           </p>
         </section>
 

@@ -19,6 +19,7 @@ buyback itself is filed separately and gets found on its own.
 """
 
 import concurrent.futures as cf
+import hashlib
 import json
 import os
 import threading
@@ -47,21 +48,66 @@ NEVER_PROMOTE = [
     r"shareholding pattern",
     r"investor complaint|grievance redressal",
     r"\biepf\b|unclaimed (dividend|share)",
+
+    # An AGM notice and an annual report both carry the whole year's accounts
+    # as an annexure, so reading the document finds "financial results" and
+    # promotes a meeting notice to Results. Fifty-seven of them were sitting
+    # under Results on the live site. The headline always got these right -
+    # "Notice of 102nd Annual General Meeting" scores 22 - and only the PDF
+    # misled. A scrutinizer's report is the same trap: it quotes every
+    # resolution it counted votes on.
+    r"annual general meeting|\bagm\b|\begm\b|extraordinary general meeting|"
+    r"shareholders meeting|postal ballot",
+    r"annual report",
+    r"scrutinizer|voting result",
 ]
 
 
-def load_cache():
+def rules_fingerprint():
+    """A short hash of the scoring rules, so the cache knows when they change.
+
+    A cached {} means "read this PDF, found nothing worth promoting" - an
+    answer that is only true for the rules that produced it. Keyed on the
+    filing id alone, editing rules.py changed nothing: every filing already
+    read stayed buried under the old verdict for ever. The promotions are
+    still valid whatever the rules say, so only the negatives are reconsidered.
+    """
+    blob = repr([rules.JUNK, rules.VAGUE, rules.TOPICS,
+                 rules.DOWNGRADE, rules.RETAG])
+    return hashlib.sha1(blob.encode()).hexdigest()[:12]
+
+
+def load_cache(log=print):
     try:
         with open(CACHE, encoding="utf-8") as f:
-            return json.load(f)
+            raw = json.load(f)
     except Exception:
         return {}
+
+    entries = raw.get("e", raw) if isinstance(raw, dict) else {}
+    if raw.get("v") == rules_fingerprint():
+        return entries
+
+    # The rules changed, so some cached verdicts are stale. The PROMOTIONS are
+    # the ones to doubt: every wrong category on the site got there by this
+    # function deciding a document was an acquisition, and a rules change is
+    # usually a change to what counts as one. The negatives - "read it, found
+    # nothing" - stay, because they are four times as numerous and far likelier
+    # to still be true. Re-reading 1,500 documents is fifteen minutes; re-reading
+    # all 7,000 is over an hour, and the schedule cannot afford it.
+    kept = {k: v for k, v in entries.items() if not v}
+    dropped = len(entries) - len(kept)
+    if dropped:
+        log(f"Triage: the scoring rules changed - {dropped} promotions will be "
+            f"re-read and re-judged ({len(kept)} 'nothing there' verdicts kept)")
+    return kept
 
 
 def save_cache(cache):
     tmp = CACHE + ".tmp"
     with open(tmp, "w", encoding="utf-8") as f:
-        json.dump(cache, f, ensure_ascii=False, separators=(",", ":"))
+        json.dump({"v": rules_fingerprint(), "e": cache}, f,
+                  ensure_ascii=False, separators=(",", ":"))
     os.replace(tmp, CACHE)
 
 
@@ -107,17 +153,22 @@ def triage(records, important_at=55, workers=8, log=print):
         except Exception:
             text = ""
 
+        readable = len(text) >= 200
         result = {}
-        if len(text) >= 200 and not _blocked(rec):
+        if readable and not _blocked(rec):
             score, tag = rules.score_text(text, floor=important_at)
             if score:
                 result = {"s": score, "t": tag}
 
         with _lock:
             done[0] += 1
-            # Only cache a definite answer. An empty read may be a scan or a
-            # network blip, and caching that would bury the filing for good.
-            if text:
+            # Only cache a definite answer, and "definite" means we actually
+            # scored the text - not merely that some text came back. The gate
+            # here used to be `if text`, one character's worth of difference
+            # from the `>= 200` above: a scan with a 40-character text layer
+            # was never scored, yet was written down as "nothing here" and so
+            # never read again. That is the outcome this comment warns about.
+            if readable:
                 cache[rec["id"]] = result
             # Flush periodically. An hour of reading was lost once because the
             # cache was only written at the end and the job was cancelled.

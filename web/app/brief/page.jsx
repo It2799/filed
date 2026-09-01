@@ -39,8 +39,7 @@ export default async function BriefIndex() {
           <p className="mk-sub">
             One PDF, free, every morning at 7:30. The fifty filings that were
             actually worth knowing about — what happened, the key numbers, and
-            why it matters. Concall invitations, slide decks, dividends and
-            splits are left out; this is for things that happened.
+            why it matters.
           </p>
 
           {latest ? (
@@ -61,6 +60,10 @@ export default async function BriefIndex() {
                 >
                   Download PDF
                 </a>
+                {/* Only today's issue can be downloaded. Back issues stay
+                    readable in the browser, which is what an archive is for -
+                    the file itself is for forwarding, and that is a thing
+                    people do with the morning's brief, not last Tuesday's. */}
               </div>
             </div>
           ) : (
@@ -98,9 +101,6 @@ export default async function BriefIndex() {
                   <a href={`/brief/${d}`}>
                     <b>{pretty(d)}</b>
                     <span>{weekday(d)}</span>
-                  </a>
-                  <a className="brief-dl sm" href={`/brief/${d}?download=1`}>
-                    Download
                   </a>
                 </li>
               ))}

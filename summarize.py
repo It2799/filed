@@ -2,6 +2,7 @@
 
 import base64
 import io
+import threading
 import zipfile
 
 import requests
@@ -14,6 +15,9 @@ UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
 
 MAX_PAGES = 14          # trim long PDFs before sending them off
 MAX_PDF_BYTES = 12_000_000
+# Nothing larger is downloaded at all. The biggest attachment seen in a
+# normal day is 26 MB, and no summary needs it.
+MAX_DOWNLOAD_BYTES = 14_000_000
 MAX_TEXT_CHARS = 26_000
 
 SYSTEM = """You read official corporate announcements filed with Indian stock exchanges
@@ -39,8 +43,58 @@ def _context(item):
 
 # ------------------------------------------------------------------ PDF
 
+# One session per thread, reused for every download that thread makes.
+#
+# requests.get() opens a fresh TCP and TLS connection each call. Reading a
+# day's filings means hundreds of downloads from a US runner to servers in
+# India, where a handshake costs three round trips before a single byte of PDF
+# moves. Measured over the same 14 attachments, reusing the connection took
+# the small ones from 0.85s to 0.17s.
+_local = threading.local()
+
+
+def _session():
+    s = getattr(_local, "s", None)
+    if s is None:
+        s = requests.Session()
+        s.headers["User-Agent"] = UA
+        adapter = requests.adapters.HTTPAdapter(pool_connections=4,
+                                                pool_maxsize=4)
+        s.mount("https://", adapter)
+        s.mount("http://", adapter)
+        _local.s = s
+    return s
+
+
+# (connect, read). Ninety seconds was one timeout for both, so a throttled
+# request held a worker for a minute and a half. A filing that has not started
+# arriving within 20s is not worth the thread.
+TIMEOUTS = (5, 20)
+
+
 def _get(url, referer):
-    return requests.get(url, timeout=90, headers={"User-Agent": UA, "Referer": referer})
+    """Download, but stop reading once the file is clearly too big to use.
+
+    Attachments run to 26 MB - annual reports filed as a "press release". The
+    whole thing used to come down before anything checked the size, and for
+    triage all that is wanted is the text on the first few pages.
+    """
+    r = _session().get(url, timeout=TIMEOUTS, stream=True,
+                       headers={"Referer": referer})
+    try:
+        if r.status_code != 200:
+            return None
+        size = int(r.headers.get("Content-Length") or 0)
+        if size > MAX_DOWNLOAD_BYTES:
+            return None
+        buf = bytearray()
+        for chunk in r.iter_content(65536):
+            buf += chunk
+            if len(buf) > MAX_DOWNLOAD_BYTES:
+                return None
+        return bytes(buf)
+    finally:
+        r.close()
 
 
 def fetch_pdf(item):
@@ -51,12 +105,11 @@ def fetch_pdf(item):
 
     for url in urls:
         try:
-            r = _get(url, referer)
+            blob = _get(url, referer)
         except Exception:
             continue
-        if r.status_code != 200 or not r.content:
+        if not blob:
             continue
-        blob = r.content
 
         if blob[:4] == b"%PDF":
             return blob

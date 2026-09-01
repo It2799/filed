@@ -60,8 +60,17 @@ CONTACT = {
     "site": "markettide.in",
     "email": "market.tide27@gmail.com",
     "phone": "+91 82004 40146",
-    "community": "join at markettide.in/subscribe",
+    "community": "https://markettide.in/subscribe",
 }
+
+# Drawn inline rather than linked, because a PDF has no way to fetch an image
+# once it has left the machine that made it.
+WA_LOGO = (
+    '<svg class="wa-mark" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">'
+    '<path fill="#25D366" d="M16 0a16 16 0 0 0-13.6 24.4L0 32l7.8-2.3A16 16 0 1 0 16 0Z"/>'
+    '<path fill="#fff" d="M11.9 8.6c-.3-.7-.6-.7-.9-.7h-.7c-.3 0-.7.1-1 .5-.4.4-1.3 1.3-1.3 3.1s1.3 3.6 1.5 3.9c.2.2 2.6 4.1 6.4 5.6 3.1 1.2 3.8 1 4.5.9.7-.1 2.2-.9 2.5-1.8.3-.9.3-1.6.2-1.8-.1-.2-.4-.3-.8-.5-.4-.2-2.2-1.1-2.6-1.2-.4-.1-.6-.2-.8.2-.2.4-.9 1.2-1.1 1.4-.2.2-.4.3-.8.1-.4-.2-1.6-.6-3-1.9-1.1-1-1.9-2.2-2.1-2.6-.2-.4 0-.6.2-.8l.6-.7c.2-.2.2-.4.3-.6.1-.2 0-.5 0-.7l-1.1-2.4Z"/>'
+    "</svg>"
+)
 
 CHROME_CANDIDATES = [
     os.environ.get("CHROME_PATH"),
@@ -216,7 +225,10 @@ def pretty_day(iso):
 
 CSS = """
 @page { size: A4; margin: 16mm 14mm 18mm; }
-@page :first { margin-top: 0; }
+/* The cover bleeds to the paper edge, so page one has no margin at all.
+   Zeroing only margin-top left 18mm at the foot, which made a 297mm cover
+   18mm too tall for its own page and spilled a sliver onto page two. */
+@page :first { margin: 0; }
 
 * { box-sizing: border-box; }
 html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
@@ -313,6 +325,11 @@ h1, h2, h3 { margin: 0; font-weight: 600; }
 .end-contact .end-h { font-size: 7.6pt; font-weight: 700; color: #14161a;
                       letter-spacing: 0.06em; text-transform: uppercase;
                       margin-bottom: 1mm; }
+.end-contact a { color: #3d4350; text-decoration: none; }
+.end-contact .wa { margin-top: 1.4mm; }
+.end-contact .wa a { display: inline-flex; align-items: center; gap: 1.6mm;
+                     color: #128C4A; font-weight: 600; }
+.wa-mark { width: 3.6mm; height: 3.6mm; flex: none; }
 .end-note { margin-top: 5mm; padding-top: 3mm; border-top: 1px solid #e4e7eb;
             font-size: 8pt; color: #8a9099; }
 """
@@ -405,10 +422,12 @@ def render(rows, day_iso, meta, count):
     </div>
     <div class="end-contact">
       <span class="end-h">Get in touch</span>
-      <span>{e(CONTACT['email'])}</span>
+      <span><a href="mailto:{e(CONTACT['email'])}">{e(CONTACT['email'])}</a></span>
       <span>{e(CONTACT['phone'])}</span>
-      <span>{e(CONTACT['site'])}</span>
-      <span>WhatsApp community &middot; {e(CONTACT['community'])}</span>
+      <span><a href="https://{e(CONTACT['site'])}">{e(CONTACT['site'])}</a></span>
+      <span class="wa">
+        <a href="{e(CONTACT['community'])}">{WA_LOGO} Join the WhatsApp community</a>
+      </span>
     </div>
   </div>
   <div class="end-note">
