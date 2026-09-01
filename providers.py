@@ -96,6 +96,28 @@ def _estimate(text, pdf_bytes):
 
 # ---------------------------------------------------------------- Groq
 
+def _is_daily(body):
+    """Is this 429 the daily cap, or just this minute's?
+
+    It matters enormously: a per-minute limit means wait, a per-day limit means
+    stop using this model until tomorrow. Both providers return the same
+    message for either, and the only thing telling them apart is a marker deep
+    in the JSON - Gemini puts "GenerateRequestsPerDayPerProjectPerModel" in a
+    quotaId at around character 430.
+
+    This used to read `r.text[:300]`, so that marker was always cut off and the
+    daily cap was never once detected. The model stayed in the rotation, and
+    every later filing walked five exhausted models twice over with a 20 second
+    sleep between each - about ten minutes per filing, achieving nothing. One
+    run spent two hours and seventeen minutes on a single day's filings that
+    way, and blocked every scheduled run behind it for five and a half hours.
+    """
+    low = (body or "").lower()
+    return ("perday" in low or "per day" in low or "per-day" in low
+            or "requests_per_day" in low or '"rpd"' in low or '"tpd"' in low
+            or "daily limit" in low or "quota_exceeded_per_day" in low)
+
+
 def _groq(key, model, system, user, url=GROQ_URL):
     body = {
         "model": model,
@@ -113,9 +135,11 @@ def _groq(key, model, system, user, url=GROQ_URL):
         return json.loads(r.json()["choices"][0]["message"]["content"]), None
 
     # Groq says "rate_limit_exceeded" for both the per-minute and per-day caps.
-    body_txt = r.text[:300]
-    daily = "per day" in body_txt.lower() or "\"rpd\"" in body_txt.lower() or "tpd" in body_txt.lower()
-    return None, (f"{model} HTTP {r.status_code}: {body_txt}", r.status_code == 429, daily)
+    # Judge on the WHOLE body and only shorten it for the log line - see
+    # _is_daily below for what truncating it used to cost.
+    daily = _is_daily(r.text)
+    return None, (f"{model} HTTP {r.status_code}: {r.text[:300]}",
+                  r.status_code == 429, daily)
 
 
 # ---------------------------------------------------------------- Gemini
@@ -132,9 +156,9 @@ def _gemini(key, model, parts):
     if r.status_code == 200:
         txt = r.json()["candidates"][0]["content"]["parts"][0]["text"]
         return json.loads(txt), None
-    body_txt = r.text[:300]
-    daily = "PerDay" in body_txt or "per day" in body_txt.lower()
-    return None, (f"{model} HTTP {r.status_code}: {body_txt}", r.status_code == 429, daily)
+    daily = _is_daily(r.text)
+    return None, (f"{model} HTTP {r.status_code}: {r.text[:300]}",
+                  r.status_code == 429, daily)
 
 
 # ---------------------------------------------------------------- routing
