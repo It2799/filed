@@ -82,12 +82,51 @@ NEVER_PROMOTE_CATEGORY = [
     r"statutory auditor|secretarial auditor|cost auditor",
     r"change in director|resignation of|appointment of (director|"
     r"company secretary|chief|additional director|independent director)",
+
+
     # Record date and book closure are NOT here. They name a corporate action
     # without saying which one, and the document is the only thing that says
     # whether it is a dividend, a bonus or a split - rules.py treats them as
     # vague for exactly that reason. Blocking them would have silenced 98
     # filings that triage exists to read.
 ]
+
+
+# Stake disclosures: the category already says what these are, so the document
+# is asked one question only - whose stake moved.
+#
+# Every one arrives on a SEBI template carrying the printed line:
+#
+#   "Mode of sale (e.g. open market / public issue / rights issue /
+#    preferential allotment / inter-se transfer / encumbrance, etc.)"
+#
+# That is the blank form listing its own options. Scored as prose it matches
+# Rights Issue at 68, Acquisition at 65, Warrants at 61 and Pref at 60, so a
+# mutual fund buying 43,780 shares was published as a rights issue. One
+# template is why stake disclosures were scattered over every category.
+#
+# Blocking them outright would be wrong too: a promoter buying their own shares
+# is real news and has its own category. So the topic patterns are skipped and
+# the text is used for the only thing it can settle - promoter, or somebody
+# else.
+STAKE_CATEGORY = [
+    r"sast|insider trading|substantial acquisition of shares",
+    r"reg\.? ?29|regulation 29|reg\.? ?10\(|regulation 10\(",
+    r"disclosure under sebi takeover",
+]
+
+
+def _is_stake(rec):
+    import re
+    cat = rec.get("category", "") or ""
+    return any(re.search(p, cat, re.I) for p in STAKE_CATEGORY)
+
+
+def stake_verdict(text):
+    """Who moved, for a filing we already know is a stake disclosure."""
+    if rules.promoter_deal(text):
+        return {"s": rules.PROMOTER_SCORE, "t": "Promoter Buy/Sell"}
+    return {}          # somebody else's stake: real, but not front-page news
 
 
 def rules_fingerprint():
@@ -163,6 +202,12 @@ def triage(records, important_at=55, workers=8, log=print):
         hit = cache.get(r["id"])
         if hit is not None:
             from_cache += 1
+            # A stake disclosure can only ever have been promoted for one
+            # reason. Anything else in the cache was scored off the blank
+            # form's own list of options - Rights Issue, Open Offer, Pref -
+            # and is discarded rather than replayed.
+            if hit and _is_stake(r) and hit.get("t") != "Promoter Buy/Sell":
+                continue
             if hit:                        # {} means "read it, nothing there"
                 r["score"], r["tag"] = hit["s"], hit["t"]
                 r["promoted"] = True
@@ -189,9 +234,13 @@ def triage(records, important_at=55, workers=8, log=print):
         readable = len(text) >= 200
         result = {}
         if readable and not _blocked(rec):
-            score, tag = rules.score_text(text, floor=important_at)
-            if score:
-                result = {"s": score, "t": tag}
+            if _is_stake(rec):
+                # Never scored as prose - see STAKE_CATEGORY above.
+                result = stake_verdict(text)
+            else:
+                score, tag = rules.score_text(text, floor=important_at)
+                if score:
+                    result = {"s": score, "t": tag}
 
         with _lock:
             done[0] += 1

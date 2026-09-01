@@ -242,6 +242,48 @@ check(not triage._blocked({"category": "Company Update / General",
 
 
 # ---------------------------------------------------------------------------
+# 5. A stake disclosure is never scored off the form's own list of options.
+#
+# Every SAST filing arrives on a SEBI template printing the line
+#   "Mode of sale (e.g. open market / public issue / rights issue /
+#    preferential allotment / inter-se transfer / encumbrance, etc.)"
+# which, read as prose, matches Rights Issue 68, Acquisition 65, Warrants 61
+# and Pref 60. A mutual fund buying 43,780 shares was published as a rights
+# issue. The category already says these are stake disclosures, so the document
+# is asked one question only: whose stake moved.
+# ---------------------------------------------------------------------------
+STAKE_CATS = [
+    "Insider Trading / SAST / Disclosures under Reg. 29(2) of SEBI (SAST) Regulations, 2011",
+    "Insider Trading / SAST / Disclosure under SEBI (SAST) Regulations",
+    "Disclosure under SEBI Takeover Regulations",
+    "Insider Trading / SAST / Disclosures under Reg. 10(6) of SEBI (SAST)",
+]
+for cat in STAKE_CATS:
+    check(triage._is_stake({"category": cat}),
+          "a stake-disclosure category was not recognised as one", repr(cat))
+
+for cat in ("General Updates", "Outcome of Board Meeting", "Company Update / Acquisition"):
+    check(not triage._is_stake({"category": cat}),
+          "an ordinary category was treated as a stake disclosure", repr(cat))
+
+# The form's own option list must decide nothing.
+FORM_BOILERPLATE = (
+    "Mode of sale (e.g. open market / public issue / rights issue / "
+    "preferential allotment / inter-se transfer / encumbrance, etc.) "
+    "Salient features of the securities acquired 27,64,510 7.0672"
+)
+check(triage.stake_verdict(FORM_BOILERPLATE) == {},
+      "the blank form's option list still promotes a stake disclosure",
+      repr(triage.stake_verdict(FORM_BOILERPLATE)))
+
+# ...but a promoter in the same document still counts.
+check(triage.stake_verdict(
+        "Mr Halwasiya, a promoter of the Company, has acquired 8,60,688 shares "
+        + FORM_BOILERPLATE).get("t") == "Promoter Buy/Sell",
+      "a promoter's own dealing was lost when stake scoring was tightened")
+
+
+# ---------------------------------------------------------------------------
 
 print(f"{CHECKS[0]} checks")
 if FAILURES:
