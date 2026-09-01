@@ -132,14 +132,26 @@ TOPICS = [
                                  r"secures? (an? )?(order|contract|project)|"
                                  r"\bwins?\b.{0,25}(order|contract|project|tender)"),
     ("Dividend",             60, r"\bdividend\b"),
+    # "capex" alone used to be here. It is one word of ordinary business
+    # English and it turns up in job descriptions - a filing announcing a new
+    # President of Manufacturing scored 57 and was published as a capacity
+    # expansion. It now has to be capex OF something, or a capex plan.
     ("Capacity Increase",    57, r"capacity (expansion|addition|augment|increase)|new plant|"
                                  r"greenfield|brownfield|commercial production|commissioning of|"
-                                 r"commencement of (production|operation)|\bcapex\b|"
+                                 r"commencement of (production|operation)|"
+                                 r"capex (plan|program|programme|of|outlay)|"
+                                 r"capital expenditure of|"
                                  r"expansion (plan|project)|debottleneck"),
+    # "guidance" alone used to be here, and it appears in any document that
+    # mentions SEBI guidance or governance guidance - a chief general
+    # manager's resignation letter scored 55 and was filed as a business
+    # update. It now has to be guidance ABOUT something.
     ("Business Update",      55, r"monthly business update|business update|revenue update|"
                                  r"sales update|monthly sales|production (update|figures|volume)|"
                                  r"operational (update|data)|quarterly (business |pre-?)update|"
-                                 r"key financial and operational|\bguidance\b"),
+                                 r"key financial and operational|"
+                                 r"(revenue|earnings|growth|margin|volume|sales) guidance|"
+                                 r"guidance for (fy|q[1-4]|the )"),
 
     # ---- trouble -------------------------------------------------------------
     ("Nclt",                 60, r"\bnclt\b|\bnclat\b|\bibc\b|\bcirp\b|insolvency|liquidat|"

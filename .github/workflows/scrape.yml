@@ -99,6 +99,14 @@ jobs:
           key: caches-${{ github.run_id }}
           restore-keys: caches-
 
+      # Before anything is scraped, let alone published. These are guards on
+      # the scoring rules, every one of them a mistake that reached the live
+      # site once: a word that reads unambiguously in a headline turning out
+      # to be ordinary English inside a PDF. If a rule change would mislabel
+      # filings, the run stops here rather than putting it on the dashboard.
+      - name: Check the scoring rules
+        run: python tests/test_rules.py
+
       - name: Decide how much to scrape
         id: plan
         run: |
