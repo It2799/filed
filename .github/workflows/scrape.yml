@@ -36,9 +36,9 @@ on:
   workflow_dispatch:
     inputs:
       days:
-        description: "How many days back to scrape"
+        description: "Days back to scrape. Blank = today during the day, 7 at night."
         required: false
-        default: "7"
+        default: ""
       max_summaries:
         description: "Cap on AI calls (0 = summarise every relevant filing)"
         required: false
@@ -99,8 +99,12 @@ jobs:
           # been quietly doing twice the work its comment claimed, every 45
           # minutes, all day. The nightly stays at 7, which is 8 days built
           # and the oldest clipped by the 7-day window.
+          # This used to default to "7", which meant EVERY dispatch - including
+          # one from the 15-minute cron endpoint - ran a full seven-day pass
+          # instead of a today-only top-up. Blank now, so an unqualified
+          # dispatch behaves exactly like a scheduled run.
           if [ -n "${{ github.event.inputs.days }}" ]; then
-            DAYS="${{ github.event.inputs.days }}"          # manual run wins
+            DAYS="${{ github.event.inputs.days }}"          # asked for explicitly
           elif [ "$(date -u +%H)" -ge 18 ]; then
             DAYS=7                                          # nightly full pass
           else
