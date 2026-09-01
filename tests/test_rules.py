@@ -211,6 +211,18 @@ BLOCKED_CATEGORIES = [
     "AGM/EGM / AGM",
     "Shareholders meeting",
     "Others / Reg. 34 (1) Annual Report",
+    # The first version of this list spelled out exact wordings and missed the
+    # commonest ones. These five cover 48 filings between them, and a letter
+    # about a person carries their CV: Deepak Fertilizers appointing a
+    # President of Manufacturing was published as a Capacity Increase because
+    # his remit mentioned capex.
+    "Company Update / Change in Management",
+    "Change in Management",
+    "Appointment",
+    "Cessation",
+    "Company Update / Cessation",
+    "Change in Auditors",
+    "Resignation",
 ]
 for cat in BLOCKED_CATEGORIES:
     check(triage._blocked({"category": cat, "headline": "anything at all"}),

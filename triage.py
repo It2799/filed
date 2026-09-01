@@ -80,8 +80,21 @@ NEVER_PROMOTE_CATEGORY = [
     r"annual report",
     r"appointment of (statutory|internal|secretarial|cost) auditor|"
     r"statutory auditor|secretarial auditor|cost auditor",
-    r"change in director|resignation of|appointment of (director|"
-    r"company secretary|chief|additional director|independent director)",
+    # Who runs the company. The category names the event exactly, and the
+    # document is a letter about a person - which routinely carries their CV,
+    # their new remit, or the appointing firm's profile. Deepak Fertilizers
+    # appointing a President of Manufacturing was published as a Capacity
+    # Increase because his remit mentioned capex; an auditor's appointment
+    # became an Acquisition because the firm's profile listed "Merger &
+    # Acquisition" among its services.
+    #
+    # Written loosely on purpose. The first version listed the exact wordings
+    # and missed "Change in Management" (32 filings), "Appointment" on its own
+    # (10) and "Cessation" (5), which is most of them.
+    r"change in (director|management|auditor)|change in the (director|management)|"
+    r"\bresignation\b|\bcessation\b|\bappointment\b|"
+    r"director\(s\)|\bkmp\b|\bsmp\b|"
+    r"(statutory|internal|secretarial|cost) auditor",
 
 
     # Record date and book closure are NOT here. They name a corporate action
