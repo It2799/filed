@@ -49,17 +49,44 @@ NEVER_PROMOTE = [
     r"investor complaint|grievance redressal",
     r"\biepf\b|unclaimed (dividend|share)",
 
-    # An AGM notice and an annual report both carry the whole year's accounts
-    # as an annexure, so reading the document finds "financial results" and
-    # promotes a meeting notice to Results. Fifty-seven of them were sitting
-    # under Results on the live site. The headline always got these right -
-    # "Notice of 102nd Annual General Meeting" scores 22 - and only the PDF
-    # misled. A scrutinizer's report is the same trap: it quotes every
-    # resolution it counted votes on.
-    r"annual general meeting|\bagm\b|\begm\b|extraordinary general meeting|"
-    r"shareholders meeting|postal ballot",
-    r"annual report",
+    # A scrutinizer's report quotes every resolution it counted votes on, so
+    # reading one finds whatever the meeting decided and promotes the report
+    # rather than the decision. The AGM and annual-report cases that used to
+    # sit here have moved to NEVER_PROMOTE_CATEGORY below - matched against
+    # the category only, because on the headline they caught real news that
+    # merely mentioned a meeting.
     r"scrutinizer|voting result",
+]
+
+# Matched against the CATEGORY ALONE, never the headline.
+#
+# These are categories that already say exactly what the filing is. Reading the
+# document cannot improve on them and routinely makes them worse, because the
+# attachment carries material that has nothing to do with the event: an
+# auditor's appointment letter includes the firm's profile, and one of those
+# listed "Merger & Acquisition" among its service lines - enough to publish a
+# statutory auditor's appointment as a Rs 45 crore company's acquisition.
+#
+# Category only, because the headline is not evidence of the same thing. On the
+# first attempt these were matched against both, and "Updation of Order from
+# NCLT for AGM" - a court order, which is news - was blocked for containing the
+# letters AGM. Twenty-five vague-category filings were caught that way.
+#
+# Vague categories are deliberately absent. "Outcome of Board Meeting" still
+# gets read: that is the entire point of triage, and the document is the only
+# thing that can say what happened.
+NEVER_PROMOTE_CATEGORY = [
+    r"annual general meeting|\bagm\b|\begm\b|shareholders meeting|postal ballot",
+    r"annual report",
+    r"appointment of (statutory|internal|secretarial|cost) auditor|"
+    r"statutory auditor|secretarial auditor|cost auditor",
+    r"change in director|resignation of|appointment of (director|"
+    r"company secretary|chief|additional director|independent director)",
+    # Record date and book closure are NOT here. They name a corporate action
+    # without saying which one, and the document is the only thing that says
+    # whether it is a dividend, a bonus or a split - rules.py treats them as
+    # vague for exactly that reason. Blocking them would have silenced 98
+    # filings that triage exists to read.
 ]
 
 
@@ -113,7 +140,10 @@ def save_cache(cache):
 
 def _blocked(rec):
     import re
-    blob = f"{rec.get('category','')} || {rec.get('headline','')}"
+    cat = rec.get("category", "") or ""
+    blob = f"{cat} || {rec.get('headline','')}"
+    if any(re.search(p, cat, re.I) for p in NEVER_PROMOTE_CATEGORY):
+        return True
     return any(re.search(p, blob, re.I) for p in NEVER_PROMOTE)
 
 

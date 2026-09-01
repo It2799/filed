@@ -333,8 +333,14 @@ _TOPIC_RE = [(tag, pts, re.compile(p, re.I)) for tag, pts, p in TOPICS]
 #    far the most common thing and the safest default.
 # ---------------------------------------------------------------------------
 MEETING_KINDS = [
+    # A bare "Presentation" counts. BSE files these as "...has informed the
+    # Exchange about Presentation", with nothing qualifying it, and the filing
+    # then fell through to Investor Meet - eClerx's slide deck was published as
+    # a meeting. This pattern only runs once a filing is already known to be
+    # one of the three meeting kinds, so the loose word is safe here.
     ("Investor Presentation", r"investor presentation|analyst presentation|"
-                              r"earnings presentation|corporate presentation"),
+                              r"earnings presentation|corporate presentation|"
+                              r"\bpresentations?\b"),
     ("Concall",               r"con\.? ?call|conference call|earnings call|"
                               r"audio recording|video recording|transcript"),
     ("Investor Meet",         r"analysts?.{0,14}meet|institutional investor meet|"

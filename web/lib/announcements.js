@@ -182,7 +182,12 @@ function foldDuplicates(items) {
       if (r.pdf_url && (match.row.also_pdfs || []).length < 4) {
         match.row.also_pdfs = [...(match.row.also_pdfs || []), r.pdf_url];
       }
-      // Keep every heading the event was filed under, so nothing is hidden.
+      // Keep every OTHER heading the event was filed under, so nothing is
+      // hidden. Deleting the surviving row's own tag is right - repeating it
+      // tells the reader nothing - but when a company files the same event
+      // twice under the same heading, which is the common case, that leaves
+      // the list empty while also_filed still counts them. The card then drew
+      // "Also filed as" followed by nothing at all.
       const tags = new Set([...(match.row.also_tags || []), r.tag]);
       tags.delete(match.row.tag);
       match.row.also_tags = [...tags];

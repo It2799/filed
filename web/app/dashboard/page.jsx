@@ -458,12 +458,26 @@ export default function Dashboard() {
                         <div className="why">{it.why_it_matters}</div>
                       )}
 
+                      {/* Two shapes here. Filed under DIFFERENT headings, so
+                          the other headings are worth naming; or filed more
+                          than once under the SAME heading, where there is no
+                          other heading to name and the count is the whole
+                          story. The second case used to render "Also filed
+                          as" followed by nothing. */}
                       {it.also_filed > 0 && (
                         <div className="also">
-                          <span>Also filed as</span>
-                          {(it.also_tags || []).map((t) => (
-                            <span className="also-tag" key={t}>{t}</span>
-                          ))}
+                          {(it.also_tags || []).length > 0 ? (
+                            <>
+                              <span>Also filed as</span>
+                              {it.also_tags.map((t) => (
+                                <span className="also-tag" key={t}>{t}</span>
+                              ))}
+                            </>
+                          ) : (
+                            <span>
+                              Filed {it.also_filed + 1} times
+                            </span>
+                          )}
                         </div>
                       )}
 
