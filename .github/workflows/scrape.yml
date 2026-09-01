@@ -78,12 +78,17 @@ jobs:
       - name: Decide how much to scrape
         id: plan
         run: |
+          # --days N counts BACK from today, so it covers N+1 days: --days 0
+          # is today alone, --days 1 was today and yesterday. The top-up has
+          # been quietly doing twice the work its comment claimed, every 45
+          # minutes, all day. The nightly stays at 7, which is 8 days built
+          # and the oldest clipped by the 7-day window.
           if [ -n "${{ github.event.inputs.days }}" ]; then
             DAYS="${{ github.event.inputs.days }}"          # manual run wins
           elif [ "$(date -u +%H)" -ge 18 ]; then
             DAYS=7                                          # nightly full pass
           else
-            DAYS=1                                          # quick top-up
+            DAYS=0                                          # quick top-up: today only
           fi
           echo "days=$DAYS" >> "$GITHUB_OUTPUT"
           echo "Scraping $DAYS day(s)"
