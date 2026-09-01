@@ -73,10 +73,19 @@
 .nav-cta:hover {
   opacity: 0.92;
 }
+/* The brief and the dashboard used to be hidden on a phone - only the Join
+   button survived, so the newsletter was invisible to anyone on mobile, which
+   is most readers. Everything stays now; the type and padding shrink instead. */
 @media (max-width: 560px) {
-  .nav-links a:not(.nav-cta) {
-    display: none;
-  }
+  .nav-in { padding: 11px 14px; gap: 10px; }
+  .nav-brand { font-size: 15.5px; }
+  .nav-links { gap: 2px; }
+  .nav-links a { font-size: 13px; padding: 7px 8px; }
+  .nav-cta { padding: 8px 12px !important; }
+}
+@media (max-width: 380px) {
+  .nav-brand span:not(.dot) { display: none; }   /* the dot alone is enough */
+  .nav-links a { font-size: 12.5px; padding: 6px 6px; }
 }
 
 /* ---------- page shell ---------- */

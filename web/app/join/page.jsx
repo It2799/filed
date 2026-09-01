@@ -91,7 +91,7 @@ export default function Join() {
         {/* ---------------- hero ---------------- */}
         <section className="mk-hero">
           <div className="launch-banner">
-            🚀 Launch price · first {SITE.launchSeats} members
+            Free while in beta · ₹{SITE.price.toLocaleString("en-IN")}/year later
           </div>
 
           <h1 className="mk-h1">
@@ -101,9 +101,9 @@ export default function Join() {
           </h1>
 
           <div className="price-tag" style={{ justifyContent: "center" }}>
-            <span className="was">₹{SITE.fullPrice.toLocaleString("en-IN")}</span>
-            <b>₹{SITE.price.toLocaleString("en-IN")}</b>
-            <span>/ year</span>
+            <span className="was">₹{SITE.price.toLocaleString("en-IN")}/yr</span>
+            <b>Free</b>
+            <span>while in beta</span>
           </div>
 
           <p className="mk-sub" style={{ marginTop: 22 }}>
@@ -127,7 +127,7 @@ export default function Join() {
 
           <div className="mk-ctas">
             <a className="btn-lg btn-grad" href="#join">
-              Join the club · ₹{SITE.price.toLocaleString("en-IN")}/year
+              Join the club · free
             </a>
             <a className="btn-lg btn-ghost" href="/dashboard">
               See the free dashboard
@@ -177,21 +177,21 @@ export default function Join() {
                 Founding membership
               </p>
               <div className="price-tag">
-                <span className="was">₹{SITE.fullPrice.toLocaleString("en-IN")}</span>
-                <b>₹{SITE.price.toLocaleString("en-IN")}</b>
+                <span className="was">₹{SITE.price.toLocaleString("en-IN")}/yr</span>
+                <b>Free</b>
                 <span>/ year</span>
               </div>
               <p className="price-note">
                 One year. One community. Hundreds of conversations and
-                connections. Goes to ₹{SITE.fullPrice.toLocaleString("en-IN")} once
-                the first {SITE.launchSeats} seats are taken.
+                connections. Free for now — it becomes ₹{SITE.price.toLocaleString("en-IN")} a
+                year when the beta ends.
               </p>
 
               <div className="seatbar">
                 <div className="seatbar-track">
                   <div className="seatbar-fill" style={{ width: "18%" }} />
                 </div>
-                <span>Founding seats limited to {SITE.launchSeats}.</span>
+                <span>No card, no payment, nothing to cancel.</span>
               </div>
 
               {state === "done" ? (
@@ -256,7 +256,7 @@ export default function Join() {
                   </form>
                   <p className="note" style={{ marginTop: 10 }}>
                     Nothing to pay today. We&apos;ll message you when the doors
-                    open — your ₹{SITE.price.toLocaleString("en-IN")} price is held
+                    open — your free beta place is held
                     until then.
                   </p>
                 </>
@@ -300,7 +300,7 @@ export default function Join() {
         {/* ---------------- closing ---------------- */}
         <section className="mk-sec">
           <div className="finale">
-            <h2>₹{SITE.price.toLocaleString("en-IN")} / year</h2>
+            <h2>Free while in beta</h2>
             <p className="closing">
               One year. One community. Hundreds of conversations and connections.
             </p>

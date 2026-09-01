@@ -1,7 +1,7 @@
 """The morning brief: one PDF, the fifty filings worth knowing about.
 
 Reads the same data the website serves and covers everything filed from the
-start of yesterday up to 06:45 this morning, so an announcement made overnight
+start of yesterday up to 07:00 this morning, so an announcement made overnight
 reaches the reader at breakfast rather than a day later. The issue goes out at
 07:30 IST.
 
@@ -41,9 +41,10 @@ SKIP_TAGS = {"Concall", "Investor Presentation", "Investor Meet",
              "Dividend", "Split"}
 
 # The issue goes out at 7:30am IST and covers everything filed since the start
-# of yesterday up to 06:45 that morning - so an announcement made overnight is
-# in the reader's hands at breakfast rather than a day later.
-CUTOFF_HOUR, CUTOFF_MIN = 6, 45
+# of yesterday up to 07:00 that morning - so an announcement made overnight is
+# in the reader's hands at breakfast rather than a day later. Half an hour is
+# enough to build and send it.
+CUTOFF_HOUR, CUTOFF_MIN = 7, 0
 
 # The order sections appear in. Anything not named here follows, alphabetically.
 SECTION_ORDER = [
@@ -60,7 +61,7 @@ CONTACT = {
     "site": "markettide.in",
     "email": "market.tide27@gmail.com",
     "phone": "+91 82004 40146",
-    "community": "https://markettide.in/subscribe",
+    "community": "https://markettide.in/brief",
 }
 
 # Drawn inline rather than linked, because a PDF has no way to fetch an image
@@ -148,11 +149,11 @@ def filed_at(row):
 
 
 def window(rows, issue_date=None):
-    """Everything filed from the start of yesterday to 06:45 this morning.
+    """Everything filed from the start of yesterday to 07:00 this morning.
 
     A newsletter that stopped at midnight would hold anything filed overnight
-    for a further twenty-four hours. Running to 06:45, three quarters of an
-    hour before the issue goes out, means the reader gets it the same morning.
+    for a further twenty-four hours. Running to 07:00, half an hour before the
+    issue goes out, means the reader gets it the same morning.
 
     Returns (rows in the window, the issue's date). The issue is dated the day
     it is published, not the day it reports on, because it spans both.
@@ -476,10 +477,23 @@ def store(day_iso, pdf_path, url, token):
         days = json.loads(raw) if raw else []
     except Exception:
         days = []
-    days = sorted({day_iso, *days}, reverse=True)[:60]
-    _redis(url, token, ["SET", "mt:brief:index", json.dumps(days),
+    # Only the newest issue is offered. A daily brief is a thing you read the
+    # morning it lands, not an archive you browse - and an archive invites the
+    # question of why yesterday's is still being advertised. Older issues are
+    # dropped from the index and their chunks deleted, so nothing lingers in
+    # the store paying rent.
+    old_days = [d for d in days if d != day_iso]
+    for d in old_days:
+        try:
+            n = int(_redis(url, token, ["GET", f"mt:brief:{d}:parts"]) or 0)
+            for i in range(n):
+                _redis(url, token, ["DEL", f"mt:brief:{d}:{i}"])
+            _redis(url, token, ["DEL", f"mt:brief:{d}:parts"])
+        except Exception:
+            pass
+    _redis(url, token, ["SET", "mt:brief:index", json.dumps([day_iso]),
                         "EX", str(BRIEF_TTL)])
-    return len(chunks), len(days)
+    return len(chunks), len(old_days)
 
 
 # -------------------------------------------------------------------- email
@@ -619,7 +633,7 @@ def main():
         if not (url and token):
             sys.exit("  --publish needs KV_REST_API_URL and KV_REST_API_TOKEN")
         parts, held = store(day_iso, pdf_path, url, token)
-        print(f"  published as {parts} part(s); {held} issues now available")
+        print(f"  published as {parts} part(s); {held} older issue(s) removed")
         print(f"  https://markettide.in/brief/{day_iso}")
 
 

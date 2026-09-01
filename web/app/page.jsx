@@ -54,8 +54,8 @@ export default function Landing() {
             <a className="btn-lg btn-grad" href="/dashboard">
               Open the dashboard <span aria-hidden="true">→</span>
             </a>
-            <a className="btn-lg btn-ghost" href="/join">
-              Join the community · ₹{SITE.price.toLocaleString("en-IN")}/yr
+            <a className="btn-lg btn-ghost" href="/brief">
+              Get the free daily brief
             </a>
           </div>
           <p className="mk-ctanote">
@@ -258,16 +258,16 @@ export default function Landing() {
         {/* ---------------- community teaser ---------------- */}
         <section className="mk-sec">
           <div className="finale">
-            <h2>The reading is free. The room is not.</h2>
+            <h2>Free while we&apos;re in beta.</h2>
             <p>
-              ₹{SITE.price.toLocaleString("en-IN")} a year — about ₹{PER_MONTH} a
-              month — gets you into a community of investors serious enough to pay
-              to be in it. Discussion, deep dives, watchlist alerts and offline
-              meetups across India. Launch price for the first {SITE.launchSeats}.
+              The dashboard, the daily brief and the community are all free
+              right now. They will be ₹{SITE.price.toLocaleString("en-IN")} a
+              year — about ₹{PER_MONTH} a month — once we open properly.
+              Everyone who joins during the beta keeps reading either way.
             </p>
             <div className="mk-ctas">
               <a className="btn-lg btn-grad" href="/join">
-                See what&apos;s inside · ₹{SITE.price.toLocaleString("en-IN")}/year
+                Join the community · free
               </a>
               <a
                 className="btn-lg btn-wa"

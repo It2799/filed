@@ -1,112 +1,217 @@
+"use client";
+
+import { useEffect, useState } from "react";
 import Nav from "../Nav";
 import MkFooter from "../MkFooter";
 import { SITE } from "../site";
-import { briefDays } from "../../lib/brief";
 
-export const dynamic = "force-dynamic";
+/**
+ * One page for the brief: read it, download it, subscribe to it.
+ *
+ * It used to be two - /brief to read and /subscribe to sign up - which meant
+ * someone who came to read had to find a second page to subscribe, and someone
+ * who came to subscribe never saw the thing they were subscribing to. /subscribe
+ * now redirects here.
+ *
+ * Only the latest issue is offered. A daily brief is a thing you read this
+ * morning, not an archive you browse; yesterday's numbers are on the dashboard,
+ * which is where anything older belongs.
+ */
+export default function Brief() {
+  const [latest, setLatest] = useState(null);
+  const [loading, setLoading] = useState(true);
 
-export const metadata = {
-  title: "The morning brief — Market Tide",
-  description:
-    "One PDF every morning: the fifty NSE and BSE filings from yesterday that "
-    + "were worth knowing about, in plain English. Free to read and to forward.",
-};
+  const [email, setEmail] = useState("");
+  const [company, setCompany] = useState("");   // honeypot
+  const [state, setState] = useState("idle");
+  const [error, setError] = useState("");
 
-function pretty(iso) {
-  const d = new Date(iso + "T00:00:00Z");
-  return d.toLocaleDateString("en-IN", {
-    day: "numeric", month: "long", year: "numeric", timeZone: "UTC",
-  });
-}
+  useEffect(() => {
+    let dead = false;
+    fetch("/api/brief/latest", { cache: "no-store" })
+      .then((r) => r.json())
+      .then((d) => !dead && setLatest(d.day || null))
+      .catch(() => {})
+      .finally(() => !dead && setLoading(false));
+    return () => { dead = true; };
+  }, []);
 
-function weekday(iso) {
-  return new Date(iso + "T00:00:00Z").toLocaleDateString("en-IN", {
-    weekday: "long", timeZone: "UTC",
-  });
-}
+  async function submit(e) {
+    e.preventDefault();
+    if (state === "sending") return;
+    setState("sending");
+    setError("");
+    try {
+      const res = await fetch("/api/waitlist", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, company, source: "brief" }),
+      });
+      const d = await res.json();
+      if (!res.ok) {
+        setError(d.error || "Please try again.");
+        setState("idle");
+        return;
+      }
+      setState("done");
+    } catch {
+      setError("Couldn't reach the server. Please try again.");
+      setState("idle");
+    }
+  }
 
-export default async function BriefIndex() {
-  const days = await briefDays();
-  const [latest, ...rest] = days;
+  const pretty = (iso) =>
+    new Date(iso + "T00:00:00Z").toLocaleDateString("en-IN", {
+      day: "numeric", month: "long", year: "numeric", timeZone: "UTC",
+    });
 
   return (
     <>
       <Nav />
       <main className="mk">
         <section className="brief-hero">
-          <p className="mk-kicker">Daily free brief · morning newsletter</p>
+          <p className="mk-kicker">Free daily newsletter</p>
           <h1 className="mk-h1">The morning brief</h1>
           <p className="mk-sub">
-            One PDF, free, every morning at 7:30. The fifty filings that were
-            actually worth knowing about — what happened, the key numbers, and
-            why it matters.
+            Every morning at 7:30 we send you the{" "}
+            <strong>50 filings that actually matter</strong> from yesterday and
+            overnight — what happened, the key numbers, and why it matters. One
+            PDF. Free.
           </p>
 
-          {latest ? (
+          {/* ---- today's issue ---- */}
+          {loading ? (
+            <div className="brief-latest brief-latest--wait">
+              <span className="brief-kicker">Today&apos;s issue</span>
+            </div>
+          ) : latest ? (
             <div className="brief-latest">
               <div>
-                <span className="brief-kicker">Latest issue</span>
+                <span className="brief-kicker">Today&apos;s issue</span>
                 <b>{pretty(latest)}</b>
-                <span className="brief-day">{weekday(latest)}</span>
               </div>
               <div className="brief-actions">
                 <a className="brief-cta" href={`/brief/${latest}`}>
-                  Read the brief →
+                  Read it →
                 </a>
-                <a
-                  className="brief-dl"
-                  href={`/brief/${latest}?download=1`}
-                  aria-label={`Download the brief for ${pretty(latest)} as a PDF`}
-                >
+                <a className="brief-dl" href={`/brief/${latest}?download=1`}>
                   Download PDF
                 </a>
-                {/* Only today's issue can be downloaded. Back issues stay
-                    readable in the browser, which is what an archive is for -
-                    the file itself is for forwarding, and that is a thing
-                    people do with the morning's brief, not last Tuesday's. */}
               </div>
             </div>
           ) : (
             <p className="brief-empty">
-              The first issue goes out tomorrow morning. In the meantime the
-              full archive is on the <a href="/dashboard">dashboard</a>.
+              The first issue goes out tomorrow at 7:30 in the morning. Until
+              then, every filing is on the <a href="/dashboard">dashboard</a>.
             </p>
           )}
 
-          <div className="brief-get">
-            <a className="btn-lg btn-grad" href="/subscribe">
-              Get it every morning
-            </a>
-            <a
-              className="btn-lg btn-wa"
-              href={SITE.newsletterLink}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Join the WhatsApp community
-            </a>
+          {/* ---- subscribe, on the same page ---- */}
+          <div className="sub-card" id="subscribe">
+            {state === "done" ? (
+              <div className="sub-done">
+                <b>You&apos;re in.</b>
+                <p>
+                  The next brief lands tomorrow at 7:30 in the morning. Now join
+                  the WhatsApp community below — that&apos;s where the day gets
+                  discussed.
+                </p>
+              </div>
+            ) : (
+              <form onSubmit={submit} className="sub-form">
+                <label htmlFor="sub-email" className="sub-label">
+                  Get it in your inbox
+                </label>
+                <div className="sub-row">
+                  <input
+                    id="sub-email"
+                    type="email"
+                    required
+                    autoComplete="email"
+                    placeholder="you@example.com"
+                    value={email}
+                    onChange={(ev) => setEmail(ev.target.value)}
+                  />
+                  <button className="btn-lg btn-grad" disabled={state === "sending"}>
+                    {state === "sending" ? "Signing you up…" : "Subscribe free"}
+                  </button>
+                </div>
+
+                {/* Hidden from people, filled in by bots. */}
+                <input
+                  className="hp"
+                  tabIndex={-1}
+                  autoComplete="off"
+                  aria-hidden="true"
+                  value={company}
+                  onChange={(ev) => setCompany(ev.target.value)}
+                />
+
+                {error && <p className="sub-error">{error}</p>}
+                <p className="sub-note">
+                  Free, one email a day, and we won&apos;t pass your address to
+                  anyone. One more step after this.
+                </p>
+              </form>
+            )}
           </div>
+
+          <div className="sub-and"><span className="sub-step">Then</span></div>
+
+          <a
+            className="btn-lg btn-wa"
+            href={SITE.newsletterLink}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Join the WhatsApp community
+          </a>
           <p className="mk-ctanote">
-            Free either way. One email a day, or the same brief posted in the
-            group.
+            Do both. The email brings the PDF each morning; the group is where
+            the day gets discussed.
           </p>
         </section>
 
-        {rest.length > 0 && (
-          <section className="section">
-            <h2>Earlier issues</h2>
-            <ul className="brief-list">
-              {rest.map((d) => (
-                <li key={d}>
-                  <a href={`/brief/${d}`}>
-                    <b>{pretty(d)}</b>
-                    <span>{weekday(d)}</span>
-                  </a>
-                </li>
-              ))}
-            </ul>
-          </section>
-        )}
+        <section className="mk-sec">
+          <div className="mk-sec-head">
+            <p className="mk-kicker">What you get</p>
+            <h2 className="mk-h2">One PDF. Fifty filings. No noise.</h2>
+          </div>
+          <div className="bento">
+            <div className="bx wide">
+              <h3>Only what happened</h3>
+              <p>
+                Concall invitations, investor presentations and meeting notices
+                are left out — a diary entry is not news. So are dividends and
+                splits, which are routine enough to crowd out everything else.
+              </p>
+            </div>
+            <div className="bx wide">
+              <h3>Overnight filings included</h3>
+              <p>
+                It covers everything filed from the start of yesterday until 7
+                o&apos;clock this morning, so an announcement made late at night
+                reaches you at breakfast, not a day later.
+              </p>
+            </div>
+            <div className="bx wide">
+              <h3>Plain English, with the numbers</h3>
+              <p>
+                Every entry gives the company, its market cap, what was
+                announced, the figures that matter, and one line on why it
+                matters. Written from the filing itself.
+              </p>
+            </div>
+            <div className="bx wide">
+              <h3>Everything else is still there</h3>
+              <p>
+                The brief is the fifty worth your morning. Every filing we read
+                — including the ones it leaves out — stays searchable on the{" "}
+                <a href="/dashboard">dashboard</a>, free.
+              </p>
+            </div>
+          </div>
+        </section>
       </main>
       <MkFooter />
     </>
