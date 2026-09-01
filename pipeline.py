@@ -113,6 +113,7 @@ def summarise(kept, provider_list, max_summaries, workers=4, log=print):
 
     cache = load_cache()
     done = [0]
+    fail_reason = [""]        # the last error, for the log line at the end
 
     def work(a):
         if a["id"] in cache:
@@ -130,6 +131,7 @@ def summarise(kept, provider_list, max_summaries, workers=4, log=print):
             a["key_numbers"] = []
             a["why_it_matters"] = ""
             note = "FAILED"
+            fail_reason[0] = a["summary_error"]
         else:
             a["summary"] = res.get("summary", "")
             a["impact"] = res.get("impact", "")
@@ -151,18 +153,34 @@ def summarise(kept, provider_list, max_summaries, workers=4, log=print):
     # A rate limit or a timeout is not a verdict on the filing, so anything
     # still without a summary goes round again. Two extra passes is enough to
     # clear a transient failure without grinding on a PDF that cannot be read.
+    #
+    # But only while there is something left to ask. Once every model has hit
+    # its daily cap, a retry cannot succeed, and three passes over a few
+    # hundred filings is how one run spent 2h17m on a single day and held the
+    # schedule for five and a half hours. The run carries on either way and
+    # publishes what it has - a missing summary is not a reason to fail.
     for attempt in (1, 2):
         missing = [a for a in todo if not a.get("summary")]
         if not missing:
             break
-        log(f"Retry {attempt}: {len(missing)} filings still need a summary")
+        left = providers.alive(provider_list)
+        if not left:
+            log(f"Retry {attempt}: skipped - every model has used up its quota "
+                f"for today ({len(missing)} filings left unsummarised)")
+            break
+        log(f"Retry {attempt}: {len(missing)} filings still need a summary "
+            f"({len(left)} models still available)")
         done[0] = 0
         with cf.ThreadPoolExecutor(max_workers=max(1, workers)) as ex:
             list(ex.map(work, missing))
 
     still = [a for a in todo if not a.get("summary")]
     if still:
-        log(f"  {len(still)} could not be summarised after 3 tries")
+        log(f"  {len(still)} could not be summarised. Last reason: "
+            f"{fail_reason[0] or 'unknown'}")
+        gone = providers.dead_models()
+        if gone:
+            log(f"  models out of quota for today: {', '.join(gone)}")
     save_cache(cache)
 
     # Correct labels now the PDFs have actually been read. A "Receipt of Order"

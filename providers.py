@@ -163,6 +163,24 @@ def _gemini(key, model, parts):
 
 # ---------------------------------------------------------------- routing
 
+def alive(provider_list, pdf_b64=None):
+    """Models still usable right now, after the day's exhausted ones are out.
+
+    The caller uses this to decide whether retrying is worth anything. Retrying
+    a filing when every model has hit its daily cap cannot succeed, and doing
+    it three times over a few hundred filings is how one run spent two hours
+    achieving nothing.
+    """
+    return [m for pr in provider_list
+            if pr.get("key") and (pr.get("vision") or not pdf_b64)
+            for m in pr.get("models", []) if m not in _dead]
+
+
+def dead_models():
+    with _lock:
+        return sorted(_dead)
+
+
 def run(providers, system, user, pdf_b64=None):
     """
     Try each provider's models in order until one answers.
