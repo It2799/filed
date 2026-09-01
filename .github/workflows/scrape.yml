@@ -73,7 +73,25 @@ jobs:
            || github.event.inputs.days == '7') && 40 || 13 }}
 
     steps:
+      # ref: main, not the commit this run was pinned to.
+      #
+      # GitHub records the SHA when a run is CREATED, not when it starts. A run
+      # that waits in the queue - and with a concurrency group they often wait -
+      # then checks out whatever main looked like when it was queued. On 1
+      # September a pass sat queued 34 minutes while two fixes were pushed, then
+      # ran the code from before them and republished the very tags those fixes
+      # were meant to correct. It looked exactly like the fixes had not worked.
+      #
+      # This job scrapes and republishes; it is not a build whose output has to
+      # match a particular commit. It should always run the newest rules.
       - uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Say which code is actually running
+        run: |
+          echo "commit: $(git rev-parse --short HEAD)"
+          echo "subject: $(git log -1 --pretty=%s)"
 
       - uses: actions/setup-python@v5
         with:

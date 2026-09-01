@@ -36,7 +36,12 @@ jobs:
     timeout-minutes: 20
 
     steps:
+      # ref: main - see the note in scrape.yml. A run pinned to the commit it
+      # was queued at will happily build yesterday's newsletter with yesterday's
+      # code.
       - uses: actions/checkout@v4
+        with:
+          ref: main
 
       - uses: actions/setup-python@v5
         with:
