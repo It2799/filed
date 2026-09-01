@@ -822,3 +822,32 @@
     flex: 1; text-align: center;
   }
 }
+
+/* =====================================================================
+   VISITOR COUNTS
+   At the foot of every page. The live figure is people seen in the last
+   five minutes, so it moves; the other two only ever go up.
+   ===================================================================== */
+
+.visitors {
+  display: flex; align-items: center; justify-content: center;
+  flex-wrap: wrap; gap: 10px;
+  padding: 0 0 22px;
+  font-size: 13.5px; color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.visitors b { color: var(--ink); font-weight: 680; }
+.visitors-sep { color: var(--line); }
+.visitors-live { display: inline-flex; align-items: center; gap: 7px; }
+.visitors-live i {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: var(--grad-3);
+  animation: pulse 2s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .visitors-live i { animation: none; }
+}
+@media (max-width: 480px) {
+  .visitors { gap: 7px; font-size: 12.5px; }
+  .visitors-sep { display: none; }
+}

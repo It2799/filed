@@ -1,13 +1,18 @@
 import { SITE } from "./site";
+import Visitors from "./Visitors";
 
 export default function MkFooter() {
   return (
     <footer className="mk">
       <div className="mk-foot">
+        {/* Counted live, at the foot of every page. */}
+        <Visitors />
+
         <div className="mk-foot-top">
           <div className="mk-foot-brand">{SITE.name}</div>
           <div className="footer-links">
             <a href="/dashboard">Dashboard</a>
+            <a href="/brief">Daily brief</a>
             <a href="/join">Join</a>
             <a href="/terms">Terms</a>
             <a href="/refund">Refunds</a>
