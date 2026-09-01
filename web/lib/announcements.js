@@ -245,3 +245,56 @@ export async function recent({ scope = "important", sort = "latest" } = {}) {
   // order the reader actually asked for.
   return { days, items: foldDuplicates(items), meta };
 }
+
+// ---------------------------------------------------------------------------
+// Filtering, shared by the dashboard API and the Excel export.
+//
+// These lived only in the API route, so the export applied tag and day but
+// silently ignored the size band and the search box. Someone who searched
+// "Reliance", narrowed to large caps, saw six filings and clicked Excel got a
+// workbook of the entire week - while the landing page promised "any filter,
+// straight to Excel". One copy now, so they cannot drift again.
+// ---------------------------------------------------------------------------
+
+/** Market cap bands, in crore. */
+export const BANDS = {
+  mega: [100000, Infinity],   // above Rs 1 lakh crore
+  large: [50000, 100000],     // Rs 50,000 crore to 1 lakh crore
+  mid: [10000, 50000],        // Rs 10,000 to 50,000 crore
+  small: [1000, 10000],       // Rs 1,000 to 10,000 crore
+  micro: [0, 1000],           // below Rs 1,000 crore
+};
+
+export function inBand(row, band) {
+  const range = BANDS[band];
+  if (!range) return true;
+  const cap = Number(row.mcap);
+  if (!cap) return false;              // unknown size cannot claim a band
+  return cap >= range[0] && cap < range[1];
+}
+
+/** Does this filing match the search box? */
+export function matchesQuery(row, q) {
+  if (!q) return true;
+  // Every field coerced: rows from the "Everything" set carry no summary, and
+  // an undefined interpolated into a template literal becomes the text
+  // "undefined" - so searching for that word used to return the whole set.
+  return [row.company, row.ticker, row.headline, row.summary, row.category]
+    .map((v) => v || "")
+    .join(" ")
+    .toLowerCase()
+    .includes(q);
+}
+
+/** Apply the dashboard's filters, in the order the dashboard applies them. */
+export function applyFilters(items, { tag, day, band, q } = {}) {
+  let out = items;
+  if (day) out = out.filter((r) => r.day === day);
+  if (q) {
+    const needle = String(q).toLowerCase().trim();
+    if (needle) out = out.filter((r) => matchesQuery(r, needle));
+  }
+  if (band) out = out.filter((r) => inBand(r, band));
+  if (tag) out = out.filter((r) => r.tag === tag);
+  return out;
+}

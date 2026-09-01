@@ -77,7 +77,9 @@ export default function Dashboard() {
     return () => { dead = true; };
   }, [scope, tag, day, band, debouncedQ]);
 
-  useEffect(() => { setLimit(PAGE); }, [scope, tag, day, debouncedQ]);
+  // `band` too: without it, paging deep and then changing size rendered the
+  // whole result set at once and the "Show more" button vanished.
+  useEffect(() => { setLimit(PAGE); }, [scope, tag, day, band, debouncedQ]);
 
   const items = data?.items || [];
 
@@ -101,31 +103,54 @@ export default function Dashboard() {
 
   // Day counts come from a separate unfiltered read, so selecting a category
   // doesn't make every other day look empty.
+  // Counted by the server, not from the rows it sent back.
+  //
+  // This used to tally `d.items`, which the API caps - 1,500 under Worth
+  // reading, 600 under Everything - and sorts newest first. So on a busy week
+  // the older days had no rows left to count and the sidebar showed them as 0,
+  // while clicking one filled the feed: the API applies the day filter BEFORE
+  // the cap. The sidebar contradicted the page.
+  //
+  // The guard matters too. Without it a slow response for a scope you have
+  // since navigated away from lands last and overwrites the right answer - the
+  // feed's own fetch has always had one.
   const [dayCounts, setDayCounts] = useState({});
   useEffect(() => {
+    let dead = false;
     fetch(`/api/announcements?scope=${scope}`, { cache: "no-store" })
       .then((r) => r.json())
       .then((d) => {
-        const c = {};
-        for (const it of d.items || []) c[it.day] = (c[it.day] || 0) + 1;
-        setDayCounts(c);
+        if (dead) return;
+        setDayCounts(d.dayCounts || {});
       })
       .catch(() => {});
+    return () => { dead = true; };
   }, [scope]);
 
   const shown = items;
 
+  // Everything the screen is filtered by, so the file matches what you can see.
+  // Band and search used to be left out.
   const exportUrl = () => {
     const p = new URLSearchParams();
     if (tag) p.set("tag", tag);
     if (day) p.set("day", day);
+    if (band) p.set("band", band);
+    if (debouncedQ) p.set("q", debouncedQ);
     if (scope === "all") p.set("scope", "all");
     const qs = p.toString();
     return "/api/announcements/export" + (qs ? `?${qs}` : "");
   };
 
-  const activeCount = (tag ? 1 : 0) + (day ? 1 : 0) + (q ? 1 : 0);
-  const clearAll = () => { setTag(null); setDay(null); setBand(null); setQ(""); };
+  // `band` belongs here. Without it, choosing a company size showed no pill,
+  // no "Filters" badge and no "clear all" - and the empty state gates its
+  // escape hatch on this count, so a reader who narrowed to a size with no
+  // matches got "Nothing matches that." with no way back.
+  const activeCount =
+    (tag ? 1 : 0) + (day ? 1 : 0) + (band ? 1 : 0) + (q ? 1 : 0);
+  const clearAll = () => {
+    setTag(null); setDay(null); setBand(null); setQ(""); setCatQ("");
+  };
 
   // Stop the page scrolling behind the filter sheet on a phone.
   useEffect(() => {
@@ -370,6 +395,12 @@ export default function Dashboard() {
                 {tag && (
                   <button className="pill-x" onClick={() => setTag(null)}>
                     {tag} <span>×</span>
+                  </button>
+                )}
+                {band && (
+                  <button className="pill-x" onClick={() => setBand(null)}>
+                    {(BANDS.find(([k]) => k === band) || [, band])[1]}{" "}
+                    <span>×</span>
                   </button>
                 )}
                 {q && (

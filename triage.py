@@ -157,6 +157,9 @@ def triage(records, important_at=55, workers=8, log=print):
             continue                       # already in, no need to re-read
         if not r.get("pdf_url"):
             continue
+        if _blocked(r):
+            continue                       # its category already says what it is
+
         hit = cache.get(r["id"])
         if hit is not None:
             from_cache += 1

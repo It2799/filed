@@ -63,6 +63,16 @@ export async function GET(request) {
           .includes(q));
     }
 
+    // Counted here, on the full set, because the browser cannot: what it
+    // receives is capped and sorted newest first, so tallying the response
+    // showed older days as 0 while clicking them filled the feed. Taken before
+    // the day filter, so every day keeps showing its own total while one of
+    // them is selected.
+    const dayCounts = {};
+    for (const r of items) {
+      if (r.day) dayCounts[r.day] = (dayCounts[r.day] || 0) + 1;
+    }
+
     // Counts for the size bands are taken before the band filter is applied,
     // so every band keeps showing its total while one of them is selected.
     const bandCounts = {};
@@ -98,6 +108,7 @@ export async function GET(request) {
         total,
         tagCounts,
         bandCounts,
+        dayCounts,
         band: band || null,
         summarised,
         truncated: total > rows.length,

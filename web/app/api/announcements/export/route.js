@@ -1,5 +1,5 @@
 import ExcelJS from "exceljs";
-import { recent, configured } from "../../../../lib/announcements";
+import { recent, configured, applyFilters } from "../../../../lib/announcements";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -36,6 +36,8 @@ export async function GET(request) {
   const url = new URL(request.url);
   const tag = url.searchParams.get("tag");
   const day = url.searchParams.get("day");
+  const band = url.searchParams.get("band");
+  const q = (url.searchParams.get("q") || "").toLowerCase().trim();
   const scope = url.searchParams.get("scope") === "all" ? "all" : "important";
 
   let items;
@@ -46,8 +48,14 @@ export async function GET(request) {
     return new Response("Couldn't build the file.", { status: 500 });
   }
 
-  if (tag) items = items.filter((r) => r.tag === tag);
-  if (day) items = items.filter((r) => r.day === day);
+  // The same rule the dashboard applies: worth reading means summarised. The
+  // export skipped it, so a workbook could carry rows with an empty Summary
+  // column that the screen deliberately hides.
+  if (scope === "important") items = items.filter((r) => r.summary);
+
+  // Every filter, through the same code the API uses. Band and search used to
+  // be dropped here, so the file never matched what was on screen.
+  items = applyFilters(items, { tag, day, band, q });
 
   const wb = new ExcelJS.Workbook();
   wb.creator = "Market Tide";

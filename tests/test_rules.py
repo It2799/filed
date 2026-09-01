@@ -194,6 +194,54 @@ for word in ORDINARY:
 
 
 # ---------------------------------------------------------------------------
+# 4. A cached promotion must obey the same block a fresh read does.
+#
+# triage checked NEVER_PROMOTE only when reading a document for the first time.
+# Anything promoted before a category joined that list kept its wrong tag for
+# ever, because the cached verdict was applied without asking. 161 filings were
+# in that state - a statutory auditor's appointment published as an Acquisition
+# among them - and no number of re-runs would have cleared them.
+# ---------------------------------------------------------------------------
+import triage                                            # noqa: E402
+
+BLOCKED_CATEGORIES = [
+    "Company Update / Appointment of Statutory Auditor/s",
+    "Company Update / Change in Directorate",
+    "Company Update / Resignation of Director",
+    "AGM/EGM / AGM",
+    "Shareholders meeting",
+    "Others / Reg. 34 (1) Annual Report",
+]
+for cat in BLOCKED_CATEGORIES:
+    check(triage._blocked({"category": cat, "headline": "anything at all"}),
+          "a category that should never be promoted from its document is not blocked",
+          repr(cat))
+
+# ...and the categories that MUST still be read, because only the document can
+# say what the filing is.
+READ_THESE = [
+    "General Updates",
+    "Company Update / General",
+    "Outcome of Board Meeting",
+    "Board Meeting / Outcome of Board Meeting",
+    "Corp. Action / Record Date",
+    "Corp. Action / Book Closure",
+    "Company Update / General",
+]
+for cat in READ_THESE:
+    check(not triage._blocked({"category": cat, "headline": "Press release"}),
+          "a vague category was blocked from being read",
+          repr(cat))
+
+# The headline must not be able to trigger a category block on its own: a court
+# order that merely mentions an AGM is still a court order.
+check(not triage._blocked({"category": "Company Update / General",
+                           "headline": "Updation of Order from NCLT for AGM"}),
+      "a headline mentioning a meeting blocked a real filing",
+      "NCLT order blocked by the letters AGM")
+
+
+# ---------------------------------------------------------------------------
 
 print(f"{CHECKS[0]} checks")
 if FAILURES:
