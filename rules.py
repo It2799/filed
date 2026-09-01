@@ -378,7 +378,13 @@ _CORPORATE_DEAL = re.compile(
     r"scheme of (arrangement|amalgamation|merger|demerger)|"
     r"slump sale|joint venture|share purchase agreement|"
     r"acquire[sd]? .{0,30}(stake|shareholding) in .{0,40}(limited|ltd|inc|llp)|"
-    r"wholly[- ]owned subsidiary", re.I)
+    r"wholly[- ]owned subsidiary|"
+    # A formal open offer is a real event with its own machinery - a public
+    # announcement, a letter of offer, a committee of independent directors -
+    # and it always names promoters, because they are who is being bought out.
+    # Without this it would be mistaken for the promoters simply dealing.
+    r"open offer|detailed public statement|letter of offer|"
+    r"committee of independent directors|public announcement", re.I)
 
 
 def promoter_deal(text):
@@ -397,7 +403,13 @@ def promoter_deal(text):
 
 # Tags a promoter deal is allowed to take over from. Anything else - a buyback,
 # a scheme, an open offer with a formal public announcement - keeps its label.
-_DEALING_TAGS = {"Acquisition", "Stake Change", "Promoter Buy/Sell", "Other"}
+# Tags a promoter deal may take over. Open Offer and Rights Issue are here
+# because a promoter transfer disclosed on a SAST form scores them off the
+# form's own wording - "proposed transfer of shares within the promoter family"
+# was published as an Open Offer. A genuine open offer is protected by
+# _CORPORATE_DEAL above, which wins first.
+_DEALING_TAGS = {"Acquisition", "Stake Change", "Promoter Buy/Sell", "Other",
+                 "Open Offer", "Rights Issue"}
 PROMOTER_SCORE = 58
 
 
