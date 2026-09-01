@@ -142,17 +142,41 @@ def stake_verdict(text):
     return {}          # somebody else's stake: real, but not front-page news
 
 
-def rules_fingerprint():
-    """A short hash of the scoring rules, so the cache knows when they change.
+def _code_only(path):
+    """A file's source with comments, blank lines and docstrings' prose gone.
 
-    A cached {} means "read this PDF, found nothing worth promoting" - an
-    answer that is only true for the rules that produced it. Keyed on the
-    filing id alone, editing rules.py changed nothing: every filing already
-    read stayed buried under the old verdict for ever. The promotions are
-    still valid whatever the rules say, so only the negatives are reconsidered.
+    So that rewording a comment does not throw away 1,500 PDF reads, while any
+    change to what the code actually does is caught.
     """
-    blob = repr([rules.JUNK, rules.VAGUE, rules.TOPICS,
-                 rules.DOWNGRADE, rules.RETAG])
+    out = []
+    for line in open(path, encoding="utf-8"):
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#"):
+            continue
+        out.append(line.split("  #")[0].rstrip())
+    return "\n".join(out)
+
+
+def rules_fingerprint():
+    """A short hash of the deciding code, so the cache knows when it changes.
+
+    A cached verdict is only true for the rules that produced it. Keyed on the
+    filing id alone, editing the rules changed nothing: every filing already
+    read kept its old answer for ever.
+
+    This used to hash five named lists - JUNK, VAGUE, TOPICS, DOWNGRADE, RETAG.
+    That missed every other thing that decides a tag, and by 1 September most
+    of the decisions had moved elsewhere: promoter_deal, _CORPORATE_DEAL,
+    _DEALING_TAGS, MEETING_KINDS in rules.py, and NEVER_PROMOTE_CATEGORY and
+    STAKE_CATEGORY here. Four fixes in a row changed none of the five, so the
+    cache was never invalidated and every wrong tag was replayed from it. The
+    site did not move and the fixes looked broken.
+
+    So it hashes the code of both modules instead. Nothing to keep in step, and
+    nothing to forget.
+    """
+    blob = _code_only(os.path.join(HERE, "rules.py")) + \
+        _code_only(os.path.join(HERE, "triage.py"))
     return hashlib.sha1(blob.encode()).hexdigest()[:12]
 
 
