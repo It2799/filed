@@ -355,11 +355,13 @@ export default function Dashboard() {
                 </a>
               </div>
 
+              {/* The filing count used to sit here. It was removed because it
+                  was not the number of filings: the API caps what it returns
+                  (1,500 under Worth reading, 600 under Everything), so a busy
+                  week always read exactly "1,500 filings" whatever was really
+                  there, and it contradicted the larger figure in the funnel
+                  three lines above. A wrong number is worse than none. */}
               <div className="active-row">
-                <span className="active-count">
-                  <b>{shown.length.toLocaleString("en-IN")}</b>
-                  {shown.length === 1 ? " filing" : " filings"}
-                </span>
                 {day && (
                   <button className="pill-x" onClick={() => setDay(null)}>
                     {dayLabel(day).d} <span>×</span>

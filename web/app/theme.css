@@ -84,7 +84,7 @@ h1, h2, h3, .co, .dash-title, .mk-h1, .mk-h2, .nl-title {
 
 /* every figure aligns in a column */
 .num, .mcap, .cnt, .stat b, .livestat b, .hiw b, .bx-num, .price-tag b,
-.active-count b, .dash-meta b {
+.dash-meta b {
   font-variant-numeric: tabular-nums;
   font-feature-settings: "tnum" 1;
 }

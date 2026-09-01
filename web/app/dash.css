@@ -117,8 +117,6 @@
 
 /* active filters, so you always know what you are looking at */
 .active-row { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin-top: 9px; }
-.active-count { font-size: 13px; color: var(--muted); margin-right: 2px; }
-.active-count b { color: var(--ink); font-variant-numeric: tabular-nums; }
 .pill-x {
   display: inline-flex; align-items: center; gap: 6px;
   padding: 4px 8px 4px 11px; border-radius: 999px;
