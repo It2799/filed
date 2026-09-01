@@ -15,18 +15,36 @@ name: Scrape announcements
 # Summaries are cached by filing id, so a repeat pass only pays for filings it
 # has not seen before - usually a handful.
 
+# NOTE ON RELIABILITY
+# GitHub's schedule event is best effort. Their documentation says runs are
+# delayed under load and may be dropped entirely, and on 1 September 2026 it
+# dropped 16 of the 23 slots below - the site sat unchanged from 13:28 to
+# 17:22 IST. Every run GitHub did create finished normally; the problem is
+# that most were never created at all.
+#
+# So the schedule below is a fallback, not the primary clock. The real trigger
+# is an external cron calling web/app/api/cron/scrape, which dispatches this
+# workflow through the API. workflow_dispatch starts within seconds and is
+# never dropped. See that file for the setup.
+
 on:
   schedule:
     # Every 45 minutes, 06:00 to 23:15 IST, seven days a week. IST is UTC+5:30,
     # and cron cannot say "every 45 minutes" because 45 does not divide into 60,
     # so the slots are spelled out by minute. Single spaces only - a malformed
     # entry can void the whole block.
-    - cron: "30 0,3,6,9,12,15 * * *"
-    - cron: "15 1,4,7,10,13,16 * * *"
-    - cron: "0 2,5,8,11,14,17 * * *"
-    - cron: "45 2,5,8,11,14,17 * * *"
+    # Odd minutes on purpose. GitHub's own documentation says scheduled runs
+    # are delayed at times of high load, and that load peaks on the hour and
+    # on the quarters - which is exactly where these used to sit. On 1
+    # September 16 of 23 slots were never created at all, leaving a 3h54m hole
+    # over the middle of the day. Moving off the boundary is not a cure, only
+    # a nudge; the cure is the dispatch trigger described at the top.
+    - cron: "37 0,3,6,9,12,15 * * *"
+    - cron: "22 1,4,7,10,13,16 * * *"
+    - cron: "7 2,5,8,11,14,17 * * *"
+    - cron: "52 2,5,8,11,14,17 * * *"
     # 23:30 IST - the last pass of the day, which rescrapes the full 7 days.
-    - cron: "0 18 * * *"
+    - cron: "7 18 * * *"
 
   workflow_dispatch:
     inputs:
