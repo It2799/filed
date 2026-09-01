@@ -1,12 +1,17 @@
 name: Scrape announcements
 
-# Every 15 minutes from 06:00 to 23:30 IST, then a full 7-day pass at 23:37.
+# Every 30 minutes, around the clock, every day of the week.
 #
 # Two shapes of run:
-#   * the quarter-hourly ones scrape TODAY only - a warm one takes 5-10 min,
-#     nearly all of it reading PDFs the cache has not seen yet
-#   * the last of the night rescrapes the whole 7-day window, so the dashboard
-#     stays complete even if runs were missed
+#   * the half-hourly ones scrape TODAY only and summarise whatever is new - a
+#     warm one takes a couple of minutes, nearly all of it reading PDFs the
+#     cache has not seen yet
+#   * one run a night, 23:37 IST, rescrapes the whole 7-day window so the
+#     dashboard stays complete even if runs were missed
+#
+# It runs overnight too. The exchanges file little at 3am, so those passes are
+# cheap - but filings do appear at odd hours, and a reader opening the site
+# before the market does should not be looking at last evening's page.
 #
 # Summaries, market caps and PDF reads are all cached by filing id, so a repeat
 # pass only pays for genuinely new filings.
@@ -25,12 +30,15 @@ name: Scrape announcements
 
 on:
   schedule:
-    # Every 15 minutes, 06:07 to 23:22 IST (00:37-17:52 UTC). Minutes 7, 22, 37
-    # and 52 rather than 0, 15, 30 and 45: GitHub's documentation says scheduled
-    # runs are delayed at times of high load, and load peaks on the hour and the
-    # quarters, which is exactly where these used to sit.
-    - cron: "7,22,37,52 0-17 * * *"
-    # 23:37 IST - the last pass of the day, which rescrapes the full 7 days.
+    # :07 and :37 of every hour, all 24 of them. Not :00 and :30 - GitHub's
+    # documentation says scheduled runs are delayed when load peaks, and load
+    # peaks on the hour and the half hour.
+    #
+    # 18:07 UTC is spelled out on its own line so the job can recognise it:
+    # that is the one run a day that rescrapes the full week, and it has to be
+    # identifiable from github.event.schedule.
+    - cron: "37 * * * *"
+    - cron: "7 0-17,19-23 * * *"
     - cron: "7 18 * * *"
 
   workflow_dispatch:
@@ -103,12 +111,15 @@ jobs:
           # one from the 15-minute cron endpoint - ran a full seven-day pass
           # instead of a today-only top-up. Blank now, so an unqualified
           # dispatch behaves exactly like a scheduled run.
+          # The full pass is ONE named slot, not "any run after 18:00 UTC". With
+          # a run every half hour that test would have made twelve full passes
+          # a night, each one a twenty minute job, instead of a single one.
           if [ -n "${{ github.event.inputs.days }}" ]; then
             DAYS="${{ github.event.inputs.days }}"          # asked for explicitly
-          elif [ "$(date -u +%H)" -ge 18 ]; then
-            DAYS=7                                          # nightly full pass
+          elif [ "${{ github.event.schedule }}" = "7 18 * * *" ]; then
+            DAYS=7                                          # the nightly full pass
           else
-            DAYS=0                                          # quick top-up: today only
+            DAYS=0                                          # top-up: today only
           fi
           echo "days=$DAYS" >> "$GITHUB_OUTPUT"
           echo "Scraping $DAYS day(s)"
