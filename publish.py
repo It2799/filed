@@ -311,14 +311,33 @@ def main():
         held = redis(url, token, ["GET", f"mt:count:{iso}"])
         if held and not args.force:
             try:
-                was = int(json.loads(held).get("important") or 0)
+                mark = json.loads(held)
+                was = int(mark.get("important") or 0)
+                was_rules = mark.get("rules") or ""
             except Exception:
-                was = 0
-            if was and len(important) < was * 0.7:
+                was, was_rules = 0, ""
+
+            # The guard exists so a starved run - NSE down, quota gone - cannot
+            # replace a full day with half of one. But a rules change also
+            # lowers the count, on purpose: fixing a rule that wrongly promoted
+            # filings means fewer of them, and that is the whole point.
+            #
+            # Told apart by the rules fingerprint stored with the day. Same
+            # rules and far fewer filings means something went wrong. Different
+            # rules means the drop was intended, and refusing it would freeze
+            # every correction out of the site - which is exactly what happened
+            # to 30 August, where an AGM notice sat under Acquisition through
+            # four passes because each one produced 7 filings where the old
+            # rules had produced 14.
+            rules_changed = was_rules and was_rules != triage.rules_fingerprint()
+            if was and len(important) < was * 0.7 and not rules_changed:
                 print(f"  -> KEPT the stored day: it has {was} summarised, "
                       f"this run only managed {len(important)}. "
                       f"Re-run with --force to overwrite anyway.")
                 continue
+            if rules_changed and len(important) < was * 0.7:
+                print(f"  -> the rules changed since this day was written "
+                      f"({was} -> {len(important)}); publishing the new verdict")
 
         write_day(url, token, f"mt:day:{iso}", important)
         write_day(url, token, f"mt:all:{iso}", rest)
@@ -329,6 +348,9 @@ def main():
             # top-up scrapes one day; without this it would report that day's
             # filing count as the week's.
             "scanned": len(raw), "read": tri.get("read", 0),
+            # Which rules produced these numbers, so the guard above can tell a
+            # deliberate drop from a starved one.
+            "rules": triage.rules_fingerprint(),
         }), "EX", str(TTL_SECONDS)])
 
         publish_index(url, token, today, run)
