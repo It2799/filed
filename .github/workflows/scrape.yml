@@ -42,8 +42,11 @@ on:
     # 18:07 UTC is spelled out on its own line so the job can recognise it:
     # that is the one run a day that rescrapes the full week, and it has to be
     # identifiable from github.event.schedule.
-    - cron: "37 * * * *"
-    - cron: "7 0-17,19-23 * * *"
+    # Every two hours, not every half hour. The chain is what keeps the site
+    # refreshing now; this only has to restart it if a run dies without handing
+    # over. Firing it every 30 minutes just cancelled a perfectly healthy chain
+    # run twice an hour for no gain.
+    - cron: "37 1,3,5,7,9,11,13,15,17,19,21,23 * * *"
     - cron: "7 18 * * *"
 
   workflow_dispatch:
@@ -258,7 +261,17 @@ jobs:
       # Without the secret this step does nothing and says so, and the cron
       # carries on alone.
       - name: Start the next run
-        if: always() && steps.plan.outputs.loop_until != '0'
+        # success() || failure(), NOT always(): always() includes cancelled,
+        # and a cancelled run must not start a successor. cancel-in-progress
+        # means a run is cancelled precisely because a newer one is taking
+        # over, so handing over as well produces a cancel-dispatch-cancel
+        # loop - which is what happened at 18:37 on 2 September, three runs
+        # in twenty-five seconds each killing the last.
+        #
+        # A run that finished its loop hands over. A run that crashed hands
+        # over too, so a bad pass does not break the chain. A run that was
+        # replaced does not, because its replacement is already running.
+        if: (success() || failure()) && steps.plan.outputs.loop_until != '0'
         env:
           DISPATCH_TOKEN: ${{ secrets.DISPATCH_TOKEN }}
         run: |
