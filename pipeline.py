@@ -183,18 +183,71 @@ def summarise(kept, provider_list, max_summaries, workers=4, log=print):
             log(f"  models out of quota for today: {', '.join(gone)}")
     save_cache(cache)
 
-    # Correct labels now the PDFs have actually been read. A "Receipt of Order"
-    # filing that turns out to be a tax demand should not sit under Order Win.
+    # ---------------------------------------------------------------------
+    # The category comes from the SUMMARY, not the document.
+    #
+    # A filing's PDF is not one statement. It is a document containing many
+    # sentences about many things, and scoring 4,000 characters of it means
+    # any topic word anywhere decides the label. Every wrong category on the
+    # site came from a phrase that belonged to a different sentence: an
+    # auditor's list of services ("Merger & Acquisition"), a blank SAST form's
+    # own options ("rights issue / preferential allotment"), the other side's
+    # name in a lawsuit ("Joint Venture of OHL"), a trading-window paragraph,
+    # a website breadcrumb. There is no end to that supply, and patching them
+    # one at a time never finishes.
+    #
+    # The summary is two sentences saying what the filing IS, with none of
+    # that in it. Measured over the 1,199 filings live on 1 September: 146
+    # carried a category their own summary contradicted; scoring the summary
+    # instead leaves 5.
+    #
+    # The score is NOT changed. Importance was already decided, by the rules
+    # and the document, and a filing that earned its place keeps it - this
+    # only settles what to call it. Filings without a summary keep the tag the
+    # rules gave them, which is the only thing available for them anyway.
+    # ---------------------------------------------------------------------
     fixed = 0
     for a in todo:
-        better = rules.retag(
-            (a.get("summary") or "") + " " + " ".join(a.get("key_numbers") or []))
+        blob = " ".join([
+            a.get("summary") or "",
+            " ".join(a.get("key_numbers") or []),
+            a.get("why_it_matters") or "",
+        ]).strip()
+        if not blob:
+            continue
+
+        # Two things the summary must not be allowed to decide.
+        #
+        # The three meeting kinds are settled from the category and headline,
+        # and they are already right - Investor Meet is 1% wrong, Concall 0%.
+        # Their summaries describe what was DISCUSSED on the call, which is
+        # usually the quarter's results, so scoring them moved 17 concalls and
+        # investor meets into Results.
+        if a.get("tag") in rules._MEETING_TAGS:
+            continue
+
+        pts, from_summary = rules.score_text(blob, floor=0)
+
+        # And it must not push a filing below the bar. Importance was decided
+        # already; a dividend whose summary mentions the AGM that will approve
+        # it is still a dividend, and 14 of them were being relabelled
+        # "Meeting" - a tag worth 22, which would have dropped them off the
+        # page entirely.
+        if pts < 55:
+            from_summary = None
+
+        # retag() still has the last word. It exists for the cases where the
+        # words are right but the meaning is inverted - a tax demand and an
+        # order win are both "receipt of order".
+        better = rules.retag(blob) or from_summary
+
         if better and better != a["tag"]:
-            log(f"  relabelled: {a['company'][:36]}  {a['tag']} -> {better}")
+            log(f"  relabelled: {a['company'][:36]:<38} "
+                f"{a['tag']} -> {better}")
             a["tag"] = better
             fixed += 1
     if fixed:
-        log(f"  ({fixed} corrected after reading the document)")
+        log(f"  ({fixed} categories taken from the summary rather than the document)")
 
     return todo
 

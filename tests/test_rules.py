@@ -340,6 +340,42 @@ for text, want in GENUINE:
 
 
 # ---------------------------------------------------------------------------
+# 7. The two things the summary must not be allowed to decide.
+#
+# The category is taken from the AI summary rather than the raw PDF, because a
+# document contains many sentences about many things and only one of them is
+# what the filing is. But the summary describes CONTENT, and that misleads in
+# two specific ways.
+# ---------------------------------------------------------------------------
+
+# A concall summary describes what was discussed, which is the quarter's
+# results. Scoring it moved 17 concalls and investor meets into Results.
+CONCALL_SUMMARY = ("Juniper Green Energy reported its first quarterly results "
+                   "as a listed company, with revenue of Rs 412 crore and "
+                   "profit after tax up 30 per cent")
+_, would_be = rules.score_text(CONCALL_SUMMARY, floor=0)
+check(would_be == "Results",
+      "the test case no longer demonstrates the problem it guards",
+      f"expected a concall summary to score Results, got {would_be}")
+check("Concall" in rules._MEETING_TAGS and "Investor Meet" in rules._MEETING_TAGS,
+      "the meeting tags are no longer protected from summary re-tagging")
+
+# A dividend whose summary mentions the meeting that will approve it is still a
+# dividend. Fourteen were being relabelled "Meeting", which scores 22 and would
+# have dropped them off the page.
+DIVIDEND_SUMMARY = ("The Board recommended a final dividend of Rs 5 per equity "
+                    "share, subject to approval of the members at the ensuing "
+                    "Annual General Meeting")
+pts, tag = rules.score_text(DIVIDEND_SUMMARY, floor=0)
+# The guard in pipeline.py refuses any summary verdict scoring under 55, so
+# what matters is that a below-bar tag can never be adopted. Assert the tag
+# this summary yields is either the right one, or one the guard will reject.
+check(tag == "Dividend" or pts < 55,
+      "a dividend summary yields an above-bar tag that is not Dividend",
+      f"{(pts, tag)} - the pipeline guard would adopt this")
+
+
+# ---------------------------------------------------------------------------
 
 print(f"{CHECKS[0]} checks")
 if FAILURES:
