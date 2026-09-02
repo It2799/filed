@@ -500,6 +500,46 @@ for cat, head in REAL_DEALS:
 
 
 # ---------------------------------------------------------------------------
+# 11. An order from a government is not an order from a customer.
+#
+# The exchanges file both under "Award of Order / Receipt of Order", so the
+# heading cannot tell them apart. MOIL's demand notice for unpaid water tax was
+# published as an order win, and Darjeeling Industries' government approval to
+# shift its registered office as another. Who the order came FROM settles it: a
+# customer places one, a registrar or a tribunal issues one.
+# ---------------------------------------------------------------------------
+GOVERNMENT_ORDERS = [
+    ("Company Update / Award of Order",
+     "MOIL has received a demand notice from the Wainganga Division for unpaid water tax"),
+    ("Company Update / General",
+     "Receipt of Order: government approval to shift the registered office"),
+    ("Award of Order / Receipt of Order",
+     "Receipt of order from the Registrar of Companies sanctioning the shift"),
+    ("General Updates", "Recovery notice received from the tax department"),
+    ("Award of Order / Receipt of Order", "Order issued by the Commissioner of Customs"),
+]
+for cat, head in GOVERNMENT_ORDERS:
+    pts, tag = rules.score(cat, head)
+    check(tag != "Order",
+          "a government order was published as an order win",
+          f"{(pts, tag)} <- {head[:60]!r}")
+
+CUSTOMER_ORDERS = [
+    ("Award of Order / Receipt of Order", "Receipt of order worth Rs 500 crore from NHAI"),
+    ("General Updates", "Bagging of order for supply of transformers worth Rs 87 crore"),
+    ("Company Update / General", "Letter of Award received from Indian Railways"),
+    ("General Updates",
+     "Time Technoplast secures order of Rs 87.53 crore for supply of cylinders"),
+    ("Award of Order / Receipt of Order", "Receipt of work order from Tata Projects Limited"),
+]
+for cat, head in CUSTOMER_ORDERS:
+    pts, tag = rules.score(cat, head)
+    check(tag == "Order" and pts >= 55,
+          "a real order win stopped being recognised",
+          f"{(pts, tag)} <- {head[:60]!r}")
+
+
+# ---------------------------------------------------------------------------
 
 print(f"{CHECKS[0]} checks")
 if FAILURES:

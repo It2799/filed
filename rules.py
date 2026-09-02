@@ -321,11 +321,37 @@ HEADLINE_ONLY = {"Change In Management"}
 #    patterns correct the label without touching the score.
 # ---------------------------------------------------------------------------
 RETAG = [
+    # An ORDER from a government is the opposite of an order from a customer,
+    # and the exchanges file both under "Award of Order / Receipt of Order".
+    #
+    # MOIL's demand notice for unpaid water tax arrived under that heading and
+    # was published as an order win. The old pattern wanted the word "tax"
+    # before "demand" - "tax demand", "tax notice" - and this one reads "demand
+    # notice ... for unpaid water tax", with the tax at the far end of the
+    # sentence. So the shape is matched now, not just one word order.
     ("Legal/Reg", r"gst (demand|order|notice|liabilit)|demand order|"
                   r"(income )?tax (demand|notice|order|liabilit)|assessment order|"
+                  r"demand notice|notice of demand|"
+                  r"demand.{0,60}(unpaid|outstanding|arrears|dues)|"
                   r"adjudicat|show cause|order-?in-?appeal|"
                   r"penalt.{0,40}(imposed|levied|order)|(imposed|levied).{0,40}penalt|"
-                  r"input tax credit"),
+                  r"input tax credit|"
+                  r"(recovery|garnishee|attachment) (notice|order)"),
+
+    # "Receipt of Order" where the order is a permission, not a purchase.
+    # Darjeeling Industries received government approval to shift its
+    # registered office and was published as having won work.
+    # Who the order came FROM settles it. A customer places an order; a
+    # registrar, a ministry or a tribunal issues one. Both arrive under
+    # "Receipt of Order".
+    ("Legal/Reg", r"(order|approval|permission|sanction|no objection|\bnoc\b|"
+                  r"direction|notice) (from|of|by|issued by) "
+                  r"(the )?(government|ministry|registrar|regional director|"
+                  r"central government|state government|reserve bank|\brbi\b|"
+                  r"\bsebi\b|\bnclt\b|tribunal|court|commissioner|"
+                  r"income tax|customs|excise|municipal)|"
+                  r"(government|ministry|registrar|tribunal|court) "
+                  r"(approval|order|sanction|direction)"),
 ]
 
 _JUNK_RE = [re.compile(p, re.I) for p in JUNK]
