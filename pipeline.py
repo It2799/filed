@@ -98,6 +98,13 @@ def fetch_and_score(start, end, min_score, log=print):
     return raw, kept
 
 
+# Tags a summary may not impose. Each says "we could not tell" rather than
+# naming an event, and a filing that reached the page on the strength of its
+# document should not be renamed to one of them by two sentences about it.
+WEAK_FROM_SUMMARY = {"Meeting", "Routine", "Other", "Outcome", "Press Release",
+                     "Corp Action", "Annual Report"}
+
+
 def summarise(kept, provider_list, max_summaries, workers=4, log=print):
     """Read PDFs and summarise a spread of the most important filings."""
     # Everything worth reading gets a summary. There is no second tier - if a
@@ -228,12 +235,18 @@ def summarise(kept, provider_list, max_summaries, workers=4, log=print):
 
         pts, from_summary = rules.score_text(blob, floor=0)
 
-        # And it must not push a filing below the bar. Importance was decided
-        # already; a dividend whose summary mentions the AGM that will approve
-        # it is still a dividend, and 14 of them were being relabelled
-        # "Meeting" - a tag worth 22, which would have dropped them off the
-        # page entirely.
-        if pts < 55:
+        # A score threshold used to sit here, refusing anything under 55. It was
+        # aimed at one real problem - a dividend whose summary mentions the AGM
+        # that will approve it was being relabelled "Meeting" - but it also
+        # refused every accurate label that happens to score low. Change In
+        # Management is 51, so Hexaware's new chief executive stayed under
+        # Acquisition through four passes while the rules named it correctly
+        # every time.
+        #
+        # The tags to refuse are the vague ones, not the low-scoring ones.
+        # Nothing is lost by relabelling: the SCORE is never changed here, so a
+        # filing keeps its place on the page and only gets a truer name.
+        if from_summary in WEAK_FROM_SUMMARY:
             from_summary = None
 
         # retag() still has the last word. It exists for the cases where the
