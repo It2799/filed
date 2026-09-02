@@ -329,7 +329,12 @@ def main():
             # to 30 August, where an AGM notice sat under Acquisition through
             # four passes because each one produced 7 filings where the old
             # rules had produced 14.
-            rules_changed = was_rules and was_rules != triage.rules_fingerprint()
+            # A missing fingerprint counts as changed. Days written before the
+            # mark existed cannot vouch for which rules produced them, and
+            # treating "unknown" as "same" would have frozen every one of them
+            # for ever - a day can only get its fingerprint by being rewritten,
+            # and it can only be rewritten if the guard lets it through.
+            rules_changed = was_rules != triage.rules_fingerprint()
             if was and len(important) < was * 0.7 and not rules_changed:
                 print(f"  -> KEPT the stored day: it has {was} summarised, "
                       f"this run only managed {len(important)}. "
