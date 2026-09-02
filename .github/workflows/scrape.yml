@@ -75,7 +75,7 @@ jobs:
     # that does one sweep and exits.
     timeout-minutes: >-
       ${{ (github.event.schedule == '7 18 * * *'
-           || github.event.inputs.days == '7') && 40 || 320 }}
+           || github.event.inputs.days == '7') && 40 || 350 }}
 
     steps:
       # ref: main, not the commit this run was pinned to.
@@ -156,7 +156,7 @@ jobs:
           if [ "$DAYS" = "7" ]; then
             LOOP=0
           else
-            LOOP=18000        # five hours
+            LOOP=19200        # five hours twenty, inside the 6h job ceiling
           fi
           echo "days=$DAYS" >> "$GITHUB_OUTPUT"
           echo "loop_until=$LOOP" >> "$GITHUB_OUTPUT"
@@ -212,6 +212,8 @@ jobs:
           echo "loop finished"
           exit 0
 
+
+
       # Every bug that reached the dashboard so far would have been caught here.
       # If this fails the run goes red, so a broken dashboard is visible in the
       # Actions tab instead of being found by someone using the site.
@@ -227,3 +229,44 @@ jobs:
             mcap.json
             triage.json
           key: caches-${{ github.run_id }}
+
+      # Hand over to the next run - LAST, after the cache is saved.
+      #
+      # Order matters here. cancel-in-progress is true, so the run this
+      # dispatches will cancel this one the moment it starts. Dispatching
+      # before the cache save would kill the save and throw away every PDF
+      # this run read.
+      #
+      # The loop covers five hours and twenty minutes. That is only enough if
+      # GitHub starts a run at least that often, and it does not: on 2
+      # September it managed eight all day, the longest silence 189 minutes.
+      # Close, but a run of bad luck would still leave a hole.
+      #
+      # So each run starts its successor. The cron becomes a safety net rather
+      # than the mechanism - if a run dies before reaching this step, the next
+      # scheduled trigger picks the chain back up.
+      #
+      # GITHUB_TOKEN deliberately cannot do this: GitHub blocks it from
+      # triggering workflows, to stop a workflow looping for ever by accident.
+      # That is exactly what we want here, so it needs a token of its own.
+      # Without the secret this step does nothing and says so, and the cron
+      # carries on alone.
+      - name: Start the next run
+        if: always() && steps.plan.outputs.loop_until != '0'
+        env:
+          DISPATCH_TOKEN: ${{ secrets.DISPATCH_TOKEN }}
+        run: |
+          if [ -z "$DISPATCH_TOKEN" ]; then
+            echo "No DISPATCH_TOKEN secret, so the chain stops here."
+            echo "Add one and this workflow keeps itself running for ever."
+            exit 0
+          fi
+          code=$(curl -sS -o /tmp/out -w "%{http_code}" -X POST             -H "Authorization: Bearer $DISPATCH_TOKEN"             -H "Accept: application/vnd.github+json"             -H "X-GitHub-Api-Version: 2022-11-28"             "https://api.github.com/repos/${{ github.repository }}/actions/workflows/scrape.yml/dispatches"             -d '{"ref":"main"}')
+          if [ "$code" = "204" ]; then
+            echo "next run dispatched"
+          else
+            echo "could not dispatch the next run (HTTP $code):"
+            head -c 300 /tmp/out
+            echo
+            echo "the cron will pick it up instead"
+          fi
