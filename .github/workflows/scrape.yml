@@ -16,17 +16,22 @@ name: Scrape announcements
 # Summaries, market caps and PDF reads are all cached by filing id, so a repeat
 # pass only pays for genuinely new filings.
 
-# NOTE ON RELIABILITY
-# GitHub's schedule event is best effort. Their documentation says runs are
-# delayed under load and may be dropped entirely, and on 1 September 2026 it
-# dropped 16 of the 23 slots below - the site sat unchanged from 13:28 to
-# 17:22 IST. Every run GitHub did create finished normally; the problem is
-# that most were never created at all.
+# NOTE ON RELIABILITY - read this before changing the schedule
 #
-# So the schedule below is a fallback, not the primary clock. The real trigger
-# is an external cron calling web/app/api/cron/scrape, which dispatches this
-# workflow through the API. workflow_dispatch starts within seconds and is
-# never dropped. See that file for the setup.
+# GitHub's schedule event is best effort. It is delayed under load and runs are
+# dropped entirely; on 2 September 2026 it created 8 of the 34 this cron asked
+# for, an average gap of 144 minutes against the 30 requested. Every run it did
+# create finished normally in a few minutes. The work was never the problem -
+# the runs simply did not exist.
+#
+# So a run does not scrape once and stop. It scrapes, waits for the next half
+# hour, and scrapes again for five hours. The cron then only has to succeed
+# occasionally instead of 48 times a day, and whenever one does land the site
+# refreshes every 30 minutes for the rest of the afternoon.
+#
+# There is also an external trigger at web/app/api/cron/scrape, which dispatches
+# this workflow through the API - workflow_dispatch starts within seconds and is
+# never dropped. It needs a token and a clock to call it; see that file.
 
 on:
   schedule:
@@ -54,23 +59,23 @@ on:
 
 concurrency:
   group: scrape
-  cancel-in-progress: false
+  # A newer run replaces an older one now, rather than queueing behind it.
+  # With a five-hour loop, queueing would mean a run waiting hours to start on
+  # stale code - which is exactly what happened on 1 September. Nothing is lost
+  # by cancelling: every pass publishes on its own, and the cache is saved
+  # whatever happens.
+  cancel-in-progress: true
 
 jobs:
   scrape:
     runs-on: ubuntu-latest
-    # A top-up must finish inside its own 15 minute slot, or it holds up the
-    # next one - runs queue rather than cancel. Thirteen minutes leaves a
-    # margin, and a cut-short run is no longer wasted now that the cache saves
-    # either way, so the next run picks up where this one stopped.
-    #
-    # The nightly full pass gets 40: it has seven days to get through, and
-    # nothing is waiting behind it at that hour.
-    # A full 7-day pass needs the longer ceiling however it was started: on
-    # the nightly cron, by hand, or by the dispatch endpoint asking for days=7.
+    # 320 minutes for a top-up, because it now lives for five hours refreshing
+    # every half hour. 40 for a full 7-day pass, however it was started - the
+    # nightly cron, by hand, or the dispatch endpoint asking for days=7 - since
+    # that does one sweep and exits.
     timeout-minutes: >-
       ${{ (github.event.schedule == '7 18 * * *'
-           || github.event.inputs.days == '7') && 40 || 13 }}
+           || github.event.inputs.days == '7') && 40 || 320 }}
 
     steps:
       # ref: main, not the commit this run was pinned to.
@@ -101,10 +106,9 @@ jobs:
       - run: pip install --quiet -r requirements.txt
 
       # restore + save as separate steps, so the save can run `if: always()`.
-      # actions/cache saves only when the job succeeded, so a run that was cut
-      # short - by the timeout, or by a failed verify - threw away every PDF it
-      # had read. At a 15 minute cadence that matters: a run that does not
-      # quite finish must still hand its work to the next one, or the same
+      # actions/cache saves only when the job succeeded, so a run cut short -
+      # by the timeout, by a failed verify, or by a newer run replacing it -
+      # threw away every PDF it had read. It must hand its work on, or the same
       # documents get read over and over and no run ever gets ahead.
       - name: Restore summary and market-cap caches
         id: caches
@@ -128,18 +132,17 @@ jobs:
       - name: Decide how much to scrape
         id: plan
         run: |
-          # --days N counts BACK from today, so it covers N+1 days: --days 0
-          # is today alone, --days 1 was today and yesterday. The top-up has
-          # been quietly doing twice the work its comment claimed, every 45
-          # minutes, all day. The nightly stays at 7, which is 8 days built
-          # and the oldest clipped by the 7-day window.
-          # This used to default to "7", which meant EVERY dispatch - including
-          # one from the 15-minute cron endpoint - ran a full seven-day pass
-          # instead of a today-only top-up. Blank now, so an unqualified
-          # dispatch behaves exactly like a scheduled run.
-          # The full pass is ONE named slot, not "any run after 18:00 UTC". With
-          # a run every half hour that test would have made twelve full passes
-          # a night, each one a twenty minute job, instead of a single one.
+          # --days N counts BACK from today, so it covers N+1 days: --days 0 is
+          # today alone. The top-up passed 1 for a long time under a comment
+          # saying it scraped only today, and was doing twice the work.
+          #
+          # The dispatch input defaults to blank on purpose. It used to default
+          # to "7", so every dispatch - including the cron endpoint's - ran a
+          # full week's rescrape instead of a top-up.
+          #
+          # The full pass is ONE named cron slot, not "any run after 18:00 UTC":
+          # at a run every half hour that test would have started twelve
+          # twenty-minute passes a night.
           if [ -n "${{ github.event.inputs.days }}" ]; then
             DAYS="${{ github.event.inputs.days }}"          # asked for explicitly
           elif [ "${{ github.event.schedule }}" = "7 18 * * *" ]; then
@@ -147,9 +150,35 @@ jobs:
           else
             DAYS=0                                          # top-up: today only
           fi
+          # How long this run keeps scraping for. The nightly full pass does
+          # one sweep and stops; a top-up stays alive and refreshes every half
+          # hour, so one successful trigger covers a whole afternoon.
+          if [ "$DAYS" = "7" ]; then
+            LOOP=0
+          else
+            LOOP=18000        # five hours
+          fi
           echo "days=$DAYS" >> "$GITHUB_OUTPUT"
-          echo "Scraping $DAYS day(s)"
+          echo "loop_until=$LOOP" >> "$GITHUB_OUTPUT"
+          echo "Scraping $DAYS day(s); loop for ${LOOP}s"
 
+      # One run, many scrapes.
+      #
+      # GitHub's schedule event is best effort and drops runs under load. On 2
+      # September it created 8 of the 34 this cron asked for - an average gap
+      # of 144 minutes against the 30 requested, the worst 189. Every run that
+      # did fire finished normally in a few minutes; the problem was never the
+      # work, it was that the runs did not exist.
+      #
+      # So a run no longer scrapes once and stop. It scrapes, waits for the
+      # next half hour, and scrapes again, for as long as it is allowed to
+      # live. Whenever GitHub does manage to start one, the site then refreshes
+      # every 30 minutes for hours - and the cron only has to succeed
+      # occasionally rather than 48 times a day.
+      #
+      # A failed pass does not end the loop: the next half hour comes round
+      # anyway, and each pass publishes on its own. The full nightly pass runs
+      # once and exits, because it takes twenty minutes and nothing is waiting.
       - name: Scrape, summarise and publish
         env:
           KV_REST_API_URL: ${{ secrets.KV_REST_API_URL }}
@@ -157,12 +186,31 @@ jobs:
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
-        run: >-
-          python -u publish.py
-          --days "${{ steps.plan.outputs.days }}"
-          --max-summaries "${{ github.event.inputs.max_summaries || 0 }}"
-          --workers 8
-          --read-workers 32
+          DAYS: ${{ steps.plan.outputs.days }}
+          MAX_SUMMARIES: ${{ github.event.inputs.max_summaries || 0 }}
+          LOOP_UNTIL: ${{ steps.plan.outputs.loop_until }}
+        run: |
+          set +e
+          scrape() {
+            python -u publish.py --days "$DAYS"               --max-summaries "$MAX_SUMMARIES" --workers 8 --read-workers 32
+            echo "pass exited $?"
+          }
+
+          scrape
+          [ "$LOOP_UNTIL" = "0" ] && exit 0
+
+          END=$(( $(date -u +%s) + LOOP_UNTIL ))
+          while [ "$(date -u +%s)" -lt "$END" ]; do
+            NOW=$(date -u +%s)
+            WAIT=$(( 1800 - (NOW % 1800) ))
+            echo "--- next pass in $((WAIT / 60))m$((WAIT % 60))s ---"
+            sleep "$WAIT"
+            [ "$(date -u +%s)" -ge "$END" ] && break
+            echo "=== $(date -u +%H:%M)Z ==="
+            scrape
+          done
+          echo "loop finished"
+          exit 0
 
       # Every bug that reached the dashboard so far would have been caught here.
       # If this fails the run goes red, so a broken dashboard is visible in the
