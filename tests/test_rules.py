@@ -376,6 +376,77 @@ check(tag == "Dividend" or pts < 55,
 
 
 # ---------------------------------------------------------------------------
+# 8. A general meeting notice is one thing, wherever it arrives.
+#
+# An AGM notice carries the whole year with it - the accounts, the dividend
+# resolution, the reappointment of auditors, the enabling resolution for a
+# preferential issue or a QIP. Scored on any of that, one document was landing
+# under a dozen headings at once: Pref, Qip, Warrants, Acquisition, Business
+# Update, Nclt. The notice now wins outright.
+# ---------------------------------------------------------------------------
+NOTICES = [
+    ("AGM/EGM / AGM", "Notice of the 102nd Annual General Meeting"),
+    ("General Updates",
+     "Physicswallah has announced the schedule for its 6th Annual General Meeting"),
+    ("Company Update / Preferential Issue",
+     "Notice of the 27th AGM including the enabling resolution for a preferential issue"),
+    ("Shareholders meeting", "Intimation of AGM and e-voting details"),
+    ("Company Update / General",
+     "Convening of the Extraordinary General Meeting on 20 September"),
+    ("Updates", "The 41st AGM of the company is scheduled to be held on Friday"),
+]
+for cat, head in NOTICES:
+    pts, tag = rules.score(cat, head)
+    check(tag == "Meeting",
+          "a general meeting notice was filed under something else",
+          f"{(pts, tag)} <- {head[:60]!r}")
+
+# The other half, and the more dangerous one. A dividend declared subject to
+# approval at the AGM is a dividend - 152 filings say so - and demoting those
+# would be a worse mistake than the one being fixed.
+MENTIONS_ONLY = [
+    ("Corp. Action / Dividend",
+     "Board recommended a final dividend of Rs 5, subject to approval at the ensuing AGM",
+     "Dividend"),
+    ("Company Update / General",
+     "Board declared an interim dividend; the AGM will be held later", "Dividend"),
+    ("Board Meeting / Outcome",
+     "Approved unaudited results for Q1 and noted the AGM date", "Results"),
+]
+for cat, head, want in MENTIONS_ONLY:
+    pts, tag = rules.score(cat, head)
+    check(tag == want,
+          "a filing that merely mentions a meeting was demoted to Meeting",
+          f"wanted {want}, got {(pts, tag)} <- {head[:56]!r}")
+
+
+# ---------------------------------------------------------------------------
+# 9. No pattern may contain a control character.
+#
+# Writing these files through shell heredocs has repeatedly turned the two
+# characters  into a single 0x08 backspace, silently. The pattern still
+# compiles and still matches most things, so nothing fails loudly - it just
+# quietly stops respecting word boundaries. Fifteen of them went in at once on
+# 2 September and were only noticed by printing a pattern by hand.
+# ---------------------------------------------------------------------------
+for name in dir(rules):
+    obj = getattr(rules, name)
+    pat = getattr(obj, "pattern", None)
+    if not isinstance(pat, str):
+        continue
+    bad = [hex(ord(ch)) for ch in pat if ord(ch) < 32 and ch not in (chr(10) + chr(9))]
+    check(not bad,
+          f"rules.{name} contains a control character - a mangled escape",
+          f"found {bad[:4]} in {pat[:60]!r}")
+
+for tag, pts, rx in rules._TOPIC_RE:
+    bad = [hex(ord(ch)) for ch in rx.pattern if ord(ch) < 32 and ch not in (chr(10) + chr(9))]
+    check(not bad,
+          f"the {tag!r} pattern contains a control character",
+          f"found {bad[:4]}")
+
+
+# ---------------------------------------------------------------------------
 
 print(f"{CHECKS[0]} checks")
 if FAILURES:

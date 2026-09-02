@@ -431,6 +431,51 @@ _DEALING_TAGS = {"Acquisition", "Stake Change", "Promoter Buy/Sell", "Other",
 PROMOTER_SCORE = 58
 
 
+# ---------------------------------------------------------------------------
+# 8. A GENERAL MEETING NOTICE IS ONE THING, WHEREVER IT ARRIVES
+#
+# An AGM notice carries the whole year with it - the accounts, the dividend
+# resolution, the reappointment of auditors, the enabling resolution for a
+# preferential issue or a QIP. Scored on any of that, one document was being
+# filed under a dozen different headings: Pref, Qip, Warrants, Acquisition,
+# Business Update, Nclt. It reads as a mess because it is one.
+#
+# So the notice wins outright. If the filing IS a general meeting notice, it is
+# a Meeting, whatever else the paperwork mentions.
+#
+# The test is whether the filing IS the notice, not whether it MENTIONS a
+# meeting. A dividend declared subject to approval at the AGM is a dividend -
+# 152 of them say so - and demoting those would be a worse mistake than the one
+# being fixed.
+# ---------------------------------------------------------------------------
+_MEETING_NOTICE_CAT = re.compile(
+    r"\bagm\b|\begm\b|annual general meeting|extraordinary general meeting|"
+    r"shareholders meeting|postal ballot", re.I)
+
+# One name for the meeting, used everywhere below.
+_GM = r"(annual general meeting|extraordinary general meeting|\bagm\b|\begm\b)"
+
+_MEETING_NOTICE_TEXT = re.compile(
+    # the document announcing itself
+    r"notice (is hereby given|of the|of an?)[^.]{0,80}"
+    r"(annual |extraordinary |general )*meeting|"
+    r"[0-9]{1,3}(st|nd|rd|th) (annual general meeting|\bagm\b)|"
+    r"(intimation|notice|convening|convened)[^.]{0,40}" + _GM + r"|"
+    r"(has (scheduled|announced|convened|called)|will hold|to be held)"
+    r"[^.]{0,60}" + _GM + r"|"
+    r"schedule (of|for)[^.]{0,40}" + _GM + r"|"
+    r"e-?voting[^.]{0,40}" + _GM, re.I)
+
+MEETING_NOTICE_SCORE = 22
+
+
+def meeting_notice(category, headline, body=""):
+    """Is this filing itself a notice of a general meeting?"""
+    if _MEETING_NOTICE_CAT.search(category or ""):
+        return True
+    return bool(_MEETING_NOTICE_TEXT.search((headline or "") + " " + (body or "")))
+
+
 def meeting_kind(category, headline):
     """Which of the three this filing actually is. Headline wins."""
     for tag, rx in _MEETING_RE:
@@ -503,6 +548,11 @@ def score(category, headline, critical=False):
         # all and would otherwise leave as Other(18).
         if promoter_deal(category + " || " + headline):
             return PROMOTER_SCORE, "Promoter Buy/Sell"
+        # Same for a meeting notice. "Convening of the Extraordinary General
+        # Meeting on 20 September" matches no topic either, and would have left
+        # here as Other while its neighbours were correctly called Meeting.
+        if meeting_notice(category, headline):
+            return MEETING_NOTICE_SCORE, "Meeting"
         return 18, "Other"
 
     if head_n > 1:                 # several important themes in one filing
@@ -536,6 +586,10 @@ def score(category, headline, critical=False):
         if rx.search(both):
             tag = r_tag
             break
+
+    # And a general meeting notice is a Meeting, whatever its annexures say.
+    if meeting_notice(category, headline):
+        return MEETING_NOTICE_SCORE, "Meeting"
 
     return pts, tag
 
