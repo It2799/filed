@@ -56,6 +56,10 @@ on:
         description: "Cap on AI calls (0 = summarise every relevant filing)"
         required: false
         default: "0"
+      loop_seconds:
+        description: "How long to keep scraping. Blank = 5h20m. 1 = one pass, then hand over."
+        required: false
+        default: ""
 
 concurrency:
   group: scrape
@@ -153,7 +157,9 @@ jobs:
           # How long this run keeps scraping for. The nightly full pass does
           # one sweep and stops; a top-up stays alive and refreshes every half
           # hour, so one successful trigger covers a whole afternoon.
-          if [ "$DAYS" = "7" ]; then
+          if [ -n "${{ github.event.inputs.loop_seconds }}" ]; then
+            LOOP="${{ github.event.inputs.loop_seconds }}"   # for testing
+          elif [ "$DAYS" = "7" ]; then
             LOOP=0
           else
             LOOP=19200        # five hours twenty, inside the 6h job ceiling
