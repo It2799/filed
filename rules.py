@@ -210,10 +210,24 @@ TOPICS = [
                                  r"encumbrance|invocation of pledge"),
 
     # ---- people --------------------------------------------------------------
+    # The verb as well as the noun. This wanted "appointment of a chief
+    # executive" and missed "has appointed Vivek Jetley as its new CEO", which
+    # is how a summary says it and how half of all headlines say it. Hexaware's
+    # new CEO was left sitting under Acquisition because of it.
     ("Change In Management", 51, r"change in (management|directorate|auditors)|"
-                                 r"(appointment|re-?appointment).{0,70}(managing director|"
+                                 r"(appointment|re-?appointment|appointed|"
+                                 r"re-?appointed|elevat\w+|designat\w+)"
+                                 r"[^.]{0,70}(managing director|"
                                  r"chief executive|\bceo\b|chief financial|\bcfo\b|chairman|"
-                                 r"whole[- ]time director|statutory auditor)"),
+                                 r"whole[- ]time director|statutory auditor|"
+                                 r"company secretary|chief operating|\bcoo\b|"
+                                 r"chief technology|\bcto\b|"
+                                 r"(independent|executive|additional|woman|"
+                                 r"non-?executive|nominee)[^.]{0,24}director|"
+                                 r"cost accountant|internal auditor|"
+                                 r"key managerial|"
+                                 r"\bpresident\b|vice[- ]president|"
+                                 r"head of|chief [a-z]+ officer)"),
     ("Resignation",          40, r"resignation|cessation|removal|retirement of|"
                                  r"stepped down|relinquish"),
 

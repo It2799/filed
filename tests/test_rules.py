@@ -475,6 +475,23 @@ NOT_ACQUISITIONS = [
      "Approved the appointment of M/s Shah Karia & Associates as Statutory "
      "Auditor. The firm's services include Merger & Acquisition advisory"),
 ]
+
+# The same, judged from a summary rather than a headline - which is the path
+# that actually decides a category now. These were left under Acquisition
+# because the pattern wanted the noun "appointment" and a summary writes the
+# verb: "has appointed Vivek Jetley as its new CEO".
+MANAGEMENT_SUMMARIES = [
+    "Hexaware Technologies has appointed Vivek Jetley as its new CEO",
+    "NHPC has appointed various firms of Cost Accountants to conduct cost audits",
+    "Ms Kundu was appointed an Additional Independent Woman Director",
+    "The company appointed Mr Sheth as a Non-Executive Nominee Director",
+    "Deepak Fertilisers appointed Amir Alvi as President-Manufacturing",
+]
+for text in MANAGEMENT_SUMMARIES:
+    pts, tag = rules.score_text(text, floor=0)
+    check(tag in ("Change In Management", "Resignation"),
+          "a management change was not recognised from its summary",
+          f"{(pts, tag)} <- {text[:60]!r}")
 for cat, head in NOT_ACQUISITIONS:
     pts, tag = rules.score(cat, head)
     check(tag != "Acquisition",
