@@ -515,6 +515,25 @@ def _best(text):
     return pts, tag, len(hits)
 
 
+# Categories that name the event exactly, where the headline may not overrule.
+#
+# "Company Update / Appointment of Statutory Auditor/s" says what the filing
+# is. The letter announcing the appointment carries the audit firm's profile,
+# and one of those listed "Merger & Acquisition" among its services - enough
+# for the headline branch below to lift a routine appointment to Acquisition,
+# which is the single most visible category on the site.
+#
+# For these, the category decides and the headline can only add points to the
+# category's own verdict, never replace it. Vague categories are unaffected:
+# that is what VAGUE is for.
+SPECIFIC_CATEGORY = re.compile(
+    r"appointment of|resignation of|change in (director|management|auditor)|"
+    r"\bcessation\b|(statutory|internal|secretarial|cost) auditor|"
+    r"annual general meeting|\bagm\b|\begm\b|shareholders meeting|"
+    r"postal ballot|annual report|newspaper publication|trading window|"
+    r"book closure|record date", re.I)
+
+
 def score(category, headline, critical=False):
     """Return (score 0-100, tag)."""
     category = (category or "").strip()
@@ -525,11 +544,26 @@ def score(category, headline, critical=False):
 
     cat_pts, cat_tag, _ = _best(category)
     head_pts, head_tag, head_n = _best(headline)
-    vague = not category or any(rx.search(category) for rx in _VAGUE_RE)
+    # A specific suffix beats a vague prefix. VAGUE holds "^company update",
+    # which swallowed every "Company Update / ..." category - including
+    # "Company Update / Appointment of Statutory Auditor/s", which says exactly
+    # what the filing is. Treated as vague, its headline got a full vote, and
+    # the audit firm's own list of services ("Merger & Acquisition") renamed a
+    # routine appointment as a deal.
+    specific = bool(category) and bool(SPECIFIC_CATEGORY.search(category))
+    vague = (not category
+             or (any(rx.search(category) for rx in _VAGUE_RE) and not specific))
 
     if vague:
         # Category tells us nothing useful - the headline decides.
         pts, tag = (head_pts, head_tag) if head_pts >= cat_pts else (cat_pts, cat_tag)
+    elif specific:
+        # The category already names the event. The headline can raise the
+        # score - a resignation of a chief executive is bigger news than a
+        # resignation of an internal auditor - but it cannot rename the filing.
+        pts, tag = cat_pts, cat_tag
+        if head_pts - 8 > pts:
+            pts = head_pts - 8
     else:
         # Category leads; a strong headline can lift it, but only so far.
         pts, tag = cat_pts, cat_tag

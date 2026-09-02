@@ -447,6 +447,59 @@ for tag, pts, rx in rules._TOPIC_RE:
 
 
 # ---------------------------------------------------------------------------
+# 10. Nothing but a deal goes in Acquisition.
+#
+# Taken verbatim from filings that were sitting under Acquisition on the live
+# site on 2 September. None is a deal. Acquisition is the category a reader
+# looks at first, so anything wrong there is the most visible mistake the
+# product can make.
+# ---------------------------------------------------------------------------
+NOT_ACQUISITIONS = [
+    ("Shareholders meeting",
+     "Mold-Tek Technologies has announced its 42nd Annual General Meeting"),
+    ("Corp. Action / Book Closure",
+     "Haryana Leather Chemicals has announced the closure of its share transfer "
+     "books for the annual general meeting"),
+    ("Company Update / Press Release / Media Release",
+     "Hexaware Technologies has appointed Vivek Jetley as its new CEO"),
+    ("Company Update / General",
+     "NHPC has appointed various firms of Cost Accountants to conduct cost audits"),
+    ("Corp Action / Daily Buy Back of equity shares",
+     "SIS Ltd reported its daily share buy-back, purchasing 10,000 shares"),
+    ("Amendment to AOA/MOA",
+     "Shareholders approved an amendment to the Memorandum of Association"),
+    ("Company Update / Change in Management",
+     "Deepak Fertilizers has appointed Amir Alvi as President of Manufacturing "
+     "Operations, whose remit includes capex"),
+    ("Company Update / Appointment of Statutory Auditor/s",
+     "Approved the appointment of M/s Shah Karia & Associates as Statutory "
+     "Auditor. The firm's services include Merger & Acquisition advisory"),
+]
+for cat, head in NOT_ACQUISITIONS:
+    pts, tag = rules.score(cat, head)
+    check(tag != "Acquisition",
+          "something that is not a deal was filed under Acquisition",
+          f"{(pts, tag)} <- {cat[:34]!r} / {head[:48]!r}")
+
+# And the deals themselves must survive all of that.
+REAL_DEALS = [
+    ("Company Update / Acquisition",
+     "Fine Organic Industries has agreed to buy 80% of Oleofine Organics"),
+    ("Company Update / General",
+     "ITC subsidiary will acquire a 22.1% stake in Happiest Minds Limited"),
+    ("General Updates",
+     "Completed the acquisition of 100% of Alpha Private Limited for Rs 260 crore"),
+    ("Company Update / General",
+     "The Company has entered into a joint venture with Beta Limited"),
+]
+for cat, head in REAL_DEALS:
+    pts, tag = rules.score(cat, head)
+    check(tag in ("Acquisition", "Scheme Of Arrangement") and pts >= 55,
+          "a real deal stopped being recognised as one",
+          f"{(pts, tag)} <- {head[:60]!r}")
+
+
+# ---------------------------------------------------------------------------
 
 print(f"{CHECKS[0]} checks")
 if FAILURES:
