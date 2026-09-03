@@ -67,6 +67,19 @@ NEVER_PROMOTE = [
     # The daily purchase report a buyback obliges a company to file. Same
     # reason: it recites the buyback it is reporting on.
     r"regulation 18\(i\)|daily report.{0,50}buy-?\s?back",
+
+    # The Regulation 36(1)(b) covering letter that goes out with the annual
+    # report. Reading it finds the annual report, the AGM notice and the
+    # dividend resolution, and promotes whichever scores highest - which is
+    # how twelve annual-report letters came to be filed under Dividend on
+    # 3 September. Same for the sustainability report, which describes every
+    # plant and expansion the company has, and for the interest certificates
+    # a debenture issuer files on each due date.
+    r"regulation 36\(1\)|reg\.? ?36\(1\)|"
+    r"letter (to|sent to) (share ?holders|members|the members)|"
+    r"\bbrsr\b|business responsibility and sustainability report|"
+    r"payment of interest on[^.]{0,40}(non-?convertible|debenture|\bncd\b)|"
+    r"certificate[^.]{0,40}payment of interest",
 ]
 
 # Matched against the CATEGORY ALONE, never the headline.

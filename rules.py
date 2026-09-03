@@ -49,6 +49,28 @@ JUNK = [
     # Depository plumbing: the date a company's shares became transferable at
     # CDSL or NSDL.
     r"date of connectivity|connectivity (informed|intimated) by",
+    # Regulation 36(1)(b) is the rule that says a company must send its annual
+    # report to shareholders. The covering letter is the single most misfiled
+    # document on the site: it goes out with the annual report and the AGM
+    # notice, so its PDF recites the dividend resolution, and twelve of the
+    # thirteen wrong filings under Dividend were one of these letters. Shree
+    # Hari Chemicals, Vippy Spinpro, Tega, Veerhealth, National Plastic and
+    # UTL Industries all filed one on the same day.
+    r"regulation 36\(1\)|reg\.? ?36\(1\)|"
+    r"letter (to|sent to) (share ?holders|members|the members)|"
+    r"web ?link.{0,30}annual report|annual report.{0,20}web ?link",
+    # The KYC reminder that goes out with it.
+    r"\bkyc\b (updation|update|details)|updation of \bkyc\b",
+    # The sustainability report. Several hundred pages describing every plant,
+    # every expansion and every governance policy the company has, which is why
+    # it was read as a capacity increase and as a regulatory action.
+    r"\bbrsr\b|business responsibility and sustainability report",
+    # A company that has issued debentures certifies every interest payment on
+    # the due date. Routine, and there is one per issue per period - all four
+    # wrong filings under Buyback were interest certificates.
+    r"payment of interest on[^.]{0,40}(non-?convertible|debenture|\bncd\b)|"
+    r"certificate[^.]{0,40}payment of interest|"
+    r"interest payment[^.]{0,20}(certificate|intimation)",
     # A bare "<something> for the quarter ended <date>" heading is compliance
     # paperwork - but only when the something is not the results themselves.
     # Without the guard, whether a company's quarterly results survive came
@@ -135,7 +157,23 @@ TOPICS = [
                                  r"(enter\w*|form\w*|incorporat\w*|sign\w*|establish\w*|announc\w*) "
                                  r"[^.]{0,30}joint venture|"
                                  r"joint venture (agreement|with|company is|will be)|"
-                                 r"strategic (partnership|alliance|investment)|"
+                                 # "Strategic partnership" and "strategic
+                                 # investment" used to sit here bare, and they
+                                 # are marketing words, not deals. Coforge
+                                 # "expands strategic partnership with Pega" is
+                                 # a commercial agreement to sell software
+                                 # together, and Lloyds Enterprises' "Strategic
+                                 # Investment Unit" is the NAME of a subsidiary
+                                 # that was changing its name. Both were
+                                 # published as acquisitions.
+                                 #
+                                 # A strategic investment is real news when it
+                                 # says how much or how much of - so that is
+                                 # what it now has to say.
+                                 r"strategic investment[^.]{0,60}"
+                                 r"(\d[\d.,]*\s?(%|per cent|crore|lakh|million|billion)|"
+                                 r"stake|shareholding|equity)|"
+                                 r"(acquisition|purchase) of[^.]{0,30}(stake|shareholding)|"
                                  r"share purchase agreement|\bspa\b executed"),
 
     # ---- raising money -------------------------------------------------------
@@ -163,8 +201,15 @@ TOPICS = [
     ("Fund Raising",         58, r"fund ?rais|capital raising|further public offer|\bfpo\b|"
                                  r"rais(e|es|ed|ing) (of )?(funds|capital)|"
                                  r"raising of (funds|capital)|"
-                                 r"issue of (ncd|debenture|bond|commercial paper)|"
-                                 r"allotment of (ncd|debenture|bond|convertible)|"
+                                 r"issue of[^.]{0,30}(ncd|debenture|bond|commercial paper)|"
+                                 # The quantity sits between the verb and the
+                                 # instrument - "allotment of 30,000 non-
+                                 # convertible debentures" - and the pattern
+                                 # required them to be adjacent. CreditAccess
+                                 # Grameen's Rs 300 crore debenture allotment
+                                 # scored nothing here and was published as a
+                                 # rights issue on the strength of its PDF.
+                                 r"allotment of[^.]{0,30}(ncd|debenture|bond|convertible)|"
                                  r"private placement"),
 
     # ---- performance and operations -----------------------------------------
@@ -178,8 +223,22 @@ TOPICS = [
     # Order" scored 18/Other whenever the category was too vague to save it.
     ("Order",                62, r"bagging|(receipt|receiving|received) of "
                                  r"(an? |the )?(orders?|contracts?|letter of award)|"
-                                 r"award of (order|contract)|order win|bags? (an? )?order|"
-                                 r"letter of (intent|award)|\bloi\b|work order|purchase order|"
+                                 # "Awarding of order(s)/contract(s)" is BSE's
+                                 # own name for the order category, and this
+                                 # said "award of", which does not match it.
+                                 # Every filing the exchange itself labelled an
+                                 # order scored 18/Other and then took whatever
+                                 # tag its PDF happened to suggest - Ashoka
+                                 # Buildcon's Letter of Acceptance from Rail
+                                 # Vikas Nigam came out as a capacity increase.
+                                 r"award(ing)? of (an? )?(order|contract)|"
+                                 r"order win|bags? (an? )?order|"
+                                 # ...and "letter of acceptance", which is what
+                                 # the railways and most government bodies
+                                 # actually send. Only intent and award were
+                                 # listed.
+                                 r"letter of (intent|award|acceptance)|\bloa\b|"
+                                 r"\bloi\b|work order|purchase order|"
                                  r"contract (won|awarded|received|secured)|"
                                  r"secures? (an? )?(order|contract|project)|"
                                  r"\bwins?\b.{0,25}(order|contract|project|tender)"),
@@ -238,6 +297,20 @@ TOPICS = [
     # is how a summary says it and how half of all headlines say it. Hexaware's
     # new CEO was left sitting under Acquisition because of it.
     ("Change In Management", 51, r"change in (management|directorate|auditors)|"
+                                 # The role first and the event second, which
+                                 # is how a company writes a two-word headline:
+                                 # "CFO Appointment", "Company Secretary
+                                 # Resignation". Only the other word order was
+                                 # listed, so ZF Commercial Vehicle Control
+                                 # Systems' "CFO Appointment" scored 18/Other
+                                 # and was published as a capacity increase
+                                 # once its PDF had been read.
+                                 r"(managing director|chief executive|\bceo\b|"
+                                 r"chief financial|\bcfo\b|chief operating|\bcoo\b|"
+                                 r"company secretary|whole[- ]time director|"
+                                 r"\bkmp\b|chairman)\s+"
+                                 r"(appointment|re-?appointment|resignation|"
+                                 r"cessation|change|transition)|"
                                  r"(appointment|re-?appointment|appointed|"
                                  r"re-?appointed|elevat\w+|designat\w+)"
                                  r"[^.]{0,70}(managing director|"

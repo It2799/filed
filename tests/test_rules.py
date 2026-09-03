@@ -727,6 +727,106 @@ for cat, head in REAL_BUYBACKS:
 
 
 # ---------------------------------------------------------------------------
+# 14. Everything tools/audit_categories.py found on 3 September
+#
+# The audit asks each category to justify itself: every filing tagged "Order"
+# should say something about orders somewhere, and the ones that do not are
+# either misfiled or wording the rules have never seen. Run against the 1,185
+# filings live that morning it flagged eight categories, and these are the
+# real faults among them. Verbatim, so none can come back.
+# ---------------------------------------------------------------------------
+
+AUDIT_MISFILED = [
+    # Marketing words, read as deals. A commercial agreement to sell software
+    # together is not an acquisition, and "Strategic Investment Unit" was the
+    # NAME of the subsidiary whose name was being changed.
+    ("Press Release",
+     "Coforge expands strategic partnership with Pega to accelerate "
+     "enterprise AI transformation", None),
+    ("General Updates",
+     "Change in Name of Geomysore Services India Pvt Ltd, Strategic "
+     "Investment Unit of Lloyds Enterprises Limited", None),
+    # The role first, the event second - how a two-word headline is written.
+    ("Company Update / General", "CFO Appointment", "Change In Management"),
+    ("Company Update / General", "Company Secretary Resignation",
+     "Change In Management"),
+    # BSE calls its own order category "Awarding of order(s)/contract(s)",
+    # and the rules said "award of", which does not match it. Nor was "letter
+    # of acceptance" listed, which is what the railways actually send.
+    ("Awarding of order(s)/contract(s)",
+     "Intimation for Receipt of Letter of Acceptance from Rail Vikas Nigam "
+     "Limited", "Order"),
+    ("General Updates", "Receipt of Letter of Acceptance for a highway project",
+     "Order"),
+    # Routine paperwork that recites something bigger than itself.
+    ("Company Update / General",
+     "Letter to shareholders pursuant to Regulation 30 and 36(1)(b) of "
+     "SEBI LODR 2015", None),
+    ("Company Update / General",
+     "Letter Sent to Members Pursuant to Regulation 36(1) (b) of SEBI "
+     "Listing Regulations", None),
+    ("Company Update / General",
+     "Certificate of Payment of Interest of Non-Convertible Debentures", None),
+    ("Company Update / General", "BRSR for FY25-26", None),
+    ("Company Update / General",
+     "Reminder letter for KYC updation by shareholders", None),
+    ("Company Update / General",
+     "Intimation under regulation 30 wrt weblink of the Annual Report", None),
+]
+for cat, head, want in AUDIT_MISFILED:
+    pts, tag = rules.score(cat, head)
+    if want is None:
+        check(pts < 55,
+              "routine paperwork is back above the important line",
+              f"{(pts, tag)} <- {head[:58]!r}")
+    else:
+        check(tag == want,
+              f"this should be {want}",
+              f"{(pts, tag)} <- {head[:58]!r}")
+
+# The same documents must not be promoted back by triage after reading the PDF,
+# which is how they got their categories in the first place - the annual-report
+# letter's attachment contains the AGM notice and the dividend resolution.
+for cat, head in [
+    ("Company Update / General",
+     "Letter to shareholders pursuant to Regulation 36(1)(b)"),
+    ("Company Update / General", "BRSR for FY25-26"),
+    ("Company Update / General",
+     "Certificate of Payment of Interest of Non-Convertible Debentures"),
+]:
+    check(triage._blocked({"category": cat, "headline": head}),
+          "triage will read this and promote it back",
+          f"{head[:56]!r} is not blocked")
+
+# And the genuine articles are untouched. A strategic investment that says how
+# much, or how much of, is a deal and stays one.
+AUDIT_CONTROLS = [
+    ("General Updates",
+     "The company made a strategic investment acquiring a 26% stake in ABC "
+     "Limited", "Acquisition"),
+    ("General Updates",
+     "Strategic investment of Rs 120 crore in a renewable energy platform",
+     "Acquisition"),
+    ("General Updates",
+     "Acquisition of 100% shareholding in XYZ Private Limited", "Acquisition"),
+    ("Board Meeting", "Appointment of Mr X as Chief Financial Officer",
+     "Change In Management"),
+    ("Corp. Action", "Board recommended a final dividend of Rs 5 per share",
+     "Dividend"),
+    ("General Updates", "Receipt of order worth Rs 500 crore from NHAI",
+     "Order"),
+    ("General Updates",
+     "Allotment of 30,000 non-convertible debentures aggregating Rs 300 crore",
+     "Fund Raising"),
+]
+for cat, head, want in AUDIT_CONTROLS:
+    pts, tag = rules.score(cat, head)
+    check(tag == want,
+          f"a real {want} stopped being recognised",
+          f"{(pts, tag)} <- {head[:58]!r}")
+
+
+# ---------------------------------------------------------------------------
 
 print(f"{CHECKS[0]} checks")
 if FAILURES:
