@@ -121,8 +121,14 @@ TOPICS = [
     # buying 25,000 shares, scored it 66, and put it on the front page as an
     # open offer. They now carry their own label, below the bar. A real open
     # offer still announces itself in the words below.
+    # "Manager to the Offer" and the post-offer advertisement are the other two
+    # names a real open offer goes by, and neither was listed - so Axis
+    # Capital's post-offer advertisement for a live open offer scored nothing
+    # at all.
     ("Open Offer",           66, r"open offer|detailed public statement|regulation 3\(1\)|"
-                                 r"public announcement.{0,25}(acquisition|offer)"),
+                                 r"public announcement.{0,25}(acquisition|offer)|"
+                                 r"manager to the offer|(post|pre)-? ?offer advertisement|"
+                                 r"letter of offer.{0,30}(acquisition|open offer)"),
     ("Delisting",            64, r"\bdelist(ing|ed)?\b"),
     # A promoter buying or selling their own company's shares is news in its
     # own right - buying reads as confidence, selling as the opposite - but it
@@ -407,6 +413,16 @@ TOPICS = [
                                  r"chief technology|\bcto\b|"
                                  r"(independent|executive|additional|woman|"
                                  r"non-?executive|nominee)[^.]{0,24}director|"
+                                 # ...and a plain one. "Intimation for
+                                 # appointment of Director" named no kind of
+                                 # director, matched nothing, scored 18/Other,
+                                 # and SATYA MicroCapital's new nominee
+                                 # director was published as a Delisting once
+                                 # the PDF had been read. An appointment verb
+                                 # is already required within 70 characters,
+                                 # which is what keeps this from matching every
+                                 # mention of a board of directors.
+                                 r"\bdirectors?\b|"
                                  r"cost accountant|internal auditor|"
                                  r"key managerial|"
                                  r"\bpresident\b|vice[- ]president|"
@@ -628,6 +644,65 @@ _CORPORATE_DEAL = re.compile(
     r"committee of independent directors|public announcement", re.I)
 
 
+# Shares moving inside the promoter family, which is not a deal at all.
+#
+# A father gifting shares to his son, or a husband to his wife, is filed on the
+# same SAST forms as a real acquisition and reads exactly like one: "acquired
+# 40.94 lakh shares". No money changes hands, nobody has bought or sold
+# anything, and it says nothing about the company. SEBI exempts it from the
+# open offer rules for that reason, under Regulations 10(5) and 10(6).
+#
+# It was being published as an Open Offer - the literal opposite - because the
+# summary explains the exemption and the words "open offer" are in the
+# sentence. Jeyyam Global Foods and two Sanghvi Movers filings were all sitting
+# under Open Offer on 3 September.
+#
+# It is not Promoter Buy/Sell either. That category exists because a promoter
+# buying reads as confidence and selling reads as the opposite, and a gift
+# between relatives carries neither signal.
+# The blank SEBI form prints its own list of options:
+#
+#   "Mode of sale (e.g. open market / public issue / rights issue /
+#    preferential allotment / inter-se transfer / encumbrance, etc.)"
+#
+# which contains the words this looks for and means nothing at all. It is the
+# same template that once scattered stake disclosures across every category.
+# Recognised by the company it keeps: no real filing lists four different modes
+# of transfer in one breath.
+_FORM_OPTION_LIST = re.compile(
+    r"mode of (sale|acquisition|disposal)|"
+    r"open market\s*/|/\s*inter-?\s?se transfer|"
+    r"preferential allotment\s*/", re.I)
+
+_INTERSE = re.compile(
+    r"inter-?\s?se transfer|inter-?\s?se\b[^.]{0,30}promoter|"
+    r"internal transfer[^.]{0,40}promoter|"
+    r"regulation 10\(5\)|regulation 10\(6\)|reg\.? ?10\(5\)|reg\.? ?10\(6\)|"
+    r"gift deed|by way of gift|as a gift\b|"
+    r"transfer[^.]{0,60}(no consideration|without consideration)|"
+    r"exempt(ed)? from[^.]{0,30}open offer", re.I)
+
+INTERSE_SCORE = 45
+
+
+def interse_transfer(text):
+    """Shares moving within the promoter family - a gift, not a transaction."""
+    if not text:
+        return False
+    # A formal open offer names its own machinery. "Exempt from an open offer"
+    # does not, and that is the whole difference.
+    if re.search(r"detailed public statement|letter of offer|"
+                 r"committee of independent directors|"
+                 r"manager to the offer|offer advertisement", text, re.I):
+        return False
+    # The blank form lists "inter-se transfer" among its options. Strip the
+    # list before looking, so a genuine inter-se transfer described elsewhere
+    # in the same document still counts.
+    cleaned = _FORM_OPTION_LIST.sub(" ", text)
+    cleaned = re.sub(r"\(e\.?g\.?[^)]{0,200}\)", " ", cleaned, flags=re.I)
+    return bool(_INTERSE.search(cleaned))
+
+
 def promoter_deal(text):
     """Is this a promoter dealing in their own company's shares?
 
@@ -636,6 +711,10 @@ def promoter_deal(text):
     on a day its promoter also happened to buy shares.
     """
     if not text:
+        return False
+    # A gift inside the family is not a promoter buying or selling. Checked
+    # first, because these carry every word this function looks for.
+    if interse_transfer(text):
         return False
     if _CORPORATE_DEAL.search(text):
         return False
@@ -650,7 +729,7 @@ def promoter_deal(text):
 # was published as an Open Offer. A genuine open offer is protected by
 # _CORPORATE_DEAL above, which wins first.
 _DEALING_TAGS = {"Acquisition", "Stake Change", "Promoter Buy/Sell", "Other",
-                 "Open Offer", "Rights Issue"}
+                 "Open Offer", "Rights Issue", "Inter-se Transfer"}
 PROMOTER_SCORE = 58
 
 
@@ -702,7 +781,21 @@ _MEETING_NOTICE_TEXT = re.compile(
     # highest. "Notice of postal ballot seeking approval for the issue of
     # convertible warrants" came out as Warrants.
     r"postal ballot notice|notice[^.]{0,25}postal ballot|"
-    r"postal ballot[^.]{0,60}(seeking|for) (the )?approval", re.I)
+    r"postal ballot[^.]{0,60}(seeking|for) (the )?approval|"
+    # Closing the register of members FOR THE PURPOSE OF the AGM. Rashtriya
+    # Chemicals filed exactly that and it was published as a Dividend, because
+    # the same notice sets the dividend record date and the summary says so.
+    #
+    # What it turns on is the purpose, which the filing states outright. A book
+    # closure "for the purpose of AGM" is a meeting notice; one "for the
+    # purpose of Dividend" is a dividend, and Sunteck Realty's stays one.
+    # 220 characters, because the dates sit in between: "...will remain closed
+    # from Saturday, September 19, 2026, to Friday, September 25, 2026 for
+    # taking record of the Members of the Company for the purpose of AGM" puts
+    # 175 of them between the two halves.
+    r"(register of members|share transfer books?|book closure|closure of "
+    r"(the )?register)[^.]{0,220}(for the purpose of|in connection with|"
+    r"for)[^.]{0,25}" + _GM, re.I)
 
 MEETING_NOTICE_SCORE = 22
 
@@ -818,6 +911,8 @@ def score(category, headline, critical=False):
         # pattern, so it has to be asked about here too. "Internal transfer of
         # shares between members of the promoter group" matches no topic at
         # all and would otherwise leave as Other(18).
+        if interse_transfer(category + " || " + headline):
+            return INTERSE_SCORE, "Inter-se Transfer"
         if promoter_deal(category + " || " + headline):
             return PROMOTER_SCORE, "Promoter Buy/Sell"
         # Same for a meeting notice. "Convening of the Extraordinary General
@@ -848,7 +943,9 @@ def score(category, headline, critical=False):
 
     # A promoter dealing in their own shares is not the company acquiring
     # anything. See section 7 - points cannot separate these, only the actor.
-    if tag in _DEALING_TAGS and promoter_deal(both):
+    if tag in _DEALING_TAGS and interse_transfer(both):
+        tag, pts = "Inter-se Transfer", INTERSE_SCORE
+    elif tag in _DEALING_TAGS and promoter_deal(both):
         tag, pts = "Promoter Buy/Sell", PROMOTER_SCORE
 
     # Correct the label where the category word is misleading. Score stands -
@@ -918,7 +1015,9 @@ def score_text(text, floor=0):
         if kind:
             tag, pts = kind, MEETING_SCORE[kind]
 
-    if tag in _DEALING_TAGS and promoter_deal(body):
+    if tag in _DEALING_TAGS and interse_transfer(body):
+        tag, pts = "Inter-se Transfer", INTERSE_SCORE
+    elif tag in _DEALING_TAGS and promoter_deal(body):
         tag, pts = "Promoter Buy/Sell", PROMOTER_SCORE
 
     for r_tag, rx in _RETAG_RE:

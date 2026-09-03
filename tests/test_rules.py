@@ -119,11 +119,50 @@ for text, want in REAL:
 # filings under Acquisition were a promoter buying or selling shares in his own
 # company. What separates them is the actor, not the wording.
 # ---------------------------------------------------------------------------
+# Shares moving inside the promoter family. Filed on the same SAST forms as a
+# real acquisition and worded identically - "acquired 40.94 lakh shares" - but
+# no money changes hands and nobody has bought or sold anything, so it carries
+# neither of the signals Promoter Buy/Sell exists to show. SEBI exempts it from
+# the open offer rules for the same reason.
+#
+# These were being published as Open Offer, which is its literal opposite: the
+# summary explains the exemption, and the words are in the sentence. Jeyyam
+# Global Foods and two Sanghvi Movers filings, 3 September.
+INTERSE = [
+    "Internal transfer of shares between members of the promoter group",
+    "Inter-se transfer of equity shares among members of the promoter group",
+    "Siddharrth Mehta acquired 40.94 lakh shares from Shrreyans Mehta via a "
+    "gift deed. The transfer is exempt from an open offer under SEBI rules.",
+    "Transferring 1,05,53,614 shares from Mr Rishi Sanghvi to his spouse "
+    "Mrs Maithili Rishi Sanghvi as a gift. No consideration is payable.",
+    "Disclosure under Regulation 10(6) in respect of an acquisition made "
+    "under Regulation 10(1)(a) of the SEBI Takeover Regulations",
+]
+for text in INTERSE:
+    pts, tag = rules.score_text(text, floor=0)
+    check(tag in ("Inter-se Transfer", None) and pts < 55,
+          "a gift inside the promoter family is being sold as an event",
+          f"{(pts, tag)} <- {text[:62]!r}")
+    check(not rules.promoter_deal(text),
+          "an inter-se transfer is being counted as promoter buying or selling",
+          f"{text[:62]!r}")
+
+# A real open offer is the opposite case and must survive all of that.
+for text in [
+    "Detailed Public Statement in respect of the open offer to public shareholders",
+    "Axis Capital Limited, Manager to the Offer, has submitted the post offer "
+    "advertisement",
+    "Public announcement for the acquisition of 26% of the equity share capital",
+]:
+    pts, tag = rules.score_text(text, floor=0)
+    check(tag == "Open Offer",
+          "a real open offer stopped being recognised",
+          f"{(pts, tag)} <- {text[:62]!r}")
+
+
 PROMOTER = [
     "Mr Halwasiya, a promoter of the Company, has acquired 8,60,688 equity shares",
     "Promoter entity Epsilon Bidco Pte Ltd has sold its entire stake in the Company",
-    "Internal transfer of shares between members of the promoter group",
-    "Inter-se transfer of equity shares among members of the promoter group",
     "A promoter group entity has pledged 15,00,000 equity shares with the lender",
     "Promoters plan to sell up to 2% of their stake in the open market",
     "Creation of encumbrance over shares held by the promoter group",
@@ -1007,6 +1046,60 @@ for cat, head, summ, want in [
     check(got in (want, None),
           "a real event was renamed Meeting because its summary mentions the AGM",
           f"got {got!r}, wanted {want!r} <- {summ[:52]!r}")
+
+
+# ---------------------------------------------------------------------------
+# 16. Two more reported by name, 3 September
+# ---------------------------------------------------------------------------
+
+# A book closure states its own purpose, and that is what decides it. Rashtriya
+# Chemicals closed its register "for the purpose of AGM" and was published as a
+# Dividend, because the same notice sets the dividend record date and the
+# summary said so.
+RCF = ("Rashtriya Chemicals and Fertilizers Limited has informed the Exchange "
+       "regarding '2. The Register of Members and Share Transfer Books of the "
+       "Company will remain closed from Saturday, September 19, 2026, to "
+       "Friday, September 25, 2026 for taking record of the Members of the "
+       "Company for the purpose of AGM.'.")
+check(pipeline.category_from_summary("Updates", RCF, RCF) == "Meeting",
+      "a book closure for the AGM is being published as a dividend",
+      repr(pipeline.category_from_summary("Updates", RCF, RCF)))
+
+# ...and one that states a different purpose is not a meeting notice.
+for head, summ, want in [
+    ("Record date for the purpose of Dividend is 17-Sep-2026",
+     "Sunteck Realty has announced the record date for its dividend. It also "
+     "scheduled its 43rd Annual General Meeting.", "Dividend"),
+    ("The Register of Members will remain closed from 12 to 18 September for "
+     "the purpose of payment of the final Dividend",
+     "The company has fixed the book closure for its final dividend of Rs 5.",
+     "Dividend"),
+]:
+    got = pipeline.category_from_summary("Corp. Action", head, head + " " + summ)
+    check(got == want,
+          "a book closure for a dividend was taken for a meeting notice",
+          f"got {got!r}, wanted {want!r}")
+
+# A director with no adjective. "Intimation for appointment of Director" named
+# no KIND of director, matched nothing, scored 18/Other, and SATYA
+# MicroCapital's new nominee director was published as a Delisting once triage
+# had read the PDF.
+# A departure has its own tag, and that is the right answer for one - the
+# check below accepts either, because what matters is that the filing is
+# recognised as being about a person at all.
+for head in [
+    "Intimation for appointment of Director",
+    "Appointment of Director",
+    "Intimation regarding resignation of Director",
+]:
+    pts, tag = rules.score("Company Update / General", head)
+    check(tag in ("Change In Management", "Resignation"),
+          "a plain director appointment is not being recognised",
+          f"{(pts, tag)} <- {head!r}")
+    check(triage._blocked({"category": "Company Update / General",
+                           "headline": head}),
+          "its PDF can still rename a director appointment",
+          f"{head!r} is not blocked")
 
 
 # ---------------------------------------------------------------------------

@@ -170,6 +170,10 @@ def _is_stake(rec):
 
 def stake_verdict(text):
     """Who moved, for a filing we already know is a stake disclosure."""
+    # A gift inside the promoter family, first: these carry every word a
+    # promoter purchase does, and are not one.
+    if rules.interse_transfer(text):
+        return {"s": rules.INTERSE_SCORE, "t": "Inter-se Transfer"}
     if rules.promoter_deal(text):
         return {"s": rules.PROMOTER_SCORE, "t": "Promoter Buy/Sell"}
     return {}          # somebody else's stake: real, but not front-page news
@@ -269,7 +273,7 @@ def _blocked(rec):
     # Asked through rules.score rather than a second regex here, so there is
     # one definition of what a management change looks like and the tests that
     # cover it cover this too.
-    if rules.score(cat, head)[1] == "Change In Management":
+    if rules.score(cat, head)[1] in ("Change In Management", "Resignation"):
         return True
 
     return any(re.search(p, blob, re.I) for p in NEVER_PROMOTE)
