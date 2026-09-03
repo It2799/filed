@@ -455,7 +455,8 @@ for tag, pts, rx in rules._TOPIC_RE:
 #
 # So the real check is on the bytes of the files themselves. Nothing to keep
 # in step, and it sees comments and plain strings too.
-for fname in ("rules.py", "triage.py", "pipeline.py", "tests/test_rules.py"):
+for fname in ("rules.py", "triage.py", "pipeline.py", "tests/test_rules.py",
+              "tools/audit_categories.py", "newsletter.py", "summarize.py"):
     raw = open(os.path.join(os.path.dirname(os.path.dirname(
         os.path.abspath(__file__))), fname), "rb").read()
     found = sorted({b for b in raw if b < 9 or 11 <= b <= 12 or 14 <= b <= 31})
@@ -849,6 +850,99 @@ for cat, head, want in AUDIT_CONTROLS:
     pts, tag = rules.score(cat, head)
     check(tag == want,
           f"a real {want} stopped being recognised",
+          f"{(pts, tag)} <- {head[:58]!r}")
+
+
+# ---------------------------------------------------------------------------
+# 15. Filings that were being missed altogether
+#
+# Reported on 3 September: Autoline, Titan Biotech, Suven. None was missing
+# from the database - all three were fetched, scored and stored. They were
+# missing from IMPORTANT, which is the only list most readers look at, because
+# the scoring did not recognise what they said.
+#
+# Two different faults, and the first is the more embarrassing.
+# ---------------------------------------------------------------------------
+
+# One adjective. Autoline's press release read "Secures PRESTIGIOUS Order
+# Worth Rs 100 Crores from Tata Motors Passenger Vehicles" and the pattern
+# wanted the verb next to its object, with at most an "a" between. A Rs 100
+# crore Tata Motors order scored 44 and stayed off the front page.
+#
+# Companies write these lines to be read, so they are full of adjectives.
+ORDER_WINS = [
+    "Autoline Industries Secures Prestigious Order Worth Rs 100 Crores from "
+    "Tata Motors Passenger Vehicles limited for SUV Components - Sanand",
+    "Business Order from Tata Motors Passenger Vehicles Limited.",
+    "Company has bagged its largest-ever order for supply of transformers",
+    "Received a significant repeat order from Indian Railways",
+    "Secured a maiden export order from a European customer",
+    "Won a prestigious contract for the Mumbai coastal road project",
+]
+for head in ORDER_WINS:
+    pts, tag = rules.score("Press Release", head)
+    check(tag == "Order" and pts >= 55,
+          "an order win is not reaching the front page",
+          f"{(pts, tag)} <- {head[:58]!r}")
+    pts, tag = rules.score_text(head, floor=0)
+    check(tag == "Order",
+          "an order win in the PDF is not recognised",
+          f"score_text {(pts, tag)} <- {head[:58]!r}")
+
+# Pharma had no category at all, so a whole class of material news scored
+# nothing. Suven Life Sciences announced completion of patient enrollment in a
+# global Phase-3 study of Masupirdine for Alzheimer's agitation - the sort of
+# thing a small pharma company exists to do - and it scored 0.
+PHARMA = [
+    ("Suven Life Sciences Announces Completion of Patient Enrollment in "
+     "Global Phase-3 Study of Masupirdine (SUVN-502) for Agitation Associated "
+     "with Alzheimers Dementia", "Clinical Trial"),
+    ("Company announces topline data from its pivotal Phase 3 trial",
+     "Clinical Trial"),
+    ("The company has received final approval from USFDA for its generic "
+     "tablet", "Product Approval"),
+    ("ANDA approval received for a generic injection", "Product Approval"),
+    ("Marketing authorisation granted for the injectable formulation",
+     "Product Approval"),
+    # A Form 483 mentions the regulator and the product both, and it is bad
+    # news. Scored above Product Approval on purpose - naming a regulator is
+    # not the same as being granted something by one.
+    ("USFDA inspection of the Hyderabad facility concluded with zero "
+     "observations", "Plant Inspection"),
+    ("Receipt of Form 483 with five observations following the USFDA audit",
+     "Plant Inspection"),
+    ("Warning letter received from the US Food and Drug Administration",
+     "Plant Inspection"),
+]
+for head, want in PHARMA:
+    pts, tag = rules.score_text(head, floor=0)
+    check(tag == want and pts >= 55,
+          f"this should be {want} and important",
+          f"{(pts, tag)} <- {head[:58]!r}")
+
+# "Phase" is an ordinary English word and "approval" is the commonest word in
+# the whole feed. Neither may drag a filing into pharma.
+NOT_PHARMA = [
+    ("Phase 2 of the plant expansion has been commissioned", "Capacity Increase"),
+    ("The board approved a final dividend of Rs 5 per share", "Dividend"),
+    ("Approval of shareholders was obtained for the preferential issue", "Pref"),
+    ("Receipt of order worth Rs 500 crore from NHAI", "Order"),
+]
+for head, want in NOT_PHARMA:
+    pts, tag = rules.score_text(head, floor=0)
+    check(tag == want,
+          "an ordinary word dragged a filing into a pharma category",
+          f"{(pts, tag)}, wanted {want} <- {head[:58]!r}")
+
+# A plant that "has been commissioned" - the pattern only had "commissioning
+# of", so the finished thing scored nothing while the announcement of it
+# scored 57.
+for head in ["The new unit at Sanand has been commissioned",
+             "Commissioning of the 50 MW solar plant",
+             "Phase 2 of the plant expansion has been commissioned"]:
+    pts, tag = rules.score_text(head, floor=0)
+    check(tag == "Capacity Increase",
+          "a commissioned plant is not recognised",
           f"{(pts, tag)} <- {head[:58]!r}")
 
 

@@ -44,6 +44,13 @@ EVIDENCE = {
              r"bagg|bags\b|\bwon\b|\bwins\b|secured|award|work order|"
              r"purchase order|mandate",
     "Dividend": r"dividend",
+    "Product Approval": r"approv|authoris|authoriz|\bfda\b|usfda|\bema\b|"
+                        r"cdsco|\banda\b|\bdmf\b|\bnda\b|clearance|"
+                        r"cleared|registration|launch|drug|formulation|generic",
+    "Plant Inspection": r"inspect|audit|form 483|observation|warning letter|"
+                        r"\beir\b|import alert|\bgmp\b|facility|plant",
+    "Clinical Trial": r"phase|trial|stud|clinical|patient|endpoint|topline|"
+                      r"enrol|dosing|pivotal|molecule|therapy",
     "Results": r"result|earning|profit|revenue|turnover|quarter|half.year|"
                r"financial statement|ebitda|\bpat\b|standalone|consolidated",
     "Pref": r"preferential",

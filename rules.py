@@ -240,15 +240,102 @@ TOPICS = [
                                  r"letter of (intent|award|acceptance)|\bloa\b|"
                                  r"\bloi\b|work order|purchase order|"
                                  r"contract (won|awarded|received|secured)|"
-                                 r"secures? (an? )?(order|contract|project)|"
-                                 r"\bwins?\b.{0,25}(order|contract|project|tender)"),
+                                 # One adjective was enough to lose a Rs 100
+                                 # crore order. Autoline Industries' press
+                                 # release read "Secures PRESTIGIOUS Order Worth
+                                 # Rs 100 Crores from Tata Motors Passenger
+                                 # Vehicles" and the pattern was "secures? (an?
+                                 # )?(order|contract|project)" - the verb and
+                                 # its object had to be adjacent, with at most
+                                 # an "a" between them. It scored 44 and never
+                                 # reached the front page.
+                                 #
+                                 # Companies write these lines to be read, so
+                                 # they are full of adjectives: prestigious,
+                                 # significant, repeat, maiden, largest-ever.
+                                 # The verb now just has to be in the same
+                                 # sentence as its object.
+                                 # Only the verbs that mean business. "Received"
+                                 # is ordinary English - "the company received a
+                                 # routine order from the registrar" - so it
+                                 # keeps the tight form above and is not listed
+                                 # here. Securing, bagging and winning an order
+                                 # are not things that happen in a covering
+                                 # letter.
+                                 r"(secure[sd]?|securing|bag|bags|bagged|"
+                                 r"win|wins|winning|\bwon\b|awarded)"
+                                 r"[^.]{0,45}"
+                                 r"(orders?|contracts?|work order|purchase order|"
+                                 r"letter of (award|acceptance|intent)|tender|"
+                                 r"\bproject\b|\bmandate\b)|"
+                                 # "Business Order from Tata Motors Passenger
+                                 # Vehicles Limited." - the whole headline, with
+                                 # no verb at all.
+                                 r"business order|export order|repeat order"),
     ("Dividend",             60, r"\bdividend\b"),
+    # Pharma had no category at all, so a whole class of material news scored
+    # nothing and stayed off the front page. Suven Life Sciences announced the
+    # completion of patient enrollment in a global Phase-3 study of Masupirdine
+    # for Alzheimer's agitation - a company-defining event - and it scored 0.
+    #
+    # Three separate things, because they move a share price in different
+    # directions: permission to sell a drug, the trial that earns the
+    # permission, and the inspection that can take it away.
+    # Naming a regulator is NOT an approval. "USFDA" alone used to be listed
+    # here, and it made "USFDA inspection concluded with five observations" -
+    # which is bad news - score higher as a Product Approval than as the
+    # inspection it plainly is. The regulator has to be granting something.
+    ("Product Approval",     59, r"(final|tentative|marketing) approval|"
+                                 r"marketing authoris|marketing authoriz|"
+                                 r"drug master file|\bdmf\b filing|"
+                                 r"\banda\b|abbreviated new drug|"
+                                 r"\bnda\b (filing|approval|submission)|"
+                                 r"(approv\w+|clearance|cleared|authoris\w+|"
+                                 r"authoriz\w+|registration granted)"
+                                 r"[^.]{0,45}"
+                                 r"(drug|formulation|molecule|device|vaccine|"
+                                 r"injection|tablet|capsule|generic|"
+                                 r"\bapi\b|dossier)|"
+                                 r"(usfda|\bfda\b|\bema\b|\bcdsco\b|\bmhra\b|"
+                                 r"\banvisa\b|\btga\b)"
+                                 r"[^.]{0,45}"
+                                 r"(approv\w+|granted|clearance|cleared)|"
+                                 r"product (launch|approval|registration)"),
+    # Scored ABOVE Product Approval on purpose: a Form 483 mentions the
+    # regulator and the product both, and it is the inspection that is the news.
+    ("Plant Inspection",     63, r"form 483|establishment inspection report|"
+                                 r"\beir\b received|warning letter|import alert|"
+                                 r"(zero|no|nil) (483 )?observations?|"
+                                 r"(usfda|\bfda\b|regulatory|gmp)[^.]{0,40}"
+                                 r"(inspection|audit)|"
+                                 r"(inspection|audit) of[^.]{0,45}"
+                                 r"(facility|plant|unit|site)"),
+    # "Phase" on its own is an ordinary English word - "Phase 2 of the plant
+    # expansion has been commissioned" scored as a clinical trial on the first
+    # attempt. It has to be a phase OF something medical.
+    ("Clinical Trial",       59, r"phase[- ]?(1|2|3|i{1,3})\b[^.]{0,45}"
+                                 r"(trial|stud|clinical|patient|dosing|"
+                                 r"candidate|molecule|therapy)|"
+                                 r"(trial|stud(y|ies)|clinical|patient)"
+                                 r"[^.]{0,45}phase[- ]?(1|2|3|i{1,3})\b|"
+                                 r"clinical (trial|study|data|programme|program)|"
+                                 r"patient (enrol|enroll|recruit|dosing)|"
+                                 r"topline (data|result)|"
+                                 r"(primary|secondary) endpoint|"
+                                 r"pivotal (study|trial)|"
+                                 r"investigational new drug"),
     # "capex" alone used to be here. It is one word of ordinary business
     # English and it turns up in job descriptions - a filing announcing a new
     # President of Manufacturing scored 57 and was published as a capacity
     # expansion. It now has to be capex OF something, or a capex plan.
     ("Capacity Increase",    57, r"capacity (expansion|addition|augment|increase)|new plant|"
-                                 r"greenfield|brownfield|commercial production|commissioning of|"
+                                 r"greenfield|brownfield|commercial production|"
+                                 # "commissioning of" only, so "the plant has
+                                 # been commissioned" scored nothing at all.
+                                 r"commissioning of|commissioned[^.]{0,30}"
+                                 r"(plant|unit|facility|line|capacity|project)|"
+                                 r"(plant|unit|facility|line|project)[^.]{0,30}"
+                                 r"(has been |is now )?commissioned|"
                                  r"commencement of (production|operation)|"
                                  r"capex (plan|program|programme|of|outlay)|"
                                  r"capital expenditure of|"
