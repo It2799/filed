@@ -10,6 +10,7 @@ export default function Nav() {
         <div className="nav-links">
           <a href="/dashboard">Dashboard</a>
           <a href="/brief">Daily brief</a>
+          <a href="/login">Sign in</a>
           <a className="nav-cta" href="/join">
             {SITE.free ? "Join free" : `Join · ${PRICE_LABEL}`}
           </a>

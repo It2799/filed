@@ -1,0 +1,46 @@
+name: The website
+
+# The Python side has been tested before every scrape for a while. The website
+# had nothing, which mattered less when it only rendered filings - a broken
+# page is obvious. Signing in is different: a bug there is not a wrong category
+# on a page, it is one reader seeing another reader's account, and it is not
+# obvious at all. So it gets tested on every push that touches it.
+
+on:
+  push:
+    paths:
+      - "web/**"
+      - ".github/workflows/web.yml"
+  pull_request:
+    paths:
+      - "web/**"
+  workflow_dispatch:
+
+jobs:
+  web:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install
+        working-directory: web
+        run: npm ci
+
+      # Forged cookies, replayed codes, brute force, and what happens when
+      # AUTH_SECRET is missing. No network and no credentials - Redis is an
+      # in-memory stand-in.
+      - name: Test signing in
+        working-directory: web
+        run: node tests/auth.test.mjs
+
+      - name: Build
+        working-directory: web
+        run: npm run build

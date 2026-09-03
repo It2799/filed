@@ -94,3 +94,88 @@ export async function confirm({ email, phone }) {
   }
   return out;
 }
+
+// ---------------------------------------------------------------- sign-in codes
+
+/**
+ * The six-digit code that signs somebody in.
+ *
+ * Kept apart from the waitlist messages above because the rules are different:
+ * a confirmation that does not arrive is a small disappointment, and a sign-in
+ * code that does not arrive is a locked door. So these THROW on failure, and
+ * the route tells the reader to try the other channel rather than leaving them
+ * waiting for something that is never coming.
+ */
+export async function sendEmailCode(to, code) {
+  const key = process.env.RESEND_API_KEY;
+  const from = process.env.FROM_EMAIL;
+  if (!key || !from) return { sent: false, reason: "email not configured" };
+
+  const res = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+    signal: timeout(),
+    body: JSON.stringify({
+      from,
+      to: [to],
+      subject: `${code} is your Market Tide sign-in code`,
+      text:
+        `Your sign-in code is ${code}\n\n`
+        + "It works for the next 10 minutes and can be used once.\n\n"
+        + "If you didn't ask to sign in, ignore this email - somebody typed "
+        + "your address by mistake, and without this code they cannot get in.\n",
+    }),
+  });
+
+  if (!res.ok) {
+    throw new Error(`Resend ${res.status}: ${(await res.text()).slice(0, 200)}`);
+  }
+  return { sent: true };
+}
+
+/**
+ * The same code over WhatsApp.
+ *
+ * Meta requires an AUTHENTICATION-category template for this, which is a
+ * different thing from the marketing template the waitlist uses: it renders
+ * with a copy-code button, it may not carry any other text, and the code goes
+ * in both the body variable and the button. Sending a one-time code through a
+ * marketing template is against Meta's rules and gets a number blocked.
+ */
+export async function sendWhatsAppCode(phone, code) {
+  const token = process.env.WHATSAPP_TOKEN;
+  const fromId = process.env.WHATSAPP_PHONE_NUMBER_ID;
+  if (!token || !fromId) return { sent: false, reason: "whatsapp not configured" };
+
+  const template = process.env.WHATSAPP_OTP_TEMPLATE_NAME || "login_code";
+  const lang = process.env.WHATSAPP_OTP_TEMPLATE_LANG || "en";
+
+  const res = await fetch(`https://graph.facebook.com/v21.0/${fromId}/messages`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+    signal: timeout(),
+    body: JSON.stringify({
+      messaging_product: "whatsapp",
+      to: phone.replace(/^\+/, ""),
+      type: "template",
+      template: {
+        name: template,
+        language: { code: lang },
+        components: [
+          { type: "body", parameters: [{ type: "text", text: code }] },
+          {
+            type: "button",
+            sub_type: "url",
+            index: "0",
+            parameters: [{ type: "text", text: code }],
+          },
+        ],
+      },
+    }),
+  });
+
+  if (!res.ok) {
+    throw new Error(`WhatsApp ${res.status}: ${(await res.text()).slice(0, 200)}`);
+  }
+  return { sent: true };
+}
