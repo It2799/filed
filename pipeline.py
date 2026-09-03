@@ -105,6 +105,55 @@ WEAK_FROM_SUMMARY = {"Meeting", "Routine", "Other", "Outcome", "Press Release",
                      "Corp Action", "Annual Report"}
 
 
+def category_from_summary(category, headline, blob):
+    """The category a filing's own words argue for, or None to keep what it has.
+
+    Pulled out of summarise() so the tests exercise the real decision instead
+    of a copy of it. The copy is how this went wrong: the tests asserted on
+    rules.score_text() alone while production combined it with the headline,
+    so a change that was right in one place and wrong in the other passed.
+    """
+    # A score threshold used to sit here, refusing anything under 55. It was
+    # aimed at one real problem - a dividend whose summary mentions the AGM
+    # that will approve it was being relabelled "Meeting" - but it also
+    # refused every accurate label that happens to score low. Change In
+    # Management is 51, so Hexaware's new chief executive stayed under
+    # Acquisition through four passes while the rules named it correctly
+    # every time. The tags to refuse are the vague ones, not the low-scoring
+    # ones. Nothing is lost by relabelling: the SCORE is never changed here,
+    # so a filing keeps its place on the page and only gets a truer name.
+    _, from_summary = rules.score_text(blob, floor=0)
+
+    # Two ways a filing is a meeting notice, and neither may overrule a real
+    # event.
+    #
+    # The first is that the HEADLINE says so - "corrigendum to its 18th Annual
+    # General Meeting notice". Then the notice is the subject of the filing,
+    # and the resolutions it recites are things the meeting will be ASKED to
+    # approve rather than things that have happened. That is how eight AGM
+    # notices came to be filed under Pref.
+    #
+    # The second is that the summary says so AND names no other event at all.
+    # Notice and nothing else.
+    #
+    # What is deliberately NOT enough is the summary merely mentioning a
+    # meeting. The first version of this did exactly that, and renamed four
+    # dividends "Meeting" - Sunteck Realty's record date, Foseco's approved
+    # final dividend - because the summary mentioned the AGM. There the
+    # meeting is context and the dividend is the news.
+    if rules.meeting_notice(category or "", headline or "", ""):
+        from_summary = "Meeting"
+    elif not from_summary and rules.meeting_notice("", "", blob):
+        from_summary = "Meeting"
+    elif from_summary in WEAK_FROM_SUMMARY:
+        from_summary = None
+
+    # retag() still has the last word. It exists for the cases where the words
+    # are right but the meaning is inverted - a tax demand and an order win are
+    # both "receipt of order".
+    return rules.retag(blob) or from_summary
+
+
 def summarise(kept, provider_list, max_summaries, workers=4, log=print):
     """Read PDFs and summarise a spread of the most important filings."""
     # Everything worth reading gets a summary. There is no second tier - if a
@@ -233,34 +282,8 @@ def summarise(kept, provider_list, max_summaries, workers=4, log=print):
         if a.get("tag") in rules._MEETING_TAGS:
             continue
 
-        pts, from_summary = rules.score_text(blob, floor=0)
-
-        # A score threshold used to sit here, refusing anything under 55. It was
-        # aimed at one real problem - a dividend whose summary mentions the AGM
-        # that will approve it was being relabelled "Meeting" - but it also
-        # refused every accurate label that happens to score low. Change In
-        # Management is 51, so Hexaware's new chief executive stayed under
-        # Acquisition through four passes while the rules named it correctly
-        # every time.
-        #
-        # The tags to refuse are the vague ones, not the low-scoring ones.
-        # Nothing is lost by relabelling: the SCORE is never changed here, so a
-        # filing keeps its place on the page and only gets a truer name.
-        # "Meeting" is on the refuse list because a dividend whose summary
-        # mentions the AGM that will approve it must not become one. But when
-        # the summary says the filing IS a notice - "has scheduled its 41st
-        # Annual General Meeting" - Meeting is the right answer and refusing it
-        # left AGM notices sitting under Pref. So the notice test overrules the
-        # list, and only the list's other tags are refused.
-        if rules.meeting_notice("", "", blob):
-            from_summary = "Meeting"
-        elif from_summary in WEAK_FROM_SUMMARY:
-            from_summary = None
-
-        # retag() still has the last word. It exists for the cases where the
-        # words are right but the meaning is inverted - a tax demand and an
-        # order win are both "receipt of order".
-        better = rules.retag(blob) or from_summary
+        better = category_from_summary(
+            a.get("category", ""), a.get("headline", ""), blob)
 
         if better and better != a["tag"]:
             log(f"  relabelled: {a['company'][:36]:<38} "

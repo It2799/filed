@@ -763,8 +763,14 @@ def score_text(text, floor=0):
     # and the summary - so an AGM notice carrying an enabling resolution for a
     # preferential issue went on being filed as Pref. Eight of the twenty-three
     # filings under Pref were general meeting notices.
-    if meeting_notice("", "", body):
-        return MEETING_NOTICE_SCORE, "Meeting"
+    # This used to sit here unconditionally, and it was too strong: it beat a
+    # real event merely because the text also mentioned the meeting that will
+    # approve it. Sunteck Realty's dividend record date, Gujarat Intrux's, and
+    # Foseco's approved final dividend all became "Meeting" on 3 September.
+    #
+    # A notice only wins when it is ALL there is - which is the check at the
+    # top of this function, where nothing matched at all. If the text names an
+    # event of its own, that event is the news and the meeting is context.
 
     pts = min(pts, 100)
     return (pts, tag) if pts >= floor else (0, None)

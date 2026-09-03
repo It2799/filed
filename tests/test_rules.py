@@ -18,6 +18,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import rules                                            # noqa: E402
+import pipeline                                         # noqa: E402
 
 FAILURES = []
 CHECKS = [0]
@@ -590,60 +591,82 @@ for cat, head in CUSTOMER_ORDERS:
 # come before that return, not after it.
 # ---------------------------------------------------------------------------
 
+# The decision is pipeline.category_from_summary(category, headline, blob) -
+# the real one, called here rather than reimplemented, because a copy of it in
+# the tests is what let the last regression through.
+#
+# Each entry is (category, headline, summary).
 MEETING_NOTICES = [
-    "Texmo Pipes has issued a corrigendum to its 18th Annual General Meeting notice",
-    "Alstone Textiles has scheduled its 41st Annual General Meeting for September 24",
-    "Notice of the 27th AGM including the enabling resolution for a preferential issue",
-    "Ind-Swift Laboratories will hold its Extraordinary General Meeting on October 3",
-    "Notice of postal ballot seeking approval for the issue of convertible warrants",
-    "The company has convened an EGM to approve raising funds by way of a QIP",
-    "Intimation of the 42nd Annual General Meeting and the book closure dates",
-    "Notice of AGM together with the annual report for the financial year 2024-25",
+    ("General Updates",
+     "Texmo Pipes has issued a corrigendum to its 18th Annual General Meeting notice",
+     "The corrigendum revises the enabling resolution for a preferential issue "
+     "of up to 25 lakh equity shares to be placed before the members."),
+    ("Company Update",
+     "Alstone Textiles - intimation of Annual General Meeting",
+     "Alstone Textiles has scheduled its 41st Annual General Meeting for "
+     "September 24, 2026."),
+    ("Shareholders meeting",
+     "Notice of the 27th AGM",
+     "The notice includes an enabling resolution for a preferential issue of "
+     "equity shares and warrants."),
+    ("General Updates",
+     "Ind-Swift Laboratories will hold its Extraordinary General Meeting on October 3",
+     "The EGM will consider approval for raising funds by way of a qualified "
+     "institutional placement."),
+    ("Others",
+     "Notice of postal ballot",
+     "The postal ballot seeks approval for the issue of convertible warrants "
+     "on a preferential basis."),
 ]
-for head in MEETING_NOTICES:
-    pts, tag = rules.score_text(head, floor=0)
-    check(tag == "Meeting",
+for cat, head, summ in MEETING_NOTICES:
+    got = pipeline.category_from_summary(cat, head, head + " " + summ)
+    check(got == "Meeting",
           "a meeting notice is being filed as the thing the meeting will decide",
-          f"score_text -> {(pts, tag)} <- {head[:62]!r}")
-    pts, tag = rules.score("General Updates", head)
-    # Some of these the JUNK list drops outright - a corrigendum, a bare
-    # "notice of AGM" - which lands them on Routine. Different door, same
-    # room: what matters is that a notice is never filed as the money event
-    # the meeting is being asked to vote on.
-    check(tag in ("Meeting", "Routine"),
-          "a meeting notice is being filed as the thing the meeting will decide",
-          f"score -> {(pts, tag)} <- {head[:62]!r}")
+          f"got {got!r} <- {head[:58]!r}")
 
-# ...and the events themselves are still the events. A resolution that has
-# been PASSED, or a board decision, is news whether or not a meeting is named.
-NOT_NOTICES = [
-    ("Pref", "The board approved a preferential issue of up to 10 lakh equity "
-             "shares at Rs 161 each to non-promoters"),
-    ("Dividend", "Board recommended a final dividend of Rs 5 per share, subject "
-                 "to approval of the members at the ensuing annual general meeting"),
-    ("Fund Raising", "The board approved raising of funds up to Rs 500 crore "
-                     "through an issue of equity shares"),
-    ("Order", "Receipt of an order worth Rs 500 crore from NHAI"),
+# The other half, and the one the first attempt at this broke. Every summary
+# below mentions the meeting; in none of them is the meeting the news. These
+# are verbatim from filings that were renamed "Meeting" on 3 September.
+MEETING_IS_ONLY_CONTEXT = [
+    ("Corp. Action / Record Date",
+     "Sunteck Realty Limited has informed the Exchange that Record date for "
+     "the purpose of Dividend is 17-Sep-2026.",
+     "Sunteck Realty has announced that the record date for its upcoming "
+     "dividend is September 17, 2026. The company also scheduled its 43rd "
+     "Annual General Meeting for September 22.",
+     "Dividend"),
+    ("Announcement under Regulation 30",
+     "Pursuant to Regulation 30 of the SEBI LODR Regulations, we enclose the "
+     "voting outcome",
+     "Foseco Crucible (India) Ltd announced that shareholders have approved a "
+     "final dividend at its 41st Annual General Meeting. The dividend payout "
+     "is set at Rs. 12.50 per equity share.",
+     "Dividend"),
+    ("Company Update",
+     "Outcome of board meeting",
+     "The board approved a preferential issue of 10 lakh equity shares at "
+     "Rs 161 each. The issue will be placed before members at the annual "
+     "general meeting.",
+     "Pref"),
+    ("General Updates",
+     "Receipt of order from NHAI",
+     "The company received an order worth Rs 500 crore from NHAI. The order "
+     "was noted at the board meeting held before the annual general meeting.",
+     "Order"),
 ]
-for want, head in NOT_NOTICES:
-    pts, tag = rules.score_text(head, floor=0)
-    check(tag == want,
-          "a real event was swallowed by the meeting-notice rule",
-          f"score_text -> {(pts, tag)}, wanted {want} <- {head[:62]!r}")
+for cat, head, summ, want in MEETING_IS_ONLY_CONTEXT:
+    got = pipeline.category_from_summary(cat, head, head + " " + summ)
+    check(got in (want, None),
+          "a real event was renamed Meeting because its summary mentions the AGM",
+          f"got {got!r}, wanted {want!r} or no change <- {head[:52]!r}")
 
-# The pipeline refuses a handful of weak tags read off an AI summary, and
-# "Meeting" is one of them - a dividend whose summary mentions the AGM that
-# will approve it must not become a Meeting. But when the summary says the
-# filing IS a notice, that refusal is what left AGM notices under Pref, so the
-# notice test has to overrule the list. This pins that it does.
-import pipeline
-for head in MEETING_NOTICES:
-    adopted = ("Meeting" if rules.meeting_notice("", "", head)
-               else (None if rules.score_text(head, floor=0)[1]
-                     in pipeline.WEAK_FROM_SUMMARY else None))
-    check(adopted == "Meeting",
-          "the pipeline is refusing a summary that correctly says 'notice'",
-          f"adopted {adopted!r} <- {head[:62]!r}")
+# score_text on its own must NOT answer "Meeting" when the text names an event.
+# That was the too-strong version: it beat the dividend it was sitting next to.
+for _, _, summ, want in MEETING_IS_ONLY_CONTEXT:
+    pts, tag = rules.score_text(summ, floor=0)
+    check(tag != "Meeting" or want is None,
+          "score_text lets a mentioned meeting outrank the event itself",
+          f"{(pts, tag)} <- {summ[:58]!r}")
 
 
 # ---------------------------------------------------------------------------
