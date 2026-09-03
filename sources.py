@@ -110,6 +110,54 @@ def _nse_session():
     return s
 
 
+# NSE keeps its announcements in separate lists and will only hand over one at
+# a time. Only "equities" was ever asked for, so everything filed by a company
+# on the SME board or against a listed debt instrument was never fetched at
+# all - not scored low, not filtered out, never seen.
+#
+# On 3 September that was 79 of NSE's 332 announcements, a quarter of the
+# exchange: Happy Steels, Magson Retail, Smarten Power Systems, Refractory
+# Shapes, and Tata Steel's commercial paper redemption. Reconciling against
+# NSE's own RSS feed is what found it - see tools/reconcile_feeds.py. Nothing
+# inside the pipeline could have: it had no idea what it had not asked for.
+#
+# "municipalBond" and "invitsreits" are real indexes too and answer 200 with an
+# empty list most days. They are listed here so that the day one of them
+# carries something, it arrives.
+NSE_INDEXES = ("equities", "sme", "debt", "municipalBond", "invitsreits")
+
+
+def _nse_index(session, index, from_date, to_date, log):
+    """One index's announcements, or None if the request failed outright.
+
+    None and [] mean different things: [] is a genuine "nothing filed today",
+    which is the normal answer for the municipal bond list, and None is a
+    failure worth retrying with a fresh handshake.
+    """
+    params = {
+        "index": index,
+        "from_date": from_date.strftime("%d-%m-%Y"),
+        "to_date": to_date.strftime("%d-%m-%Y"),
+    }
+    try:
+        r = session.get(NSE_API, params=params, timeout=60, headers={
+            "Accept": "application/json, text/plain, */*",
+            "Referer": NSE_PAGE,
+            "X-Requested-With": "XMLHttpRequest",
+        })
+    except Exception as e:
+        log(f"  NSE {index}: {type(e).__name__}: {e}")
+        return None
+    if r.status_code != 200:
+        log(f"  NSE {index}: HTTP {r.status_code}")
+        return None
+    try:
+        data = r.json()
+    except Exception:
+        return None
+    return data if isinstance(data, list) else None
+
+
 def fetch_nse(from_date, to_date, log=print):
     try:
         s = _nse_session()
@@ -117,32 +165,20 @@ def fetch_nse(from_date, to_date, log=print):
         log(f"  NSE handshake failed: {type(e).__name__}: {e}")
         return []
 
-    params = {
-        "index": "equities",
-        "from_date": from_date.strftime("%d-%m-%Y"),
-        "to_date": to_date.strftime("%d-%m-%Y"),
-    }
-    data = None
-    for attempt in range(3):
-        try:
-            r = s.get(NSE_API, params=params, timeout=60, headers={
-                "Accept": "application/json, text/plain, */*",
-                "Referer": NSE_PAGE,
-                "X-Requested-With": "XMLHttpRequest",
-            })
-            if r.status_code == 200:
-                data = r.json()
-                break
-            log(f"  NSE attempt {attempt + 1}: HTTP {r.status_code}")
-        except Exception as e:
-            log(f"  NSE attempt {attempt + 1}: {type(e).__name__}: {e}")
-        time.sleep(2)
-        try:
-            s = _nse_session()
-        except Exception:
-            pass
+    data = []
+    for index in NSE_INDEXES:
+        got = _nse_index(s, index, from_date, to_date, log)
+        if got is None:                       # the handshake may have gone stale
+            try:
+                s = _nse_session()
+            except Exception:
+                pass
+            got = _nse_index(s, index, from_date, to_date, log)
+        if got:
+            log(f"  NSE {index}: {len(got)} rows")
+            data.extend(got)
 
-    if not isinstance(data, list):
+    if not data:
         return []
 
     out = []

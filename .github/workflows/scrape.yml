@@ -247,6 +247,26 @@ jobs:
         continue-on-error: true
         run: python tools/audit_categories.py --worst 2 --fail-over 25
 
+      # And check nothing was missed, against a source we do not control.
+      #
+      # The scraper reads BSE's and NSE's JSON APIs. Nothing inside the
+      # pipeline can tell when one of those quietly returns a short page - it
+      # has no idea what it did not see. Both exchanges publish the same
+      # announcements as RSS, built by a different part of their systems, so
+      # that is the independent witness.
+      #
+      # This is what found that a quarter of NSE's announcements were never
+      # being fetched: the code asked for the "equities" list and there are
+      # five of them.
+      #
+      # The tolerance is loose. BSE's feed carries mutual fund NAVs, commercial
+      # paper redemptions and filings by unlisted private companies, none of
+      # which this product wants - about sixty a day that will always show as
+      # "not fetched". A jump well past that is the signal.
+      - name: Check nothing was missed
+        continue-on-error: true
+        run: python tools/reconcile_feeds.py --show 10 --fail-over 120
+
       - name: Keep the caches for the next run
         if: always()
         uses: actions/cache/save@v4
