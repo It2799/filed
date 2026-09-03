@@ -278,3 +278,149 @@ def merge(items):
         else:
             seen[k] = a
     return list(seen.values())
+
+
+# ---------------------------------------------------------------- RSS feeds
+
+# A third way in, and the one that does not depend on the JSON APIs behaving.
+#
+# Both exchanges publish the same announcements as RSS, built by a different
+# part of their systems. Two coverage faults this week - NSE handing over one
+# of its five lists, BSE's paging ending on a timed-out page - were invisible
+# from inside because a run that fetches half the exchange looks exactly like
+# one that fetches all of it. Autoline's Tata Motors order and Suven's trial
+# result were both sitting in a feed while the APIs said nothing.
+#
+# So the feeds are read as a SOURCE, not only as the check in
+# tools/reconcile_feeds.py. Whatever the APIs return, anything in the feed and
+# not in that answer is added. When the APIs are healthy this contributes
+# nothing, which is the point: it costs two HTTP requests to make a bad fetch
+# stop mattering.
+#
+# The feeds are a rolling window of the last few thousand filings, so they
+# cover today and yesterday, not a week. That is exactly where a miss hurts
+# most - the live page.
+BSE_RSS = "https://www.bseindia.com/data/xml/announcements.xml"
+NSE_RSS = "https://nsearchives.nseindia.com/content/RSS/Online_announcements.xml"
+
+_RSS_SCRIP = re.compile(r"\((\d{4,6})\)\s*$")
+_RSS_SUBJECT = re.compile(r"\|\s*SUBJECT\s*:\s*(.+)$", re.I | re.S)
+
+
+def _rss_rows(xml_text, exchange, log=print):
+    """Feed entries in the same shape the JSON APIs produce."""
+    import xml.etree.ElementTree as ET
+
+    try:
+        root = ET.fromstring(xml_text)
+    except Exception as e:
+        log(f"  {exchange} RSS: could not parse - {type(e).__name__}: {e}")
+        return []
+
+    out = []
+    for it in root.findall(".//item"):
+        def text(tag):
+            return (it.findtext(tag) or "").strip()
+
+        link = text("link")
+        if not link:
+            continue
+
+        title = text("title")
+        desc = text("description")
+
+        # NSE writes the category after "|SUBJECT:"; BSE gives none, so the
+        # headline stands in and rules.py treats it as a vague one - which is
+        # right, because it then reads the PDF.
+        cat = ""
+        m = _RSS_SUBJECT.search(desc)
+        if m:
+            cat = _clean(m.group(1))
+            desc = desc[: m.start()]
+
+        scrip = _RSS_SCRIP.search(title)
+        company = _clean(_RSS_SCRIP.sub("", title))
+
+        # The attachment name is the id. It is what the JSON APIs key on too,
+        # so a filing arriving both ways is one filing, not two.
+        att = link.rstrip("/").rsplit("/", 1)[-1].split("?")[0]
+
+        out.append({
+            "id": f"{exchange}-RSS-{att}",
+            "exchange": exchange,
+            "company": company,
+            "ticker": scrip.group(1) if scrip else "",
+            "category": cat,
+            "headline": _clean(desc),
+            "dt": text("pubDate"),
+            "pdf_url": link,
+            "pdf_alt": "",
+            "page_url": "",
+            "critical": False,
+            "from_rss": True,
+        })
+    return out
+
+
+def fetch_rss(from_date, to_date, log=print):
+    """Both feeds, limited to the days asked for."""
+    rows = []
+    for exchange, url in (("BSE", BSE_RSS), ("NSE", NSE_RSS)):
+        try:
+            r = requests.get(url, headers={
+                "User-Agent": UA,
+                "Referer": "https://www.bseindia.com/",
+                "Accept": "*/*",
+            }, timeout=60)
+            if r.status_code != 200:
+                log(f"  {exchange} RSS: HTTP {r.status_code}")
+                continue
+            got = _rss_rows(r.text, exchange, log)
+        except Exception as e:
+            log(f"  {exchange} RSS: {type(e).__name__}: {e}")
+            continue
+
+        inside = []
+        for a in got:
+            d = parse_dt(a["dt"])
+            if d and from_date <= d.date() <= to_date:
+                inside.append(a)
+        log(f"  {exchange} RSS: {len(got)} in the feed, {len(inside)} in range")
+        rows.extend(inside)
+    return rows
+
+
+def add_missing(existing, extra, log=print):
+    """Whatever `extra` has that `existing` does not, by attachment.
+
+    Matched on the attachment name alone. Both feeds and both APIs name the
+    same file, so this is exact - unlike the company-and-headline fallback the
+    reconciliation tool needs, which exists only because BSE's feed sometimes
+    links a second copy of a document.
+    """
+    def att(a):
+        u = a.get("pdf_url") or ""
+        if not u:
+            return None
+        return u.rstrip("/").rsplit("/", 1)[-1].split("?")[0].lower() or None
+
+    have = {att(a) for a in existing}
+    have.discard(None)
+
+    # Deduped against itself as well as against `existing`. BSE lists a filing
+    # once for every instrument it applies to, so one interest-rate change from
+    # a company with forty listed debentures is forty entries pointing at one
+    # document: 8,527 feed items on 3 September were about 750 documents. The
+    # first version of this checked only against `existing` and added all
+    # 7,117 of the leftovers.
+    added = []
+    for a in extra:
+        k = att(a)
+        if not k or k in have:
+            continue
+        have.add(k)
+        added.append(a)
+
+    if added:
+        log(f"  RSS added {len(added)} filings the APIs did not return")
+    return existing + added

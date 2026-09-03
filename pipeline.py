@@ -72,6 +72,28 @@ def fetch_and_score(start, end, min_score, log=print):
     nse = sources.fetch_nse(start, end, log=log)
 
     raw = bse + nse
+
+    # Then the RSS feeds, for anything the two APIs did not return.
+    #
+    # The APIs are the primary source and usually complete. The feeds are built
+    # by a different part of each exchange's systems, so they do not fail the
+    # same way at the same time - which is the whole value. Two faults this week
+    # were invisible from inside: NSE handed over one of its five lists, and
+    # BSE's paging stopped on a timed-out page. Autoline's Tata Motors order was
+    # in a feed while the API said nothing.
+    #
+    # When the APIs are healthy this adds nothing at all. That is the point: two
+    # HTTP requests to stop a bad fetch mattering.
+    log("Fetching the RSS feeds...")
+    try:
+        feed = sources.fetch_rss(start, end, log=log)
+        raw = sources.add_missing(raw, feed, log=log)
+    except Exception as e:
+        # Never fatal. The feeds are a safety net, and a torn net is still
+        # better than stopping the run.
+        log(f"  RSS failed, carrying on with the APIs alone: "
+            f"{type(e).__name__}: {e}")
+
     log(f"Total filings pulled: {len(raw)}")
 
     kept = []
