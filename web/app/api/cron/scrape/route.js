@@ -48,6 +48,11 @@ const BRIEF_MINUTE_IST = 25;
 // days is never mistaken for a dead one.
 const STALE_MINUTES = 40;
 
+// How long a run may work without publishing before it counts as hung. A
+// seven-day rebuild reads every PDF again before its first publish, which is
+// about half an hour; a run past this is not slow, it is stuck.
+const STUCK_MINUTES = 55;
+
 /** One Redis command, or null if the store is unreachable or unconfigured. */
 async function redis(command) {
   const url =
@@ -152,6 +157,45 @@ async function ensureBrief(token) {
 }
 
 /**
+ * Age in minutes of the scrape run already in progress, or null if none is.
+ *
+ * Freshness alone was not enough. A run that rebuilds the whole week reads
+ * every PDF again before it publishes anything - about half an hour after a
+ * rules change, because changing the rules deliberately throws the cached
+ * verdicts away - so the site looks stale while a perfectly healthy run is
+ * doing exactly what it was asked to do. That is how the 03:30 tick killed a
+ * seven-day rebuild on 3 September, twenty-eight minutes in.
+ *
+ * So a young run counts as a reason to wait, whatever the timestamp says. An
+ * OLD one does not: that is the hung run this watchdog exists to replace.
+ */
+async function runningForMinutes(token) {
+  try {
+    const res = await fetch(
+      `https://api.github.com/repos/${OWNER}/${REPO}/actions/workflows/` +
+        `${WORKFLOW}/runs?status=in_progress&per_page=1`,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          Accept: "application/vnd.github+json",
+          "X-GitHub-Api-Version": "2022-11-28",
+        },
+        cache: "no-store",
+      }
+    );
+    if (!res.ok) return null;
+    const runs = (await res.json()).workflow_runs || [];
+    if (!runs.length) return null;
+    const started = Date.parse(runs[0].run_started_at);
+    if (!Number.isFinite(started)) return null;
+    return Math.round((Date.now() - started) / 60000);
+  } catch {
+    return null;
+  }
+}
+
+
+/**
  * Minutes since publish.py last wrote mt:meta, or null if that cannot be read.
  *
  * Null means "no opinion" and the dispatch goes ahead. Being unable to reach
@@ -224,6 +268,18 @@ async function trigger(request) {
         ok: true,
         dispatched: null,
         skipped: `the site was updated ${age} minutes ago`,
+        brief,
+        at: new Date().toISOString(),
+      });
+    }
+
+    // Stale, but something may already be fixing that.
+    const working = await runningForMinutes(token);
+    if (working !== null && working < STUCK_MINUTES) {
+      return Response.json({
+        ok: true,
+        dispatched: null,
+        skipped: `a run has been working for ${working} minutes`,
         brief,
         at: new Date().toISOString(),
       });
