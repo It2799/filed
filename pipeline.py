@@ -246,7 +246,15 @@ def summarise(kept, provider_list, max_summaries, workers=4, log=print):
         # The tags to refuse are the vague ones, not the low-scoring ones.
         # Nothing is lost by relabelling: the SCORE is never changed here, so a
         # filing keeps its place on the page and only gets a truer name.
-        if from_summary in WEAK_FROM_SUMMARY:
+        # "Meeting" is on the refuse list because a dividend whose summary
+        # mentions the AGM that will approve it must not become one. But when
+        # the summary says the filing IS a notice - "has scheduled its 41st
+        # Annual General Meeting" - Meeting is the right answer and refusing it
+        # left AGM notices sitting under Pref. So the notice test overrules the
+        # list, and only the list's other tags are refused.
+        if rules.meeting_notice("", "", blob):
+            from_summary = "Meeting"
+        elif from_summary in WEAK_FROM_SUMMARY:
             from_summary = None
 
         # retag() still has the last word. It exists for the cases where the

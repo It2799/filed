@@ -424,7 +424,7 @@ for cat, head, want in MENTIONS_ONLY:
 # 9. No pattern may contain a control character.
 #
 # Writing these files through shell heredocs has repeatedly turned the two
-# characters  into a single 0x08 backspace, silently. The pattern still
+# characters backslash and b into a single 0x08 backspace, silently. The pattern still
 # compiles and still matches most things, so nothing fails loudly - it just
 # quietly stops respecting word boundaries. Fifteen of them went in at once on
 # 2 September and were only noticed by printing a pattern by hand.
@@ -554,6 +554,79 @@ for cat, head in CUSTOMER_ORDERS:
     check(tag == "Order" and pts >= 55,
           "a real order win stopped being recognised",
           f"{(pts, tag)} <- {head[:60]!r}")
+
+
+# ---------------------------------------------------------------------------
+# 12. A notice of a meeting is a Meeting, whichever door it comes in by
+#
+# A general meeting notice lists every resolution to be put to the vote, so
+# read as prose it looks like whatever the meeting will decide: an AGM notice
+# carrying an enabling resolution for a preferential issue scored 60 and was
+# published as Pref. Eight of the twenty-three filings under Pref on 3
+# September were meeting notices.
+#
+# There are three doors into a category and the fix had to be at all three.
+# It was first put only on score(), which reads the headline; score_text(),
+# which reads the PDF and the AI summary, went on tagging them Pref. And
+# score_text() returns early when no topic matches at all - a notice matches
+# no topic, being an invitation rather than an event - so the answer had to
+# come before that return, not after it.
+# ---------------------------------------------------------------------------
+
+MEETING_NOTICES = [
+    "Texmo Pipes has issued a corrigendum to its 18th Annual General Meeting notice",
+    "Alstone Textiles has scheduled its 41st Annual General Meeting for September 24",
+    "Notice of the 27th AGM including the enabling resolution for a preferential issue",
+    "Ind-Swift Laboratories will hold its Extraordinary General Meeting on October 3",
+    "Notice of postal ballot seeking approval for the issue of convertible warrants",
+    "The company has convened an EGM to approve raising funds by way of a QIP",
+    "Intimation of the 42nd Annual General Meeting and the book closure dates",
+    "Notice of AGM together with the annual report for the financial year 2024-25",
+]
+for head in MEETING_NOTICES:
+    pts, tag = rules.score_text(head, floor=0)
+    check(tag == "Meeting",
+          "a meeting notice is being filed as the thing the meeting will decide",
+          f"score_text -> {(pts, tag)} <- {head[:62]!r}")
+    pts, tag = rules.score("General Updates", head)
+    # Some of these the JUNK list drops outright - a corrigendum, a bare
+    # "notice of AGM" - which lands them on Routine. Different door, same
+    # room: what matters is that a notice is never filed as the money event
+    # the meeting is being asked to vote on.
+    check(tag in ("Meeting", "Routine"),
+          "a meeting notice is being filed as the thing the meeting will decide",
+          f"score -> {(pts, tag)} <- {head[:62]!r}")
+
+# ...and the events themselves are still the events. A resolution that has
+# been PASSED, or a board decision, is news whether or not a meeting is named.
+NOT_NOTICES = [
+    ("Pref", "The board approved a preferential issue of up to 10 lakh equity "
+             "shares at Rs 161 each to non-promoters"),
+    ("Dividend", "Board recommended a final dividend of Rs 5 per share, subject "
+                 "to approval of the members at the ensuing annual general meeting"),
+    ("Fund Raising", "The board approved raising of funds up to Rs 500 crore "
+                     "through an issue of equity shares"),
+    ("Order", "Receipt of an order worth Rs 500 crore from NHAI"),
+]
+for want, head in NOT_NOTICES:
+    pts, tag = rules.score_text(head, floor=0)
+    check(tag == want,
+          "a real event was swallowed by the meeting-notice rule",
+          f"score_text -> {(pts, tag)}, wanted {want} <- {head[:62]!r}")
+
+# The pipeline refuses a handful of weak tags read off an AI summary, and
+# "Meeting" is one of them - a dividend whose summary mentions the AGM that
+# will approve it must not become a Meeting. But when the summary says the
+# filing IS a notice, that refusal is what left AGM notices under Pref, so the
+# notice test has to overrule the list. This pins that it does.
+import pipeline
+for head in MEETING_NOTICES:
+    adopted = ("Meeting" if rules.meeting_notice("", "", head)
+               else (None if rules.score_text(head, floor=0)[1]
+                     in pipeline.WEAK_FROM_SUMMARY else None))
+    check(adopted == "Meeting",
+          "the pipeline is refusing a summary that correctly says 'notice'",
+          f"adopted {adopted!r} <- {head[:62]!r}")
 
 
 # ---------------------------------------------------------------------------

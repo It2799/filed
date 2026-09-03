@@ -127,7 +127,11 @@ TOPICS = [
     # ---- raising money -------------------------------------------------------
     ("Qip Allotment",        63, r"qip allotment|allotment.{0,30}qualified institution|"
                                  r"allotment of (equity )?shares.{0,40}\bqip\b"),
-    ("Qip",                  62, r"\bqip\b|qualified institution(s)? placement"),
+    # Both spellings. SEBI's legal name for it is "Qualified Institutions
+    # Placement"; every company and newspaper writes "institutional". Only the
+    # first was listed, so a board approving a QIP in words rather than
+    # initials scored nothing at all.
+    ("Qip",                  62, r"\bqip\b|qualified institution(s|al)? placement"),
     # A warrant has to be the instrument, not the verb. "\bwarrants?\b" alone
     # matched "the matter warrants disclosure" and "search warrant issued by
     # the Income Tax Department" - and over PDF prose, where "warrants further
@@ -139,7 +143,12 @@ TOPICS = [
                                  r"(issue|issuance|allotment|conversion|subscription|"
                                  r"exercise) of[^.]{0,30}warrants?"),
     ("Pref",                 60, r"preferential (issue|allotment|basis)|on a preferential"),
+    # "fund raising" written forwards only. Half the filings say it backwards -
+    # "raising of funds", "raise funds up to Rs 500 crore" - and those scored
+    # nothing.
     ("Fund Raising",         58, r"fund ?rais|capital raising|further public offer|\bfpo\b|"
+                                 r"rais(e|es|ed|ing) (of )?(funds|capital)|"
+                                 r"raising of (funds|capital)|"
                                  r"issue of (ncd|debenture|bond|commercial paper)|"
                                  r"allotment of (ncd|debenture|bond|convertible)|"
                                  r"private placement"),
@@ -154,7 +163,7 @@ TOPICS = [
     # spelling it missed is the one the exchanges actually use: "Receipt of
     # Order" scored 18/Other whenever the category was too vague to save it.
     ("Order",                62, r"bagging|(receipt|receiving|received) of "
-                                 r"(orders?|contracts?|letter of award)|"
+                                 r"(an? |the )?(orders?|contracts?|letter of award)|"
                                  r"award of (order|contract)|order win|bags? (an? )?order|"
                                  r"letter of (intent|award)|\bloi\b|work order|purchase order|"
                                  r"contract (won|awarded|received|secured)|"
@@ -504,7 +513,14 @@ _MEETING_NOTICE_TEXT = re.compile(
     r"(has (scheduled|announced|convened|called)|will hold|to be held)"
     r"[^.]{0,60}" + _GM + r"|"
     r"schedule (of|for)[^.]{0,40}" + _GM + r"|"
-    r"e-?voting[^.]{0,40}" + _GM, re.I)
+    r"e-?voting[^.]{0,40}" + _GM + r"|"
+    # A postal ballot is a vote with no meeting, so none of the wordings above
+    # reach it - yet it fails in exactly the same way, because the notice
+    # lists every resolution being put and gets tagged as whichever one scores
+    # highest. "Notice of postal ballot seeking approval for the issue of
+    # convertible warrants" came out as Warrants.
+    r"postal ballot notice|notice[^.]{0,25}postal ballot|"
+    r"postal ballot[^.]{0,60}(seeking|for) (the )?approval", re.I)
 
 MEETING_NOTICE_SCORE = 22
 
@@ -686,6 +702,12 @@ def score_text(text, floor=0):
 
     hits = [(pts, tag) for tag, pts, rx in _TOPIC_RE if rx.search(body)]
     if not hits:
+        # A meeting notice matches no topic at all - it is not an event, it is
+        # an invitation to one - so it left here as nothing and whatever tag the
+        # filing already carried survived. The same early return that swallowed
+        # promoter deals and meeting notices in score().
+        if meeting_notice("", "", body):
+            return MEETING_NOTICE_SCORE, "Meeting"
         return 0, None
     pts, tag = max(hits)
 
@@ -721,6 +743,14 @@ def score_text(text, floor=0):
         if rx.search(body):
             tag = r_tag
             break
+
+    # A general meeting notice is a Meeting here too. This override was added
+    # to score() and not to this function, which is the one that reads the PDF
+    # and the summary - so an AGM notice carrying an enabling resolution for a
+    # preferential issue went on being filed as Pref. Eight of the twenty-three
+    # filings under Pref were general meeting notices.
+    if meeting_notice("", "", body):
+        return MEETING_NOTICE_SCORE, "Meeting"
 
     pts = min(pts, 100)
     return (pts, tag) if pts >= floor else (0, None)
