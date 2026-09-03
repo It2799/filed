@@ -28,9 +28,20 @@ const REPO = "filed";
 const WORKFLOW = "scrape.yml";
 const BRIEF_WORKFLOW = "brief.yml";
 
-// The brief is promised for 07:30 IST. IST is UTC+5:30.
+// The brief is promised for 07:30 IST. IST is UTC+5:30, so the 02:00 UTC tick
+// of the half-hourly clock is the one that should build it.
+//
+// The threshold is 07:25 rather than 07:30 on purpose. The clock is punctual
+// to about ten seconds, but it is somebody else's clock and it fires either
+// side of the mark - and "07:29:58" is one second short of 07:30, which would
+// have meant waiting for the 08:00 tick and being half an hour late for the
+// sake of two seconds. Nothing fires at 07:25 anyway: the previous tick is at
+// 07:00, which is comfortably below this.
+//
+// Building a few seconds early changes nothing about the contents. The issue
+// covers up to a 07:00 cutoff that newsletter.py sets for itself.
 const BRIEF_HOUR_IST = 7;
-const BRIEF_MINUTE_IST = 30;
+const BRIEF_MINUTE_IST = 25;
 
 // How stale the published data must be before a new run is worth starting.
 // Longer than the 30-minute tick, so an in-flight run that is still writing
