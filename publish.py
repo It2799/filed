@@ -314,8 +314,9 @@ def main():
                 mark = json.loads(held)
                 was = int(mark.get("important") or 0)
                 was_rules = mark.get("rules") or ""
+                was_scanned = int(mark.get("scanned") or 0)
             except Exception:
-                was, was_rules = 0, ""
+                was, was_rules, was_scanned = 0, "", 0
 
             # The guard exists so a starved run - NSE down, quota gone - cannot
             # replace a full day with half of one. But a rules change also
@@ -335,6 +336,27 @@ def main():
             # for ever - a day can only get its fingerprint by being rewritten,
             # and it can only be rewritten if the guard lets it through.
             rules_changed = was_rules != triage.rules_fingerprint()
+
+            # How much was FETCHED is checked first, and the rules have no say
+            # in it. Everything below this is about scoring - how many filings
+            # cleared the bar - and a rules change is a legitimate reason for
+            # that to fall. The number of documents the exchanges handed over
+            # is not about scoring at all, so a large drop there is never
+            # legitimate. It means the fetch was short.
+            #
+            # That distinction is the hole this closes. On 3 September a BSE
+            # page timed out and ended the day's paging early - 349 documents
+            # where the day had 729 - and because the rules had just changed,
+            # the guard below waved the truncated day straight through and
+            # published it over a complete one. Both halves looked reasonable
+            # on their own.
+            if was_scanned and len(raw) < was_scanned * 0.75 and not args.force:
+                print(f"  -> KEPT the stored day: this run fetched "
+                      f"{len(raw)} filings where the last one fetched "
+                      f"{was_scanned}. That is a short fetch, not a quiet day. "
+                      f"Re-run with --force to overwrite anyway.")
+                continue
+
             if was and len(important) < was * 0.7 and not rules_changed:
                 print(f"  -> KEPT the stored day: it has {was} summarised, "
                       f"this run only managed {len(important)}. "
