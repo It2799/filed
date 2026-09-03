@@ -819,6 +819,32 @@ AUDIT_CONTROLS = [
      "Allotment of 30,000 non-convertible debentures aggregating Rs 300 crore",
      "Fund Raising"),
 ]
+# A headline that names a change of personnel settles it, even when the
+# exchange category is vague and the score is below the promotion bar. This is
+# the second half of the "CFO Appointment" fault: reading the headline right
+# was not enough, because 51 is under 55 and the PDF was read anyway.
+for cat, head in [
+    ("Company Update / General", "CFO Appointment"),
+    ("Company Update / General", "Company Secretary Resignation"),
+    ("General Updates", "Appointment of Mr X as Chief Financial Officer"),
+    ("Updates", "Change in Management"),
+]:
+    check(triage._blocked({"category": cat, "headline": head}),
+          "a personnel change can still be overridden by its own PDF",
+          f"{head[:50]!r} under {cat!r} is not blocked")
+
+# ...and a vague headline is still read. That is what triage is for, and
+# blocking it would silence the filings the whole thing exists to find.
+for cat, head in [
+    ("Company Update / General", "Outcome of Board Meeting"),
+    ("General Updates", "Press Release"),
+    ("Updates", "Intimation under Regulation 30"),
+]:
+    check(not triage._blocked({"category": cat, "headline": head}),
+          "triage has stopped reading the vague filings it exists to read",
+          f"{head[:50]!r} under {cat!r} is blocked")
+
+
 for cat, head, want in AUDIT_CONTROLS:
     pts, tag = rules.score(cat, head)
     check(tag == want,

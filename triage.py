@@ -250,9 +250,28 @@ def save_cache(cache):
 def _blocked(rec):
     import re
     cat = rec.get("category", "") or ""
-    blob = f"{cat} || {rec.get('headline','')}"
+    head = rec.get("headline", "") or ""
+    blob = f"{cat} || {head}"
     if any(re.search(p, cat, re.I) for p in NEVER_PROMOTE_CATEGORY):
         return True
+
+    # A headline that names a change of personnel settles the matter, even when
+    # the exchange category was vague.
+    #
+    # NEVER_PROMOTE_CATEGORY already blocks these, but only when the CATEGORY
+    # says so. ZF Commercial Vehicle Control Systems filed "CFO Appointment"
+    # under "Company Update / General": the headline was read correctly and
+    # scored 51, which is below the 55 needed to be left alone, so the PDF was
+    # read anyway - and a CFO's appointment letter describes what he will be
+    # responsible for, which mentioned capital expenditure. It was published as
+    # a capacity increase.
+    #
+    # Asked through rules.score rather than a second regex here, so there is
+    # one definition of what a management change looks like and the tests that
+    # cover it cover this too.
+    if rules.score(cat, head)[1] == "Change In Management":
+        return True
+
     return any(re.search(p, blob, re.I) for p in NEVER_PROMOTE)
 
 
