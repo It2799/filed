@@ -163,11 +163,26 @@ def category_from_summary(category, headline, blob):
     # dividends "Meeting" - Sunteck Realty's record date, Foseco's approved
     # final dividend - because the summary mentioned the AGM. There the
     # meeting is context and the dividend is the news.
+    # "Names no other event" has to mean no SUBSTANTIVE event, not no tag at
+    # all. The tags on the refuse list are the ones that say "we could not
+    # tell" - Annual Report, Corp Action, Outcome, Press Release - and reading
+    # one of those as an event was enough to block the notice test:
+    #
+    #   Tega Industries    summary: "50th AGM is scheduled for September 24"
+    #                      score_text: (28, Annual Report)  -> not empty
+    #                      so the notice branch was skipped, Annual Report was
+    #                      then refused as too weak, and the filing kept the
+    #                      tag its PDF had given it. Dividend.
+    #
+    # Seven filings under Dividend on 3 September were meeting notices that
+    # got there this way, along with several under Pref and Warrants.
+    substantive = from_summary and from_summary not in WEAK_FROM_SUMMARY
+
     if rules.meeting_notice(category or "", headline or "", ""):
         from_summary = "Meeting"
-    elif not from_summary and rules.meeting_notice("", "", blob):
+    elif not substantive and rules.meeting_notice("", "", blob):
         from_summary = "Meeting"
-    elif from_summary in WEAK_FROM_SUMMARY:
+    elif not substantive:
         from_summary = None
 
     # retag() still has the last word. It exists for the cases where the words

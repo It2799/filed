@@ -683,7 +683,15 @@ _MEETING_NOTICE_TEXT = re.compile(
     r"notice (is hereby given|of the|of an?)[^.]{0,80}"
     r"(annual |extraordinary |general )*meeting|"
     r"[0-9]{1,3}(st|nd|rd|th) (annual general meeting|\bagm\b)|"
-    r"(intimation|notice|convening|convened)[^.]{0,40}" + _GM + r"|"
+    # 40 characters was too tight for how these are actually written.
+    # "Intimation under regulation 30 wrt to weblink for forthcoming AGM" puts
+    # 51 characters between the two words and was not recognised, so the
+    # filing kept the tag its PDF had given it - Dividend.
+    #
+    # Widening is safe because of the guard in pipeline.category_from_summary:
+    # this only decides anything when the text names no substantive event, and
+    # a dividend that mentions its approving AGM names one.
+    r"(intimation|notice|convening|convened)[^.]{0,80}" + _GM + r"|"
     r"(has (scheduled|announced|convened|called)|will hold|to be held)"
     r"[^.]{0,60}" + _GM + r"|"
     r"schedule (of|for)[^.]{0,40}" + _GM + r"|"

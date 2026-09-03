@@ -947,6 +947,69 @@ for head in ["The new unit at Sanand has been commissioned",
 
 
 # ---------------------------------------------------------------------------
+# 15. "Nothing else" means no EVENT, not no tag
+#
+# The meeting-notice override only fires when the filing names no other event.
+# That test asked whether score_text returned anything at all - and the tags on
+# the refuse list are returned all the time. They are the ones that mean "we
+# could not tell": Annual Report, Corp Action, Outcome, Press Release.
+#
+# So an AGM notice whose summary scored (28, Annual Report) looked like it
+# named an event, the notice branch was skipped, Annual Report was then refused
+# as too weak, and the filing kept whatever tag its PDF had given it. Seven
+# filings under Dividend on 3 September arrived that way, with more under Pref
+# and Warrants. Verbatim below.
+# ---------------------------------------------------------------------------
+
+WEAK_TAG_NOTICES = [
+    ("General Updates",
+     "Tega Industries Limited has informed the Exchange about General Updates",
+     "Tega Industries has announced that its 50th Annual General Meeting is "
+     "scheduled for September 24, 2026, via video conferencing. The company "
+     "has also shared the annual report."),
+    ("Company Update / General", "As per enclosed letter",
+     "National Plastic Industries has scheduled its 39th Annual General "
+     "Meeting for September 23, 2026, at 4:00 PM via video conferencing."),
+    ("Corp. Action / Book Closure", "Due to Clerical error revised for Member register close",
+     "Artefact Projects Limited has announced the book closure dates for its "
+     "38th Annual General Meeting. The Register of Members will remain closed."),
+    ("Others / Outcome without intimation",
+     "Outcome of Board Meeting held on Monday i.e. August 31, 2026",
+     "Vipul Organics held a board meeting to approve the Annual Report and "
+     "schedule its 54th Annual General Meeting."),
+    ("Company Update / Meeting Updates",
+     "Intimation under regulation 30 wrt to weblink for forthcoming AGM",
+     "United Interactive Ltd has shared the web link for its Annual Report "
+     "with shareholders whose email addresses are not registered."),
+]
+for cat, head, summ in WEAK_TAG_NOTICES:
+    got = pipeline.category_from_summary(cat, head, head + " " + summ)
+    check(got == "Meeting",
+          "a meeting notice is keeping the tag its PDF gave it",
+          f"got {got!r} <- {summ[:56]!r}")
+
+# The guard that made this necessary still holds: a summary naming a real
+# event keeps it, however much it talks about the meeting that will approve it.
+for cat, head, summ, want in [
+    ("Corp. Action / Record Date",
+     "Record date for the purpose of Dividend is 17-Sep-2026",
+     "Sunteck Realty has announced the record date for its dividend. The "
+     "company also scheduled its 43rd Annual General Meeting.", "Dividend"),
+    ("Board Meeting / Outcome of Board Meeting", "Outcome of board meeting",
+     "The board approved a private placement of up to 15 million equity "
+     "shares at Rs 16 each, raising up to Rs 24 crore, subject to approval "
+     "of members at the ensuing general meeting.", "Fund Raising"),
+    ("Company Update", "Outcome of board meeting",
+     "The board approved a preferential issue of 10 lakh equity shares at "
+     "Rs 161 each, to be placed before the annual general meeting.", "Pref"),
+]:
+    got = pipeline.category_from_summary(cat, head, head + " " + summ)
+    check(got in (want, None),
+          "a real event was renamed Meeting because its summary mentions the AGM",
+          f"got {got!r}, wanted {want!r} <- {summ[:52]!r}")
+
+
+# ---------------------------------------------------------------------------
 
 print(f"{CHECKS[0]} checks")
 if FAILURES:
