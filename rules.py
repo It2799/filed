@@ -49,6 +49,18 @@ JUNK = [
     # Depository plumbing: the date a company's shares became transferable at
     # CDSL or NSDL.
     r"date of connectivity|connectivity (informed|intimated) by",
+    # A mutual fund's own paperwork - portfolio statements, net asset values,
+    # expense ratios - which BSE carries alongside company announcements. A
+    # fortnightly portfolio lists every instrument the fund holds, so reading
+    # one finds several hundred company names and every kind of security there
+    # is: Choice Gold ETF's was published as a Rights Issue.
+    #
+    # "Scheme" is their word for a fund, which is also how a mutual fund ends
+    # up in Scheme Of Arrangement.
+    r"fortnightly portfolio|monthly portfolio|portfolio (statement|disclosure)|"
+    r"net asset value|\bnav\b\s*(as on|as of|as at|of the scheme|[0-9])|"
+    r"(total )?expense ratio|scheme information document|"
+    r"scheme of[^.]{0,30}mutual fund",
     # Regulation 36(1)(b) is the rule that says a company must send its annual
     # report to shareholders. The covering letter is the single most misfiled
     # document on the site: it goes out with the annual report and the AGM
@@ -68,9 +80,27 @@ JUNK = [
     # A company that has issued debentures certifies every interest payment on
     # the due date. Routine, and there is one per issue per period - all four
     # wrong filings under Buyback were interest certificates.
-    r"payment of interest on[^.]{0,40}(non-?convertible|debenture|\bncd\b)|"
+    r"payment of interest on[^.]{0,40}(non-?convertible|debenture|\bncds?\b)|"
     r"certificate[^.]{0,40}payment of interest|"
-    r"interest payment[^.]{0,20}(certificate|intimation)",
+    r"interest payment[^.]{0,20}(certificate|intimation)|"
+    # ...and every other way a company says "we paid the interest and repaid
+    # the principal on the due date". Sixteen of the twenty-nine filings under
+    # Buyback were these: REC, Power Finance, Exim Bank, L&T Finance, National
+    # Housing Bank, a Vadodara Municipal Corporation green bond coupon. A
+    # redemption is the borrower giving the money back, which reads like the
+    # company buying its securities in - and none of it is news. There is one
+    # per instrument per due date, and since NSE's debt list started being
+    # fetched there are dozens a day.
+    r"confirmation of (redemption|payment|interest)|"
+    r"redemption of[^.]{0,50}(\bncds?\b|debenture|commercial paper|\bbond|"
+    r"\bncrps\b|\bcp\b)|"
+    r"repayment of[^.]{0,40}(commercial paper|\bncds?\b|debenture|\bbond)|"
+    r"payment towards interest|interest and princip|princip\w+ and interest|"
+    r"coupon payment|payment of (the )?coupon|"
+    r"certificate of interest|"
+    r"(intimation|disclosure) (of|for|regarding) (the )?"
+    r"(payment|repayment|redemption)[^.]{0,40}"
+    r"(interest|princip|commercial paper|\bncds?\b|debenture|\bbond)",
     # A bare "<something> for the quarter ended <date>" heading is compliance
     # paperwork - but only when the something is not the results themselves.
     # Without the guard, whether a company's quarterly results survive came

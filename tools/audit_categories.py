@@ -57,7 +57,7 @@ EVIDENCE = {
     "Qip": r"\bqip\b|qualified institution",
     "Qip Allotment": r"\bqip\b|qualified institution",
     "Fund Raising": r"fund.?rais|raising of (fund|capital)|rais\w+ (of )?(fund|capital)|"
-                    r"\bncd\b|debenture|\bbond\b|commercial paper|private placement|"
+                    r"\bncds?\b|debenture|\bbond\b|commercial paper|private placement|"
                     r"capital raising|\bfpo\b|further public offer|borrow",
     "Warrants": r"warrant",
     "Rights Issue": r"rights issue|right issue|rights entitlement|letter of offer",
@@ -68,7 +68,12 @@ EVIDENCE = {
                   r"manager to the offer|offer advertisement|letter of offer|"
                   r"regulation 3\(1\)|takeover",
     "Delisting": r"delist",
-    "Promoter Buy/Sell": r"promoter|encumbr|pledg|inter.se transfer",
+    "Promoter Buy/Sell": r"promoter|encumbr|pledg",
+    # Shares moving inside the promoter family. Its own category since
+    # 3 September - a gift between relatives is not a promoter buying or
+    # selling, and is exempt from the open offer rules for the same reason.
+    "Inter-se Transfer": r"inter-?se|gift|promoter|regulation 10\(|"
+                         r"no consideration|exempt",
     "Stake Change": r"\bsast\b|substantial acquisition|regulation 29|reg\.? ?29|"
                     r"shareholding|stake",
     "Scheme Of Arrangement": r"scheme|amalgamat|demerger|de.merger|merger|\bnclt\b|"

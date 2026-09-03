@@ -1103,6 +1103,70 @@ for head in [
 
 
 # ---------------------------------------------------------------------------
+# 17. Debt servicing and mutual fund paperwork
+#
+# Sixteen of the twenty-nine filings under Buyback on 3 September were a
+# company paying the interest on its debentures or redeeming them on the due
+# date. A redemption is the borrower handing the money back, which reads like
+# a company buying its own securities in - and there is one per instrument per
+# due date, so since NSE's debt list started being fetched there are dozens
+# every day. REC, Power Finance, Exim Bank, L&T Finance, National Housing
+# Bank, and a Vadodara Municipal Corporation green bond coupon.
+#
+# A mutual fund's portfolio statement is the other one. It lists every
+# instrument the fund holds - several hundred company names and every kind of
+# security there is - so reading one finds whatever scores highest. Choice
+# Gold ETF's fortnightly portfolio was published as a Rights Issue.
+# ---------------------------------------------------------------------------
+
+TREASURY_PAPERWORK = [
+    "The Company has made payment towards interest and prinicipal amount to "
+    "the debenture holders",
+    "Confirmation of Redemption and Interest Payment of Bonds",
+    "Certificate of Interest and Principal Redemption",
+    "Intimation for repayment of Commercial Paper",
+    "GREEN BOND - INTEREST PAYMENT - 5TH COUPON PAYMENT - SEP 2026",
+    "Intimation of payment of interest on NCDs pursuant to SEBI LODR",
+    "Confirmation of Redemption of 9.45% Tax-Free Bond Series 77-B",
+    "Fortnightly Portfolio for the Scheme of Choice Mutual Fund as on August 31",
+    "NAV as of September 02, 2026",
+    "Current Expense Ratio as on 02/09/2026",
+]
+for head in TREASURY_PAPERWORK:
+    pts, tag = rules.score("Company Update / General", head)
+    check(pts < 55,
+          "treasury or fund paperwork is above the important line",
+          f"{(pts, tag)} <- {head[:58]!r}")
+    check(triage._blocked({"category": "Company Update / General",
+                           "headline": head}),
+          "its PDF can still promote it - a bank confirmation quotes the "
+          "instrument, its coupon and its face value",
+          f"{head[:56]!r} is not blocked")
+
+# The real corporate actions these are mistaken for.
+for cat, head, want in [
+    ("General Updates",
+     "Board Resolution approving buy-back of equity shares up to Rs 400 crore",
+     "Buyback"),
+    ("General Updates", "Public Announcement for Buy-back of equity shares",
+     "Buyback"),
+    ("General Updates",
+     "Scheme of Arrangement between the Company and its wholly owned subsidiary",
+     "Scheme Of Arrangement"),
+    ("General Updates",
+     "Composite Scheme of Amalgamation approved by the Board",
+     "Scheme Of Arrangement"),
+    ("General Updates",
+     "Allotment of 30,000 non-convertible debentures aggregating Rs 300 crore",
+     "Fund Raising"),
+]:
+    pts, tag = rules.score(cat, head)
+    check(tag == want,
+          f"a real {want} stopped being recognised",
+          f"{(pts, tag)} <- {head[:58]!r}")
+
+
+# ---------------------------------------------------------------------------
 
 print(f"{CHECKS[0]} checks")
 if FAILURES:
