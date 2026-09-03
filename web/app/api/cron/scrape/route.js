@@ -26,19 +26,19 @@ export const dynamic = "force-dynamic";
 const OWNER = "It2799";
 const REPO = "filed";
 const WORKFLOW = "scrape.yml";
+const BRIEF_WORKFLOW = "brief.yml";
+
+// The brief is promised for 07:30 IST. IST is UTC+5:30.
+const BRIEF_HOUR_IST = 7;
+const BRIEF_MINUTE_IST = 30;
 
 // How stale the published data must be before a new run is worth starting.
 // Longer than the 30-minute tick, so an in-flight run that is still writing
 // days is never mistaken for a dead one.
 const STALE_MINUTES = 40;
 
-/**
- * Minutes since publish.py last wrote mt:meta, or null if that cannot be read.
- *
- * Null means "no opinion" and the dispatch goes ahead. Being unable to reach
- * Redis is not a reason to stop refreshing the site.
- */
-async function minutesSincePublish() {
+/** One Redis command, or null if the store is unreachable or unconfigured. */
+async function redis(command) {
   const url =
     process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL;
   const token =
@@ -52,12 +52,105 @@ async function minutesSincePublish() {
         Authorization: `Bearer ${token}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify(["GET", "mt:meta"]),
+      body: JSON.stringify(command),
       cache: "no-store",
     });
     if (!res.ok) return null;
-    const raw = (await res.json()).result;
-    const updated = raw && JSON.parse(raw).updated;
+    return (await res.json()).result;
+  } catch {
+    return null;
+  }
+}
+
+/** Today's date in India, as YYYY-MM-DD. */
+function todayIST(now = Date.now()) {
+  return new Date(now + 5.5 * 3600 * 1000).toISOString().slice(0, 10);
+}
+
+/** Minutes past midnight, India time. */
+function minutesIntoDayIST(now = Date.now()) {
+  const d = new Date(now + 5.5 * 3600 * 1000);
+  return d.getUTCHours() * 60 + d.getUTCMinutes();
+}
+
+/**
+ * Make sure today's morning brief exists, and start it if it does not.
+ *
+ * The brief has its own `schedule` in brief.yml, and GitHub treated it exactly
+ * the way it treats the scraper's: the 02:00 UTC slot ran at 07:03 UTC on
+ * 1 September and 06:41 on 2 September, so a newsletter promised for half past
+ * seven in the morning arrived at half past twelve. On 3 September the slot had
+ * not fired at all forty-five minutes after it was due.
+ *
+ * The scraper was moved off `schedule` for this reason. The brief was not, and
+ * nothing noticed, because a late newsletter still looks like a newsletter.
+ *
+ * Now the same thirty-minute clock that keeps the site fresh also asks whether
+ * today's issue has been published, and starts it if it has not. Worst case the
+ * brief is half an hour late instead of five hours.
+ */
+async function ensureBrief(token) {
+  if (minutesIntoDayIST() < BRIEF_HOUR_IST * 60 + BRIEF_MINUTE_IST) {
+    return "not due yet";
+  }
+
+  const raw = await redis(["GET", "mt:brief:index"]);
+  if (raw === null) return "could not check";
+  let newest = null;
+  try {
+    const days = JSON.parse(raw);
+    if (Array.isArray(days) && days.length) newest = days[0];
+  } catch {
+    /* treat an unreadable index as "no issue today" */
+  }
+  if (newest === todayIST()) return "already published";
+
+  // brief.yml does not cancel a run in progress, it queues behind it, so a
+  // build that is simply slow must not be dispatched again every half hour.
+  const running = await fetch(
+    `https://api.github.com/repos/${OWNER}/${REPO}/actions/workflows/` +
+      `${BRIEF_WORKFLOW}/runs?status=in_progress&per_page=1`,
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        Accept: "application/vnd.github+json",
+        "X-GitHub-Api-Version": "2022-11-28",
+      },
+      cache: "no-store",
+    }
+  )
+    .then((r) => (r.ok ? r.json() : null))
+    .catch(() => null);
+  if (running && running.total_count > 0) return "already building";
+
+  const res = await fetch(
+    `https://api.github.com/repos/${OWNER}/${REPO}/actions/workflows/` +
+      `${BRIEF_WORKFLOW}/dispatches`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        Accept: "application/vnd.github+json",
+        "X-GitHub-Api-Version": "2022-11-28",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ ref: "main" }),
+    }
+  );
+  return res.status === 204 ? "started" : `GitHub refused it (${res.status})`;
+}
+
+/**
+ * Minutes since publish.py last wrote mt:meta, or null if that cannot be read.
+ *
+ * Null means "no opinion" and the dispatch goes ahead. Being unable to reach
+ * Redis is not a reason to stop refreshing the site.
+ */
+async function minutesSincePublish() {
+  const raw = await redis(["GET", "mt:meta"]);
+  if (!raw) return null;
+  try {
+    const updated = JSON.parse(raw).updated;
     if (!updated) return null;
     const ms = Date.now() - Date.parse(updated);
     if (!Number.isFinite(ms) || ms < 0) return null;
@@ -67,13 +160,6 @@ async function minutesSincePublish() {
   }
 }
 
-function sameSecret(given, expected) {
-  // Compare hashes so the strings are always the same length, and so the
-  // comparison cannot be timed to reveal the secret a character at a time.
-  const a = crypto.createHash("sha256").update(String(given || "")).digest();
-  const b = crypto.createHash("sha256").update(String(expected)).digest();
-  return crypto.timingSafeEqual(a, b);
-}
 
 async function trigger(request) {
   const secret = process.env.CRON_SECRET;
@@ -114,6 +200,12 @@ async function trigger(request) {
   // So a healthy run is left alone, and one that has gone quiet is replaced.
   // ?force=1 skips the check.
   const force = url.searchParams.get("force") === "1";
+
+  // Checked on every tick, and before the scrape decision returns early -
+  // otherwise the brief would only ever be looked at on the ticks that
+  // happened to start a scrape, which is most of them but not all.
+  const brief = await ensureBrief(token);
+
   if (!force) {
     const age = await minutesSincePublish();
     if (age !== null && age < STALE_MINUTES) {
@@ -121,6 +213,7 @@ async function trigger(request) {
         ok: true,
         dispatched: null,
         skipped: `the site was updated ${age} minutes ago`,
+        brief,
         at: new Date().toISOString(),
       });
     }
@@ -155,6 +248,7 @@ async function trigger(request) {
     ok: true,
     dispatched: WORKFLOW,
     days: days || "workflow decides",
+    brief,
     at: new Date().toISOString(),
   });
 }
