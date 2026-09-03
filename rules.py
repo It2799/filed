@@ -35,6 +35,20 @@ JUNK = [
     r"corrigend",
     r"scrutinizer|postal ballot notice|notice of (the )?(agm|egm|annual general)",
     r"proceedings of (the )?(agm|annual general)",
+    # A company running a buyback files a report of the day's purchases EVERY
+    # trading day for the length of the programme, under Regulation 18(i). One
+    # buyback is one piece of news; the twenty daily reports that follow are a
+    # ledger. They were scoring 70 apiece and crowding out the announcement
+    # they were reporting on - Advanced Enzyme and SIS between them filed four
+    # of the nineteen filings under Buyback.
+    r"regulation 18\(i\)|daily report.{0,50}buy-?\s?back|"
+    r"buy-?\s?back.{0,30}daily (report|disclosure)",
+    # A partly-paid rights issue is followed by notices asking holders for the
+    # next instalment. Housekeeping, not an issue.
+    r"call money|reminder notice.{0,50}\bcall\b",
+    # Depository plumbing: the date a company's shares became transferable at
+    # CDSL or NSDL.
+    r"date of connectivity|connectivity (informed|intimated) by",
     # A bare "<something> for the quarter ended <date>" heading is compliance
     # paperwork - but only when the something is not the results themselves.
     # Without the guard, whether a company's quarterly results survive came

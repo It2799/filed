@@ -56,6 +56,17 @@ NEVER_PROMOTE = [
     # the category only, because on the headline they caught real news that
     # merely mentioned a meeting.
     r"scrutinizer|voting result",
+
+    # A monitoring agency report says how the money from an issue is being
+    # spent, so it quotes the issue in full and gets promoted as the issue.
+    # Starbeam Ventures' "Monitoring Agency Report" was published as a rights
+    # issue on that basis. It is in JUNK already; it needed to be here too,
+    # because triage runs after the headline has been judged and can undo it.
+    r"monitoring agency|statement of deviation",
+
+    # The daily purchase report a buyback obliges a company to file. Same
+    # reason: it recites the buyback it is reporting on.
+    r"regulation 18\(i\)|daily report.{0,50}buy-?\s?back",
 ]
 
 # Matched against the CATEGORY ALONE, never the headline.
@@ -96,6 +107,15 @@ NEVER_PROMOTE_CATEGORY = [
     r"director\(s\)|\bkmp\b|\bsmp\b|"
     r"(statutory|internal|secretarial|cost) auditor",
 
+    # Amending the memorandum or the articles. The category says exactly that,
+    # and the attachment is the amended document - which lists the authorised
+    # share capital, every class of share the company may ever issue, and the
+    # clauses governing them. Read as prose it is an announcement of warrants,
+    # preference shares and debentures all at once. Advance Multitech's
+    # "Adoption of amended new set of MOA and AOA" was published under Warrants.
+    r"memorandum (and|&) articles|articles of association|"
+    r"memorandum of association|\bmoa\b|\baoa\b",
+
 
     # Record date and book closure are NOT here. They name a corporate action
     # without saying which one, and the document is the only thing that says
@@ -123,7 +143,7 @@ NEVER_PROMOTE_CATEGORY = [
 # the text is used for the only thing it can settle - promoter, or somebody
 # else.
 STAKE_CATEGORY = [
-    r"sast|insider trading|substantial acquisition of shares",
+    r"\bsast\b|insider trading|substantial acquisition of shares",
     r"reg\.? ?29|regulation 29|reg\.? ?10\(|regulation 10\(",
     r"disclosure under sebi takeover",
 ]

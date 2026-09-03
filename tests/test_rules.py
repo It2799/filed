@@ -445,6 +445,23 @@ for tag, pts, rx in rules._TOPIC_RE:
           f"the {tag!r} pattern contains a control character",
           f"found {bad[:4]}")
 
+# The two checks above only see COMPILED patterns in rules.py. triage.py keeps
+# its lists as plain strings and compiles them where they are used, so nothing
+# looked at them - and a mangled "a word-boundary escape around 'sast'" sat there for a day, unnoticed,
+# with the alternatives on either side of it masking the damage. The category
+# BSE uses is "Insider Trading / SAST", which still matched on "insider
+# trading"; a category naming only SAST did not, and got scored as prose.
+#
+# So the real check is on the bytes of the files themselves. Nothing to keep
+# in step, and it sees comments and plain strings too.
+for fname in ("rules.py", "triage.py", "pipeline.py", "tests/test_rules.py"):
+    raw = open(os.path.join(os.path.dirname(os.path.dirname(
+        os.path.abspath(__file__))), fname), "rb").read()
+    found = sorted({b for b in raw if b < 9 or 11 <= b <= 12 or 14 <= b <= 31})
+    check(not found,
+          f"{fname} contains a control character - a shell-mangled escape",
+          f"found bytes {[hex(b) for b in found]}")
+
 
 # ---------------------------------------------------------------------------
 # 10. Nothing but a deal goes in Acquisition.
@@ -627,6 +644,63 @@ for head in MEETING_NOTICES:
     check(adopted == "Meeting",
           "the pipeline is refusing a summary that correctly says 'notice'",
           f"adopted {adopted!r} <- {head[:62]!r}")
+
+
+# ---------------------------------------------------------------------------
+# 13. The paperwork that follows an event is not the event
+#
+# Every one of these recites, in full, the thing it is reporting on - which is
+# why each was published as that thing. A buyback's daily purchase report is
+# filed once per trading day for the length of the programme; a monitoring
+# agency report says how an issue's proceeds are being spent; an amended set
+# of articles lists every class of share the company may ever issue.
+# ---------------------------------------------------------------------------
+
+FOLLOW_UP_PAPERWORK = [
+    ("Buy-back of Securities",
+     "Daily Report pursuant to Regulation 18(i) of the Buyback Regulations "
+     "regarding the equity shares bought back on September 2"),
+    ("Buy-back of Securities",
+     "Pursuant to Regulation 18(i) of the Buyback Regulations regarding the "
+     "equity shares bought back"),
+    ("General Updates", "Monitoring Agency Report for the quarter"),
+    ("Rights Issue",
+     "Reminder Notice to pay Call Money pursuant to Rights Issue partly paid"),
+    ("General Updates", "Date of connectivity informed by CDSL"),
+]
+for cat, head in FOLLOW_UP_PAPERWORK:
+    pts, tag = rules.score(cat, head)
+    check(pts < 55,
+          "a follow-up report is being published as the event it reports on",
+          f"{(pts, tag)} <- {head[:64]!r}")
+
+# ...and triage must not put back what the headline rules just took out. The
+# document says everything the headline was junked for saying.
+for cat, head in FOLLOW_UP_PAPERWORK[:3]:
+    check(triage._blocked({"category": cat, "headline": head}),
+          "triage will read this document and promote it back",
+          f"{cat!r} / {head[:52]!r}")
+
+# The articles of association, blocked on the CATEGORY alone. The document is
+# a warrant announcement, a preference share announcement and a debenture
+# announcement all at once, because it lists the whole authorised capital.
+for cat in ["Amendments to Memorandum & Articles of Association",
+            "Alteration of MOA", "Adoption of new AOA"]:
+    check(triage._blocked({"category": cat, "headline": "Outcome of board meeting"}),
+          "an amended memorandum will be read as an issue of securities",
+          f"category {cat!r} is not blocked")
+
+# The real buyback still gets through. It is the announcement, not the ledger.
+REAL_BUYBACKS = [
+    ("Buy-back of Securities",
+     "Board Resolution approving buy-back of equity shares up to Rs 400 crore"),
+    ("General Updates", "Public Announcement for Buy-back of equity shares"),
+]
+for cat, head in REAL_BUYBACKS:
+    pts, tag = rules.score(cat, head)
+    check(tag == "Buyback" and pts >= 55,
+          "the buyback announcement itself stopped being recognised",
+          f"{(pts, tag)} <- {head[:64]!r}")
 
 
 # ---------------------------------------------------------------------------
