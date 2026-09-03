@@ -56,11 +56,33 @@ def _fetch_bse_day(day, log=print):
             "strType": "C",
             "subcategory": "-1",
         }
-        try:
-            r = requests.get(BSE_API, params=params, headers=headers, timeout=45)
-            rows = r.json().get("Table", []) or []
-        except Exception as e:
-            log(f"  BSE {day:%d %b} page {page} failed: {type(e).__name__}: {e}")
+        # A page that fails is retried before the day is given up on.
+        #
+        # This used to break out of the loop on the first exception, which
+        # silently truncated the entire rest of the day: page 4 times out, the
+        # run reports "BSE 03 Sep: 160 rows" with no error, and everything
+        # filed after mid-morning is simply absent. Nothing downstream could
+        # tell - the filings were never fetched, so nothing knew to miss them.
+        #
+        # Reconciling against BSE's own RSS feed is what exposed it: on
+        # 3 September a run fetched 349 of the day's 729 documents, and looked
+        # perfectly healthy doing it.
+        rows, failure = None, None
+        for attempt in range(4):
+            try:
+                r = requests.get(BSE_API, params=params, headers=headers,
+                                 timeout=45)
+                rows = r.json().get("Table", []) or []
+                break
+            except Exception as e:
+                failure = f"{type(e).__name__}: {e}"
+                time.sleep(1 + attempt * 2)
+
+        if rows is None:
+            # Loud, and not silent truncation. The day is short and the run
+            # should say so - tools/reconcile_feeds.py will say so too.
+            log(f"  BSE {day:%d %b} page {page} failed after 4 tries "
+                f"({failure}). The rest of this day was not fetched.")
             break
 
         if not rows:
@@ -85,9 +107,22 @@ def _fetch_bse_day(day, log=print):
                 "critical": bool(a.get("CRITICALNEWS")),
             })
 
-        # TotalPageCnt is often missing, so also stop on a short page.
-        total_pages = rows[0].get("TotalPageCnt")
-        if len(rows) < 40 or (total_pages and page >= int(total_pages)):
+        # When BSE says how many pages there are, believe it and nothing else.
+        #
+        # These two tests used to be joined by "or", so a short page ended the
+        # day even when BSE had just said there were five more. A page is not
+        # reliably full - the API pads and trims - and one 30-row page on a
+        # 700-filing day threw away everything after it.
+        try:
+            total_pages = int(rows[0].get("TotalPageCnt") or 0)
+        except (TypeError, ValueError):
+            total_pages = 0
+
+        if total_pages:
+            if page >= total_pages:
+                break
+        elif len(rows) < 40:
+            # No page count given, so a short page is the only signal there is.
             break
         page += 1
         time.sleep(0.4)

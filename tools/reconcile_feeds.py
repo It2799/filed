@@ -18,10 +18,22 @@ matching failure, and both are worth knowing.
     python tools/reconcile_feeds.py --show           # list what is missing
     python tools/reconcile_feeds.py --fail-over 10   # exit 1 past a tolerance
 
-Matching is on the attachment URL, which both feeds and both APIs carry and
-which is unique per filing - company names differ in punctuation between the
-two sources ("Ltd" against "Limited", "&" against "and") and timestamps differ
-by seconds, so neither is safe to match on.
+Matching is on the attachment URL first, which both feeds and both APIs carry
+and which is unique per filing, with company-and-headline as a fallback for the
+cases where BSE's feed links a different copy of the same document to the one
+its API names.
+
+What it will always report, and why it is not zero:
+  BSE  around sixty a day, nearly all debt-instrument filings - interest
+       payment certificates, bond coupon dates, municipal green bonds. The
+       BSE fetch asks for company announcements, and those are a separate
+       segment. This product is about listed companies, so they are out of
+       scope rather than missed.
+  NSE  a handful, filed in the seconds between the fetch and the feed
+       download.
+
+A jump well past that is the signal, which is why the workflow runs this with
+a tolerance rather than demanding zero.
 """
 
 import argparse
@@ -65,6 +77,33 @@ def key_of(url):
     tail = tail.split("?")[0]
     tail = re.sub(r"\.(pdf|zip|xlsx?|docx?)$", "", tail, flags=re.I)
     return tail.lower() or None
+
+
+def norm_company(name):
+    """A company name both sources would write the same way.
+
+    The feed says "Sreeleathers Ltd (535601)" where the API says "SREELEATHERS
+    LIMITED", and BSE marks some names with a trailing "-$". Strip the scrip
+    code, the suffixes and the punctuation and they agree.
+    """
+    if not name:
+        return None
+    n = re.sub(r"\(\d{4,6}\)", " ", str(name))
+    n = re.sub(r"-\$", " ", n)
+    n = n.lower()
+    n = re.sub(r"\b(limited|ltd|private|pvt|company|co|corporation|corp|"
+               r"industries|india|the)\b", " ", n)
+    n = re.sub(r"[^a-z0-9]+", "", n)
+    return n or None
+
+
+def norm_words(text):
+    """The first few real words of a headline, as one comparable string."""
+    if not text:
+        return None
+    t = re.sub(r"[^a-z0-9 ]+", " ", str(text).lower())
+    words = [w for w in t.split() if len(w) > 3][:6]
+    return "".join(words) or None
 
 
 def feed_items(xml_bytes):
@@ -135,6 +174,23 @@ def main():
     ours = sources.fetch_bse(d, d, log=quiet) + sources.fetch_nse(d, d, log=quiet)
     have = {key_of(r.get("pdf_url")) for r in ours}
     have.discard(None)
+
+    # A second way to recognise a filing we already hold.
+    #
+    # The attachment URL is the reliable key when both sides quote the same
+    # one, and mostly they do - but not always. BSE's feed sometimes links a
+    # different copy of the same document to the one its JSON API names, and
+    # matching on the URL alone then reported filings as missing that were sat
+    # in the fetch: Patanjali Foods, Sreeleathers and Aion-Tech were all
+    # "missing" on 3 September and all three were fetched.
+    #
+    # So company and opening words are used as a fallback. Loose on purpose -
+    # a false match here only hides a filing from a warning, and the URL key
+    # catches everything this one would.
+    also = {(norm_company(r.get("company")), norm_words(r.get("headline")))
+            for r in ours}
+    also.discard((None, None))
+
     print(f"our fetch for {day}: {len(ours)} filings "
           f"({len(have)} distinct attachments)\n")
 
@@ -156,7 +212,12 @@ def main():
         unique = {}
         for i in today:
             unique.setdefault(i["key"], i)
-        missing = [i for k, i in unique.items() if k not in have]
+        def held(i):
+            if i["key"] in have:
+                return True
+            return (norm_company(i["company"]), norm_words(i["subject"])) in also
+
+        missing = [i for k, i in unique.items() if not held(i)]
         total_missing += len(missing)
 
         share = (len(missing) / len(unique) * 100) if unique else 0
