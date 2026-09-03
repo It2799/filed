@@ -229,6 +229,24 @@ jobs:
       - name: Verify the live site
         run: python tools/verify_live.py
 
+      # Ask every category to justify itself, on the data this run just
+      # published. Categories have always been fixed after a reader spotted
+      # something absurd; this is the same question asked by the run, half an
+      # hour after the rules changed, instead of by the reader a day later.
+      #
+      # The threshold is deliberately loose. It is not here to police wording -
+      # a real order win described as "bagged a mandate" matches nothing the
+      # audit knows. It is here to catch a category coming apart: every fault
+      # found by hand on 3 September sat at 25% or worse, and every healthy
+      # category sat under 15%.
+      #
+      # continue-on-error, because a bad category is a reason to look, not a
+      # reason to throw away a good scrape. The step goes yellow in the Actions
+      # tab and the run carries on.
+      - name: Ask every category to justify itself
+        continue-on-error: true
+        run: python tools/audit_categories.py --worst 2 --fail-over 25
+
       - name: Keep the caches for the next run
         if: always()
         uses: actions/cache/save@v4

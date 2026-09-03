@@ -82,7 +82,14 @@ EVIDENCE = {
     "Legal/Reg": r"order|penalt|\bsebi\b|court|tribunal|notice|demand|litigat|"
                  r"\bfine\b|show cause|adjudicat|appeal|writ|prosecution|"
                  r"compound|search|survey|raid|\bgst\b|income tax|arbitrat",
-    "Concall": r"conference call|earnings call|con.?call|analyst call",
+    # A transcript and an audio recording are what a concall actually files -
+    # the call itself is announced days earlier. Listing only the call left
+    # this category reading 30% unexplained when five of its six flagged
+    # filings were transcripts, which is the evidence being too narrow rather
+    # than the tag being wrong.
+    "Concall": r"conference call|earnings call|con.?call|analyst call|"
+               r"transcript|audio recording|recording of|"
+               r"investor call|earnings conference",
     "Investor Meet": r"investor|analyst|institutional|meet|conference|roadshow",
     "Investor Presentation": r"presentation|investor",
     "Meeting": r"meeting|\bagm\b|\begm\b|postal ballot|general meeting|"
@@ -124,6 +131,13 @@ def main():
     p.add_argument("--show", help="print every flagged filing in this category")
     p.add_argument("--worst", type=int, default=3,
                    help="how many examples to print per category (default 3)")
+    p.add_argument("--fail-over", type=float, default=None, metavar="PCT",
+                   help="exit non-zero if a category of at least --min-n "
+                        "filings is more than PCT%% unexplained")
+    p.add_argument("--min-n", type=int, default=10,
+                   help="ignore categories smaller than this when failing "
+                        "(default 10) - a category of three filings goes to "
+                        "33%% on one odd wording and means nothing")
     args = p.parse_args()
 
     items = load(args.file)
@@ -160,6 +174,31 @@ def main():
         for a in bad[: args.worst]:
             print(f"{'':<24}      {(a.get('company') or '')[:22]:<24}"
                   f"{(a.get('headline') or '')[:44]}")
+
+    if args.fail_over is not None:
+        # Deliberately generous. This is not here to police wording - it is
+        # here so that a category coming apart is noticed by the run rather
+        # than by a reader. Every fault found by hand on 3 September sat at
+        # 25% or worse in a category this size; healthy ones sat under 15%.
+        over = [
+            (tag, n, share)
+            for tag, n, share, _ in rows
+            if share is not None and n >= args.min_n
+            and share * 100 > args.fail_over
+        ]
+        if over:
+            print()
+            print(f"{len(over)} category(ies) over {args.fail_over:.0f}% "
+                  f"unexplained:")
+            for tag, n, share in over:
+                print(f"  {tag} - {share:.0%} of {n} filings")
+            print()
+            print("Run  python tools/audit_categories.py --show "
+                  "'<category>'  to see them.")
+            return 1
+        print()
+        print(f"No category of {args.min_n}+ filings is over "
+              f"{args.fail_over:.0f}% unexplained.")
 
     if args.show:
         rx = re.compile(EVIDENCE.get(args.show, "$^"), re.I)
