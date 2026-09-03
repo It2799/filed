@@ -11,6 +11,7 @@ import concurrent.futures as cf
 import datetime
 import json
 import os
+import re
 import threading
 
 import providers
@@ -141,6 +142,17 @@ def category_from_summary(category, headline, blob):
     # ones. Nothing is lost by relabelling: the SCORE is never changed here,
     # so a filing keeps its place on the page and only gets a truer name.
     _, from_summary = rules.score_text(blob, floor=0)
+
+    # A letter of intent can describe an acquisition, not a customer order.
+    # Keep the original acquisition verdict unless the summary also contains
+    # real evidence of commercial work, supply, a contract or a tender.
+    if (from_summary == "Order"
+            and re.search(r"letter of intent|\bloi\b", blob, re.I)
+            and re.search(r"acqui|purchas|\bbuy\b|subscrib", blob, re.I)
+            and not re.search(r"customer|client|supply|services?|work order|"
+                              r"contract (?:won|awarded|received|secured)|"
+                              r"project|tender", blob, re.I)):
+        from_summary = None
 
     # Two ways a filing is a meeting notice, and neither may overrule a real
     # event.

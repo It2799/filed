@@ -1,5 +1,7 @@
 import ExcelJS from "exceljs";
-import { recent, configured, applyFilters } from "../../../../lib/announcements";
+import {
+  recent, configured, applyFilters, isImportantRow,
+} from "../../../../lib/announcements";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -51,7 +53,7 @@ export async function GET(request) {
   // The same rule the dashboard applies: worth reading means summarised. The
   // export skipped it, so a workbook could carry rows with an empty Summary
   // column that the screen deliberately hides.
-  if (scope === "important") items = items.filter((r) => r.summary);
+  if (scope === "important") items = items.filter(isImportantRow);
 
   // Every filter, through the same code the API uses. Band and search used to
   // be dropped here, so the file never matched what was on screen.

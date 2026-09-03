@@ -96,6 +96,11 @@ TEMPLATE = r"""<!doctype html>
 const DATA = __DATA__;
 const META = __META__;
 
+const validUrl = s => {
+  try { const u = new URL(s); return u.protocol === 'http:' || u.protocol === 'https:'; }
+  catch (_) { return false; }
+};
+
 document.getElementById('sub').textContent =
   META.window + '  ·  ' + META.total + ' filings scanned, ' +
   DATA.length + ' worth reading  ·  built ' + META.built;
@@ -150,8 +155,8 @@ function card(d){
     + (nums ? '<div class="nums">'+nums+'</div>' : '')
     + (d.why_it_matters ? '<div class="why">'+esc(d.why_it_matters)+'</div>' : '')
     + '<div class="links">'
-      + (d.pdf_url ? '<a href="'+esc(d.pdf_url)+'" target="_blank" rel="noopener">Open PDF</a>' : '')
-      + (d.page_url ? '<a href="'+esc(d.page_url)+'" target="_blank" rel="noopener">Company page</a>' : '')
+      + (validUrl(d.pdf_url) ? '<a href="'+esc(d.pdf_url)+'" target="_blank" rel="noopener">Open PDF</a>' : '')
+      + (validUrl(d.page_url) ? '<a href="'+esc(d.page_url)+'" target="_blank" rel="noopener">Company page</a>' : '')
     + '</div></div>';
 }
 

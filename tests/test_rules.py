@@ -19,6 +19,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import rules                                            # noqa: E402
 import pipeline                                         # noqa: E402
+import sources                                          # noqa: E402
 
 FAILURES = []
 CHECKS = [0]
@@ -28,6 +29,24 @@ def check(ok, label, detail=""):
     CHECKS[0] += 1
     if not ok:
         FAILURES.append(f"{label}\n      {detail}")
+
+
+# Exchange APIs use placeholders when a notice has no PDF. These must never
+# become clickable relative links such as the dashboard's local /- route.
+for raw in ("-", "N/A", "#", "", None, "/relative/document.pdf"):
+    check(sources._external_url(raw) == "", "invalid filing URL was accepted", repr(raw))
+check(sources._external_url("https://nsearchives.nseindia.com/corporate/a.pdf") != "",
+      "a genuine NSE filing URL was rejected")
+check(sources._attachment_name("-") == "", "BSE placeholder filename was accepted")
+check(sources._attachment_name("notice.pdf") == "notice.pdf",
+      "a genuine BSE attachment filename was rejected")
+
+check(rules.retag("The company filed an appeal in a legal dispute before the court")
+      == "Legal/Reg", "a court case is still classified as a customer order")
+loi_summary = ("The company signed a letter of intent to purchase aircraft as "
+               "part of an acquisition for its intended fleet expansion.")
+check(pipeline.category_from_summary("Acquisition", "Aircraft acquisition", loi_summary)
+      != "Order", "an acquisition letter of intent was changed into an order")
 
 
 # ---------------------------------------------------------------------------
@@ -726,6 +745,7 @@ FOLLOW_UP_PAPERWORK = [
     ("Buy-back of Securities",
      "Pursuant to Regulation 18(i) of the Buyback Regulations regarding the "
      "equity shares bought back"),
+    ("Buy-back of Securities", "Closure of the Buy-back Offer"),
     ("General Updates", "Monitoring Agency Report for the quarter"),
     ("Rights Issue",
      "Reminder Notice to pay Call Money pursuant to Rights Issue partly paid"),
@@ -739,7 +759,7 @@ for cat, head in FOLLOW_UP_PAPERWORK:
 
 # ...and triage must not put back what the headline rules just took out. The
 # document says everything the headline was junked for saying.
-for cat, head in FOLLOW_UP_PAPERWORK[:3]:
+for cat, head in FOLLOW_UP_PAPERWORK:
     check(triage._blocked({"category": cat, "headline": head}),
           "triage will read this document and promote it back",
           f"{cat!r} / {head[:52]!r}")

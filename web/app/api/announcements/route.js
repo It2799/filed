@@ -1,4 +1,4 @@
-import { recent, configured } from "../../../lib/announcements";
+import { recent, configured, isImportantRow } from "../../../lib/announcements";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -49,7 +49,7 @@ export async function GET(request) {
     // summary against it, and showing "661 worth reading, 394 summarised" makes
     // the product look like it gave up halfway. Anything without a summary is
     // not offered as a headline item, whatever the stored data says.
-    if (scope === "important") items = items.filter((r) => r.summary);
+    if (scope === "important") items = items.filter(isImportantRow);
 
     // Narrow by day and text first. Whatever survives is the universe the
     // category counts describe, so the sidebar keeps showing every category

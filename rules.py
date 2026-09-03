@@ -42,7 +42,9 @@ JUNK = [
     # they were reporting on - Advanced Enzyme and SIS between them filed four
     # of the nineteen filings under Buyback.
     r"regulation 18\(i\)|daily report.{0,50}buy-?\s?back|"
-    r"buy-?\s?back.{0,30}daily (report|disclosure)",
+    r"daily disclosure.{0,100}(buy-?\s?back|bought back|shares bought back)|"
+    r"buy-?\s?back.{0,30}daily (report|disclosure)|"
+    r"closure of (the )?buy-?\s?back offer",
     # A partly-paid rights issue is followed by notices asking holders for the
     # next instalment. Housekeeping, not an issue.
     r"call money|reminder notice.{0,50}\bcall\b",
@@ -594,7 +596,11 @@ RETAG = [
                   r"\bsebi\b|\bnclt\b|tribunal|court|commissioner|"
                   r"income tax|customs|excise|municipal)|"
                   r"(government|ministry|registrar|tribunal|court) "
-                  r"(approval|order|sanction|direction)"),
+                  r"(approval|order|sanction|direction)|"
+                  r"legal dispute|litigation|recovery suit|"
+                  r"court.{0,35}(dismiss|adjourn|hear|appeal|order|stay)|"
+                  r"tribunal.{0,35}(issued|passed|order|appeal)|"
+                  r"securities appellate tribunal|case with sebi|appeal filed"),
 ]
 
 _JUNK_RE = [re.compile(p, re.I) for p in JUNK]

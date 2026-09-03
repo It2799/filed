@@ -42,6 +42,21 @@ function parse(raw) {
   }
 }
 
+// Exchange feeds sometimes use values such as "-" or "N/A" when a notice
+// has no attachment. A non-empty placeholder is truthy in React and becomes a
+// relative link (for example "-" becomes our own /- route). Only absolute web
+// URLs are safe to expose as external links.
+export function cleanExternalUrl(value) {
+  const text = String(value || "").trim();
+  if (!text) return "";
+  try {
+    const parsed = new URL(text);
+    return parsed.protocol === "http:" || parsed.protocol === "https:" ? parsed.href : "";
+  } catch {
+    return "";
+  }
+}
+
 /**
  * A busy day can exceed the request size limit, so publish.py may have split it
  * into `key:0`, `key:1`… with a `key:parts` counter. This reassembles whichever
@@ -96,34 +111,77 @@ function normCompany(name) {
 // ITC Infotech" against "announced a merger with ITC Infotech" - so word
 // overlap cannot catch them either.
 //
-// Grouping the headings by the kind of news does. A company restructuring and
-// a company raising money on the same day are still two entries, because
-// those are two families; the same restructuring filed four ways is one.
+// Only the result/outcome/board-meeting trio is safe to merge across tags.
+// Broad families used here previously hid distinct same-day events such as a
+// QIP plus a preferential issue, or a dividend plus a buyback.
 const FAMILY = {
-  "Scheme Of Arrangement": "restructure",
-  Acquisition: "restructure",
-  "Open Offer": "restructure",
-  Qip: "raise",
-  "Qip Allotment": "raise",
-  Pref: "raise",
-  Warrants: "raise",
-  "Rights Issue": "raise",
-  "Fund Raising": "raise",
   Results: "results",
   Outcome: "results",
   "Board Meeting": "results",
   // Concall, Investor Meet and Investor Presentation are their own
   // categories and stay separate - a reader filtering for next week's
   // earnings calls should find them, not have them folded into the result.
-  Dividend: "payout",
-  Buyback: "payout",
-  Bonus: "payout",
-  Split: "payout",
-  "Change In Management": "people",
-  Resignation: "people",
 };
 
 const family = (tag) => FAMILY[tag] || null;
+
+// Repair narrowly identifiable stale classifications while the rolling Redis
+// window still contains rows produced by an older set of rules.
+const DEBT_SERVICE = /confirmation of redemption|payment of (interest|principal)|interest payment|commercial paper.{0,30}(maturity|redemption)|redemption.{0,35}(bond|debenture|ncd|ncrps|commercial paper)/i;
+const BUYBACK_FOLLOWUP = /daily (report|disclosure).{0,100}(buy.?back|bought back)|closure of (the )?buy.?back offer/i;
+const LEGAL_ORDER = /legal dispute|litigation|recovery suit|court.{0,35}(dismiss|adjourn|hear|appeal|order|stay)|tribunal.{0,35}(issued|passed|order|appeal)|securities appellate tribunal|case with sebi|appeal filed/i;
+const CLEAR_PROMOTER_DEAL = /promoter(?: group)? (?:member|entity|shareholder|person)[^.]{0,90}(acquir|purchas|bought|sold|sell|dispos|transferr?|pledg)[^.]{0,90}(share|stake|holding)/i;
+const MANAGEMENT_EVENT = /appoint|resign|cessation|managing director|chief executive|\bceo\b|chief financial|\bcfo\b|company secretary|executive director/i;
+const RESULTS_EVENT = /financial results?|standalone and consolidated|revenue from operations|net profit|quarter ended/i;
+const RATINGS_EVENT = /credit ratings?|\bicra\b|\bcrisil\b|care ratings|\[icra\]|rating reaffirmed/i;
+const STAKE_DISCLOSURE = /\bsast\b|substantial acquisition of shares|regulation 31|reg\.?\s*31|shareholding|encumbrance|pledge/i;
+const ANNUAL_REPORT_NOTICE = /web ?link.{0,40}annual report|letter to shareholders.{0,60}annual report|regulation 36\(1\)/i;
+const FACTORY_LICENCE = /(?:factory|plant|unit).{0,50}licen[cs]e|renewal of.{0,40}licen[cs]e/i;
+const ACQUISITION_LOI = /(?:letter of intent|\bloi\b).{0,100}(?:acqui|purchas|\bbuy\b)|(?:acqui|purchas|\bbuy\b).{0,100}(?:letter of intent|\bloi\b)/i;
+const COMMERCIAL_ORDER = /customer|client|supply|services?|work order|contract (?:won|awarded|received|secured)|project|tender/i;
+
+export function canonicalizeStoredRow(row) {
+  const copy = { ...row };
+  copy.pdf_url = cleanExternalUrl(copy.pdf_url) || cleanExternalUrl(copy.pdf_alt);
+  copy.pdf_alt = cleanExternalUrl(copy.pdf_alt);
+  copy.page_url = cleanExternalUrl(copy.page_url);
+  copy.also_pdfs = [...new Set((Array.isArray(copy.also_pdfs) ? copy.also_pdfs : [])
+    .map(cleanExternalUrl)
+    .filter(Boolean))];
+  const text = [copy.category, copy.headline, copy.summary, copy.why_it_matters]
+    .map((value) => String(value || ""))
+    .join(" ");
+
+  if (copy.tag === "Buyback" && (DEBT_SERVICE.test(text) || BUYBACK_FOLLOWUP.test(text))) {
+    copy.tag = "Routine";
+    copy.score = 3;
+  } else if (copy.tag === "Order" && LEGAL_ORDER.test(text)) {
+    copy.tag = "Legal/Reg";
+  } else if (copy.tag === "Order" && ACQUISITION_LOI.test(text) && !COMMERCIAL_ORDER.test(text)) {
+    copy.tag = "Acquisition";
+  } else if (copy.tag === "Acquisition" && CLEAR_PROMOTER_DEAL.test(text)) {
+    copy.tag = "Promoter Buy/Sell";
+  } else if (copy.tag === "Capacity Increase" && MANAGEMENT_EVENT.test(text)) {
+    copy.tag = "Change In Management";
+  } else if (copy.tag === "Rights Issue" && RESULTS_EVENT.test(text)) {
+    copy.tag = "Results";
+  } else if ((copy.tag === "Rights Issue" || copy.tag === "Fii") && RATINGS_EVENT.test(text)) {
+    copy.tag = "Ratings Update";
+  } else if (copy.tag === "Fii" && STAKE_DISCLOSURE.test(text)) {
+    copy.tag = "Stake Change";
+    copy.score = Math.min(Number(copy.score || 0), 50);
+  } else if (copy.tag === "Clinical Trial" && ANNUAL_REPORT_NOTICE.test(text)) {
+    copy.tag = "Routine";
+    copy.score = 3;
+  } else if (copy.tag === "Clinical Trial" && FACTORY_LICENCE.test(text)) {
+    copy.tag = "Legal/Reg";
+  }
+  return copy;
+}
+
+export function isImportantRow(row) {
+  return Boolean(row.summary) && Number(row.score || 0) >= 55 && row.tag !== "Routine";
+}
 
 function summaryWords(text) {
   return new Set(
@@ -221,7 +279,7 @@ export async function recent({ scope = "important", sort = "latest" } = {}) {
   const items = [];
   const push = (dayLists) =>
     dayLists.forEach((rows, i) => {
-      for (const r of rows) items.push({ ...r, day: days[i] });
+      for (const r of rows) items.push(canonicalizeStoredRow({ ...r, day: days[i] }));
     });
 
   push(await readKeys(days.map((d) => `mt:day:${d}`)));

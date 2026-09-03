@@ -3,6 +3,7 @@
 import datetime
 import re
 import time
+from urllib.parse import urlparse
 
 import requests
 
@@ -21,6 +22,24 @@ def _clean(s):
         return ""
     s = s.replace("''", "'").replace("&amp;", "&")
     return re.sub(r"\s+", " ", s).strip()
+
+
+def _external_url(value):
+    """Return only a complete HTTP(S) URL; exchange placeholders become blank."""
+    text = str(value or "").strip()
+    try:
+        parsed = urlparse(text)
+    except ValueError:
+        return ""
+    return text if parsed.scheme in ("http", "https") and parsed.netloc else ""
+
+
+def _attachment_name(value):
+    """BSE supplies a filename, not a URL, and occasionally a placeholder."""
+    text = str(value or "").strip()
+    if not text or text.lower() in {"-", "n/a", "na", "null", "none", "#"}:
+        return ""
+    return text
 
 
 # ---------------------------------------------------------------- BSE
@@ -89,7 +108,7 @@ def _fetch_bse_day(day, log=print):
             break
 
         for a in rows:
-            att = (a.get("ATTACHMENTNAME") or "").strip()
+            att = _attachment_name(a.get("ATTACHMENTNAME"))
             cat = _clean(a.get("CATEGORYNAME"))
             sub = _clean(a.get("SUBCATNAME"))
             head = _clean(a.get("HEADLINE")) or _clean(a.get("NEWSSUB"))
@@ -103,7 +122,7 @@ def _fetch_bse_day(day, log=print):
                 "dt": a.get("NEWS_DT") or a.get("DT_TM") or "",
                 "pdf_url": (BSE_PDF_LIVE + att) if att else "",
                 "pdf_alt": (BSE_PDF_HIST + att) if att else "",
-                "page_url": a.get("NSURL") or "",
+                "page_url": _external_url(a.get("NSURL")),
                 "critical": bool(a.get("CRITICALNEWS")),
             })
 
@@ -218,7 +237,7 @@ def fetch_nse(from_date, to_date, log=print):
 
     out = []
     for a in data:
-        att = (a.get("attchmntFile") or "").strip()
+        att = _external_url(a.get("attchmntFile"))
         sym = _clean(a.get("symbol"))
         out.append({
             "id": "NSE-" + str(a.get("seq_id") or (sym + str(a.get("sort_date")))),

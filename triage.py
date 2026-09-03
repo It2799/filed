@@ -64,9 +64,16 @@ NEVER_PROMOTE = [
     # because triage runs after the headline has been judged and can undo it.
     r"monitoring agency|statement of deviation",
 
+    # Follow-up plumbing already rejected by the headline rules must not be
+    # promoted again merely because its attachment repeats the original event.
+    r"call money|reminder notice.{0,50}\bcall\b|"
+    r"date of connectivity|connectivity (informed|intimated) by",
+
     # The daily purchase report a buyback obliges a company to file. Same
     # reason: it recites the buyback it is reporting on.
-    r"regulation 18\(i\)|daily report.{0,50}buy-?\s?back",
+    r"regulation 18\(i\)|daily (report|disclosure).{0,100}"
+    r"(buy-?\s?back|bought back|shares bought back)|"
+    r"closure of (the )?buy-?\s?back offer",
 
     # The Regulation 36(1)(b) covering letter that goes out with the annual
     # report. Reading it finds the annual report, the AGM notice and the

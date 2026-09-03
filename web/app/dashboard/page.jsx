@@ -192,9 +192,9 @@ export default function Dashboard() {
 
           {data?.meta?.promoted > 0 && (
             <p className="rescued">
-              <b>{Number(data.meta.promoted).toLocaleString("en-IN")}</b> of these
-              were filed under a heading that gave nothing away — we found them by
-              reading the document.
+              In the latest scan, <b>{Number(data.meta.promoted).toLocaleString("en-IN")}</b>{" "}
+              important announcements were discovered only after examining their
+              attached documents.
             </p>
           )}
         </header>
@@ -520,7 +520,14 @@ export default function Dashboard() {
                             Open filing
                           </a>
                         )}
-
+                        {!it.pdf_url && it.page_url && (
+                          <a href={it.page_url} target="_blank" rel="noopener noreferrer">
+                            View company on {it.exchange?.includes("BSE") ? "BSE" : "NSE"}
+                          </a>
+                        )}
+                        {!it.pdf_url && !it.page_url && (
+                          <span className="verify">Filing link unavailable</span>
+                        )}
                       </div>
                     </article>
                   );

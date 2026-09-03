@@ -154,6 +154,11 @@ export default function Landing() {
                       Open the original filing
                     </a>
                   )}
+                  {!s.pdf_url && s.page_url && (
+                    <a href={s.page_url} target="_blank" rel="noopener noreferrer">
+                      View company on {s.exchange?.includes("BSE") ? "BSE" : "NSE"}
+                    </a>
+                  )}
                   <span className="verify">check it yourself</span>
                 </div>
               </article>
