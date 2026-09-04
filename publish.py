@@ -284,9 +284,20 @@ def main():
         # patterns have nothing to match. Only the summary can, and once it
         # names a real event the relabel in pipeline.summarise promotes the
         # filing to what that event is worth.
+        # ...and so does anything the headline AND the regex both failed on.
+        #
+        # A tag of Other, Outcome, Board Meeting, Corp Action or Unusual is not
+        # an answer. It means the headline said nothing and the topic patterns
+        # found nothing in the PDF either - which is precisely when a person
+        # would open the document and read it. So that is what happens now.
+        #
+        # About fifteen a day, on top of the press releases. "Outcome of Board
+        # Meeting held today 04.09.2026" is the shape of it: the board decided
+        # something and only the attachment says what.
         also_read = [a for a in kept
                      if a.get("score", 0) < args.important_at
-                     and rules.is_press_release(a.get("category", ""))]
+                     and (rules.is_press_release(a.get("category", ""))
+                          or rules.undecided(a.get("tag")))]
         todo = worth + also_read
 
         cap = args.max_summaries or len(todo)

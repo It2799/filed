@@ -1256,6 +1256,82 @@ for text in [
 
 
 # ---------------------------------------------------------------------------
+# 19. When neither the headline nor the document says, read the document
+#
+# Ishan's point, and it is the right one: the judgement should come from inside
+# the PDF, not from the headline. Every PDF is already read - but by regex, and
+# a regex only finds wordings somebody thought of in advance. When it finds
+# nothing the filing keeps a tag that is not an answer at all: Other, Outcome,
+# Board Meeting, Corp Action, Unusual. "Outcome of Board Meeting held today
+# 04.09.2026" is the shape of it - the board decided something and only the
+# attachment says what.
+#
+# Those now get an AI summary whatever they score, and the summary may promote
+# them. About fifteen a day.
+# ---------------------------------------------------------------------------
+
+for tag in ["Other", "Outcome", "Press Release", "Board Meeting",
+            "Corp Action", "Unusual"]:
+    check(rules.undecided(tag),
+          f"{tag!r} is an answer now? it means we could not tell",
+          repr(tag))
+
+# A real event is decided, and must not be queued for re-reading - that would
+# be thousands of AI calls a day rather than fifteen.
+for tag in ["Dividend", "Order", "Acquisition", "Results", "Pref", "Buyback",
+            "Meeting", "Change In Management", "Routine", "Annual Report"]:
+    check(not rules.undecided(tag),
+          f"{tag!r} would be sent for an AI re-read though it is already decided",
+          repr(tag))
+
+# The two sets overlap but are not the same, and the difference is real.
+#
+# UNDECIDED picks what to RE-READ. WEAK_FROM_SUMMARY picks what to refuse
+# BELIEVING off a summary. A tag can be in the first and not the second: it is
+# a poor answer, and still a better one than the wrong answer a filing
+# currently has. AGI Infra's board-meeting intimation was filed under Dividend,
+# and "Board Meeting" is what corrected it - so refusing that from a summary
+# would keep the Dividend.
+#
+# What has to be in both are the tags that say nothing whatsoever. Adopting one
+# of those off a summary means re-reading a filing and handing it back the same
+# non-answer for ever.
+SAYS_NOTHING = {"Other", "Outcome", "Press Release", "Corp Action"}
+for tag in SAYS_NOTHING:
+    check(tag in rules.UNDECIDED,
+          f"{tag!r} says nothing but is not queued for a re-read", repr(tag))
+    check(tag in pipeline.WEAK_FROM_SUMMARY,
+          f"{tag!r} can be read off a summary yet says nothing", repr(tag))
+
+# Board Meeting and Unusual are deliberately re-read but still believable.
+for tag in ("Board Meeting", "Unusual"):
+    check(rules.undecided(tag),
+          f"{tag!r} should be re-read - only the document says what happened",
+          repr(tag))
+
+# And the thing this is all for: a board outcome whose document names the event.
+for summ, want in [
+    ("The board approved a preferential issue of 10 lakh shares at Rs 161 each.",
+     "Pref"),
+    ("The company received an order worth Rs 500 crore from NHAI.", "Order"),
+    ("The board recommended a final dividend of Rs 5 per equity share.",
+     "Dividend"),
+    ("The board approved the acquisition of a 74% stake in ABC Private Limited.",
+     "Acquisition"),
+]:
+    got = pipeline.category_from_summary(
+        "Board Meeting / Outcome of Board Meeting",
+        "Outcome of Board Meeting held today 04.09.2026",
+        "Outcome of Board Meeting held today 04.09.2026 " + summ)
+    check(got == want,
+          "a board outcome is not being read from its own document",
+          f"got {got!r}, wanted {want!r} <- {summ[:50]!r}")
+    check(rules.SCORE_FOR_TAG.get(got, 0) >= 55,
+          "the event was found but the filing stays below the line",
+          f"{got!r} is worth {rules.SCORE_FOR_TAG.get(got)}")
+
+
+# ---------------------------------------------------------------------------
 
 print(f"{CHECKS[0]} checks")
 if FAILURES:

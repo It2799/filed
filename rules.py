@@ -636,6 +636,26 @@ PRESS_RELEASE_CAT = re.compile(r"press release|media release", re.I)
 def is_press_release(category):
     return bool(PRESS_RELEASE_CAT.search(category or ""))
 
+
+# Tags that are not an answer. Each one means the headline said nothing AND the
+# topic patterns found nothing in the document either - which is the exact
+# situation where a person would open the PDF and read it.
+#
+# Filings wearing one of these get an AI summary whatever they score, and the
+# summary is then allowed to name the event and promote the filing to what that
+# event is worth. There are about fifteen a day, so it costs almost nothing.
+#
+# "Corp Action" is here because a record date names no action: the document is
+# the only thing that says whether it is a dividend, a bonus or a split.
+# "Unusual" is the exchange asking a company to explain a price move, and what
+# it is explaining is in the reply.
+UNDECIDED = {"Other", "Outcome", "Press Release", "Board Meeting",
+             "Corp Action", "Unusual"}
+
+
+def undecided(tag):
+    return tag in UNDECIDED
+
 # ---------------------------------------------------------------------------
 # 6. THE THREE MEETING KINDS
 #    BSE files calls and meetings under ONE heading - "Analysts/Institutional
