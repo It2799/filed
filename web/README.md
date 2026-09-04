@@ -20,6 +20,23 @@ Then open http://localhost:3000. Locally, signups append to
 Import the repo at [vercel.com/new](https://vercel.com/new) and set
 **Root Directory** to `web`. Everything else is detected automatically.
 
+### Member access
+
+Dashboard and Daily Brief use passwordless email verification. Configure these
+private environment variables in Vercel for Production, Preview and Development:
+
+- `MONGODB_URI` — MongoDB connection string used for reader profiles
+- `MONGODB_DB` — optional database name; defaults to `market_tide`
+- `AUTH_SECRET` — a long random value used to sign sessions and OTP hashes
+- `RESEND_API_KEY` — Resend API key used to deliver verification emails
+- `FROM_EMAIL` — verified sender, for example `Market Tide <login@example.com>`
+- `KV_REST_API_URL` and `KV_REST_API_TOKEN` — Upstash Redis used for short-lived OTPs
+
+New readers enter email and mobile number, then verify the email with a six-digit
+code. Their normalized mobile number is stored in MongoDB only after successful
+verification. Returning readers enter only their email, and a signed session
+keeps them logged in for 30 days.
+
 ## Where the emails go
 
 Out of the box nothing is stored in production — signups are accepted and

@@ -113,7 +113,7 @@ const sendKey = (id) => `mt:otp:sends:${id}`;
  * anything - it would then have to know about email and WhatsApp and be
  * changed for every new channel.
  */
-export async function issue(identifier) {
+export async function issue(identifier, metadata = {}) {
   if (!configured()) {
     return { ok: false, reason: "not_configured", missing: missing() };
   }
@@ -135,7 +135,7 @@ export async function issue(identifier) {
   await redis([
     "SET",
     key(identifier),
-    JSON.stringify({ h: hash(identifier, code), attempts: 0 }),
+    JSON.stringify({ h: hash(identifier, code), attempts: 0, metadata }),
     "EX",
     String(CODE_TTL_SECONDS),
   ]);
@@ -195,5 +195,5 @@ export async function check(identifier, code) {
   // cannot be replayed by anyone who saw it over someone's shoulder.
   await redis(["DEL", key(identifier)]);
   await redis(["DEL", sendKey(identifier)]);
-  return { ok: true };
+  return { ok: true, metadata: rec.metadata || {} };
 }

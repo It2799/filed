@@ -3,6 +3,7 @@ import "./globals.css";
 import "./theme.css";
 import "./marketing.css";
 import "./dash.css";
+import "./auth.css";
 
 // Inter for everything functional - it was built for screens and its tabular
 // figures keep columns of rupee amounts from jittering. Instrument Serif only

@@ -1,36 +1,21 @@
-/**
- * Step one of signing in: send a code.
- *
- *   POST /api/auth/start   { channel: "email" | "whatsapp", identifier }
- *
- * The reply never says whether that address or number has been here before.
- * "We sent a code" is the answer either way, because anything else turns this
- * endpoint into a way of asking whether a given person has an account.
+/** Start email verification for a protected-page sign-in.
+ * New reader: email -> phone -> OTP.
+ * Returning reader: email -> OTP; the saved phone is not requested again.
  */
 
 import { normalisePhone } from "../../../../lib/phone";
 import { issue } from "../../../../lib/otp";
-import { sendEmailCode, sendWhatsAppCode } from "../../../../lib/notify";
+import { sendEmailCode } from "../../../../lib/notify";
+import { configured as usersConfigured, findByEmail } from "../../../../lib/users";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
-/** The identifier in the one shape we store it in, or null if it is not valid. */
-function tidy(channel, raw) {
-  const given = String(raw || "").trim();
-  if (channel === "email") {
-    // Lower-cased, so Ishan@x.com and ishan@x.com are one person and cannot
-    // each hold their own code.
-    const email = given.toLowerCase();
-    return EMAIL.test(email) && email.length <= 254 ? `email:${email}` : null;
-  }
-  if (channel === "whatsapp") {
-    const phone = normalisePhone(given);
-    return phone ? `whatsapp:${phone}` : null;
-  }
-  return null;
+function tidyEmail(raw) {
+  const email = String(raw || "").trim().toLowerCase();
+  return EMAIL.test(email) && email.length <= 254 ? email : null;
 }
 
 export async function POST(request) {
@@ -41,30 +26,44 @@ export async function POST(request) {
     return Response.json({ error: "Send JSON." }, { status: 400 });
   }
 
-  const channel = body.channel === "whatsapp" ? "whatsapp" : "email";
-  const id = tidy(channel, body.identifier);
-  if (!id) {
+  const email = tidyEmail(body.email || body.identifier);
+  if (!email) {
+    return Response.json({ error: "Enter a valid email address." }, { status: 400 });
+  }
+  if (!usersConfigured()) {
+    return Response.json({ error: "Account storage is not connected yet." }, { status: 503 });
+  }
+
+  let existing;
+  try {
+    existing = await findByEmail(email);
+  } catch (error) {
+    console.error("[auth] could not read the account database:", error.message || error);
     return Response.json(
-      {
-        error:
-          channel === "email"
-            ? "That does not look like an email address."
-            : "That does not look like an Indian mobile number.",
-      },
-      { status: 400 }
+      { error: "We could not check your account just now. Please try again." },
+      { status: 503 }
     );
   }
 
-  const made = await issue(id);
+  const returning = Boolean(existing?.phone);
+  let phone = existing?.phone || null;
+  if (!returning) {
+    phone = normalisePhone(body.phone);
+    if (!phone) {
+      return Response.json({
+        ok: false,
+        needsPhone: true,
+        error: body.phone
+          ? "Enter a valid 10-digit Indian mobile number."
+          : "Add your mobile number once to finish creating your account.",
+      }, { status: 409 });
+    }
+  }
 
+  const id = `email:${email}`;
+  const made = await issue(id, { email, phone, returning });
   if (!made.ok && made.reason === "not_configured") {
-    return Response.json(
-      {
-        error: "Signing in is not switched on yet.",
-        missing: made.missing,
-      },
-      { status: 503 }
-    );
+    return Response.json({ error: "Email verification is not configured yet." }, { status: 503 });
   }
   if (!made.ok && made.reason === "too_many") {
     const mins = Math.ceil((made.retryInSeconds || 900) / 60);
@@ -77,44 +76,23 @@ export async function POST(request) {
     return Response.json({ error: "Could not start sign-in." }, { status: 500 });
   }
 
-  const value = id.slice(id.indexOf(":") + 1);
-  let result;
   try {
-    result =
-      channel === "email"
-        ? await sendEmailCode(value, made.code)
-        : await sendWhatsAppCode(value, made.code);
-  } catch (e) {
-    console.error("[auth] could not send the code:", e.message || e);
+    const sent = await sendEmailCode(email, made.code);
+    if (!sent.sent) {
+      return Response.json({ error: "Email verification is not connected yet." }, { status: 503 });
+    }
+  } catch (error) {
+    console.error("[auth] could not send the code:", error.message || error);
     return Response.json(
-      {
-        error:
-          channel === "email"
-            ? "We could not send the email just now. Try WhatsApp instead."
-            : "We could not send the WhatsApp message just now. Try email instead.",
-      },
+      { error: "We could not send the email just now. Please try again." },
       { status: 502 }
-    );
-  }
-
-  // The channel exists in code but has no credentials in this deployment.
-  // Say so plainly rather than claiming a code is on its way.
-  if (!result.sent) {
-    return Response.json(
-      {
-        error:
-          channel === "email"
-            ? "Email sign-in is not connected yet. Try WhatsApp."
-            : "WhatsApp sign-in is not connected yet. Try email.",
-        reason: result.reason,
-      },
-      { status: 503 }
     );
   }
 
   return Response.json({
     ok: true,
-    channel,
+    email,
+    returning,
     expiresInSeconds: made.expiresInSeconds,
   });
 }

@@ -85,6 +85,20 @@ function check(condition, what, detail = "") {
 
 const session = await import("../lib/session.js");
 const otp = await import("../lib/otp.js");
+const readiness = await import("../lib/auth-ready.js");
+
+// The public pages must not be accidentally locked while production setup is
+// incomplete. The gate activates only when all four services are present.
+delete process.env.MONGODB_URI;
+delete process.env.RESEND_API_KEY;
+delete process.env.FROM_EMAIL;
+check(readiness.authReady() === false,
+      "member access stays off while MongoDB or email delivery is missing");
+process.env.MONGODB_URI = "mongodb://unused.invalid/test";
+process.env.RESEND_API_KEY = "test-resend-key";
+process.env.FROM_EMAIL = "Market Tide <test@example.com>";
+check(readiness.authReady() === true,
+      "member access turns on when storage, delivery and signing are configured");
 
 // ------------------------------------------------------------ 1. the cookie
 
@@ -157,6 +171,14 @@ store.clear();
 const good = await otp.issue(who);
 check((await otp.check(who, good.code)).ok === true,
       "the code we sent does work");
+
+// Registration details travel with the one-time code in server-side storage,
+// rather than trusting a phone number submitted again at verification time.
+store.clear();
+const withProfile = await otp.issue(who, { phone: "+919876543210" });
+const profileVerdict = await otp.check(who, withProfile.code);
+check(profileVerdict.metadata?.phone === "+919876543210",
+      "the verified code returns its server-side registration details");
 
 // ...and only once. Somebody who reads the code over a shoulder, or out of a
 // forwarded email, must not be able to use it after the owner has.

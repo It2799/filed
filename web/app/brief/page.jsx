@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Nav from "../Nav";
 import MkFooter from "../MkFooter";
 import { SITE } from "../site";
+import AuthGate from "../AuthGate";
 
 /**
  * One page for the brief: read it, download it, subscribe to it.
@@ -66,7 +67,7 @@ export default function Brief() {
     });
 
   return (
-    <>
+    <AuthGate>
       <Nav />
       <main className="mk">
         <section className="brief-hero">
@@ -214,6 +215,6 @@ export default function Brief() {
         </section>
       </main>
       <MkFooter />
-    </>
+    </AuthGate>
   );
 }
