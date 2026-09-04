@@ -800,9 +800,13 @@ AUDIT_MISFILED = [
     # Marketing words, read as deals. A commercial agreement to sell software
     # together is not an acquisition, and "Strategic Investment Unit" was the
     # NAME of the subsidiary whose name was being changed.
+    # A partnership is not an acquisition. It is also not nothing, which is
+    # what this asserted until 4 September - the wrong answer was removed and
+    # no right one was built, so Balaji Telefilms' YouTube deal scored 44 and
+    # appeared on neither page. Now it wants "Partnership", not "below 55".
     ("Press Release",
      "Coforge expands strategic partnership with Pega to accelerate "
-     "enterprise AI transformation", None),
+     "enterprise AI transformation", "Partnership"),
     ("General Updates",
      "Change in Name of Geomysore Services India Pvt Ltd, Strategic "
      "Investment Unit of Lloyds Enterprises Limited", None),
@@ -1329,6 +1333,71 @@ for summ, want in [
     check(rules.SCORE_FOR_TAG.get(got, 0) >= 55,
           "the event was found but the filing stays below the line",
           f"{got!r} is worth {rules.SCORE_FOR_TAG.get(got)}")
+
+
+# ---------------------------------------------------------------------------
+# 20. Partnerships
+#
+# Balaji Telefilms announced a partnership with YouTube on 4 September - five
+# original shows across 200 episodes, YouTube taking global distribution and
+# monetisation, Balaji keeping the IP - and it appeared on neither page.
+#
+# Not a fetch failure and not a misfiling. Both exchanges' copies were fetched
+# and the PDF was read. There was simply nowhere for it to go: "strategic
+# partnership" had been taken out of Acquisition the day before, correctly,
+# because a reselling agreement is not a takeover. The wrong answer was
+# removed and no right one was built.
+# ---------------------------------------------------------------------------
+
+PARTNERSHIPS = [
+    "Ekta Kapoor's Balaji Telefilms Ltd partners with YouTube to launch 5 "
+    "exclusive premium shows",
+    "Coforge expands strategic partnership with Pega to accelerate enterprise "
+    "AI transformation",
+    "The Company has signed a Memorandum of Understanding with the Government "
+    "of Gujarat",
+    "Kirloskar Oil Engines has entered into a strategic partnership with DEUTZ "
+    "to supply engine platforms",
+    "The company has entered into a distribution agreement with a European "
+    "partner",
+]
+for text in PARTNERSHIPS:
+    pts, tag = rules.score_text(text, floor=0)
+    check(tag == "Partnership" and pts >= 55,
+          "a partnership has nowhere to go again",
+          f"{(pts, tag)} <- {text[:58]!r}")
+
+# It sits BELOW the deal categories on purpose. A partnership is real news and
+# it is not a change of ownership, so anything that moves ownership wins.
+OWNERSHIP_WINS = [
+    ("Acquisition of 100% shareholding in XYZ Private Limited", "Acquisition"),
+    ("Entered into a joint venture agreement with ABC Limited", "Acquisition"),
+    ("Scheme of Arrangement between the Company and its subsidiary",
+     "Scheme Of Arrangement"),
+    ("The company made a strategic investment acquiring a 26% stake in ABC "
+     "Limited", "Acquisition"),
+]
+for text, want in OWNERSHIP_WINS:
+    pts, tag = rules.score_text(text, floor=0)
+    check(tag == want,
+          f"a partnership pattern is outranking {want}",
+          f"{(pts, tag)} <- {text[:58]!r}")
+
+# And a press release announcing one is found through the whole path - which
+# is the case that started this: category "Press Release", headline "Please
+# refer attached file", the news three paragraphs into the attachment.
+got = pipeline.category_from_summary(
+    "Company Update / Press Release / Media",
+    "Please refer attached file.",
+    "Please refer attached file. Balaji Telefilms and YouTube have come "
+    "together in a landmark strategic partnership, launching a slate of five "
+    "original shows spanning 200 episodes.")
+check(got == "Partnership",
+      "a press release announcing a partnership is still lost",
+      repr(got))
+check(rules.SCORE_FOR_TAG.get(got, 0) >= 55,
+      "the partnership was found but the filing stays below the line",
+      f"{got!r} is worth {rules.SCORE_FOR_TAG.get(got)}")
 
 
 # ---------------------------------------------------------------------------

@@ -313,6 +313,28 @@ TOPICS = [
                                  # Vehicles Limited." - the whole headline, with
                                  # no verb at all.
                                  r"business order|export order|repeat order"),
+    # A partnership is not an acquisition and it is not nothing.
+    #
+    # "Strategic partnership" used to sit inside Acquisition, which was wrong -
+    # Coforge expanding a reselling agreement with Pega is not a takeover - so
+    # it was taken out on 3 September. That left no home for it at all, and the
+    # next day Balaji Telefilms announced a partnership with YouTube for five
+    # original shows across 200 episodes and scored 44, below the line, on
+    # neither page. Removing the wrong answer without building the right one.
+    #
+    # Kept below the deal categories: a partnership is real news and it is not
+    # a change of ownership.
+    ("Partnership",          56, r"strategic (partnership|alliance|tie-?up|"
+                                 r"collaboration)|"
+                                 r"partner(s|ed|ing)? with\b|"
+                                 r"partnership with\b|"
+                                 r"(signs?|signed|enters? into|entered into|"
+                                 r"executed)[^.]{0,50}"
+                                 r"(memorandum of understanding|\bmou\b|"
+                                 r"collaboration agreement|partnership agreement|"
+                                 r"distribution agreement|licen[sc]ing agreement|"
+                                 r"technology transfer|definitive agreement)|"
+                                 r"\bmou\b with\b|joint development agreement"),
     ("Dividend",             60, r"\bdividend\b"),
     # Pharma had no category at all, so a whole class of material news scored
     # nothing and stayed off the front page. Suven Life Sciences announced the
