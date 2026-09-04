@@ -335,6 +335,24 @@ def summarise(kept, provider_list, max_summaries, workers=4, log=print):
                 f"{a['tag']} -> {better}")
             a["tag"] = better
             fixed += 1
+
+            # A relabel may also PROMOTE, which it could not before.
+            #
+            # The score used to be left alone here on purpose, so a filing kept
+            # its place on the page and only got a truer name. That was right
+            # while everything being relabelled was already above the line.
+            # It is wrong for a press release: a company files one under the
+            # category "Press Release" with the headline "Please refer attached
+            # file", which scores 44, and 44 is below the line. Renaming it
+            # "Order" and leaving it at 44 puts a Rs 100 crore order win on a
+            # page nobody reads. Balaji Telefilms filed on both exchanges on
+            # 4 September and appeared on neither.
+            #
+            # Only upwards, and only to what the new tag is worth. A summary
+            # can rescue a filing the headline buried; it can never bury one.
+            worth_now = rules.SCORE_FOR_TAG.get(better, 0)
+            if worth_now > a.get("score", 0):
+                a["score"] = worth_now
     if fixed:
         log(f"  ({fixed} categories taken from the summary rather than the document)")
 

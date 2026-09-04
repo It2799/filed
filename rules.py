@@ -259,7 +259,10 @@ TOPICS = [
     # receiv(ing|ed|t), which spells receiving, received and receivt. The one
     # spelling it missed is the one the exchanges actually use: "Receipt of
     # Order" scored 18/Other whenever the category was too vague to save it.
-    ("Order",                62, r"bagging|(receipt|receiving|received) of "
+    # "of" is optional. "Receipt of order" and "received an order" are the
+    # same news; only the first was matched, so a press release saying the
+    # company "received an order worth Rs 120 crore" scored nothing.
+    ("Order",                62, r"bagging|(receipt|receiving|received)( of)? "
                                  r"(an? |the )?(orders?|contracts?|letter of award)|"
                                  # "Awarding of order(s)/contract(s)" is BSE's
                                  # own name for the order category, and this
@@ -609,6 +612,30 @@ _RETAG_RE = [(tag, re.compile(p, re.I)) for tag, p in RETAG]
 _VAGUE_RE = [re.compile(p, re.I) for p in VAGUE]
 _TOPIC_RE = [(tag, pts, re.compile(p, re.I)) for tag, pts, p in TOPICS]
 
+# What each tag is worth, so a filing relabelled off its AI summary can take
+# the new tag's score with it.
+#
+# This exists for the press releases. A company files one under the category
+# "Press Release" with the headline "Please refer attached file", which scores
+# 44 - below the 55 needed to be shown, and below the 55 needed to be
+# SUMMARISED, so nothing ever asked what the release said. Balaji Telefilms
+# filed on both exchanges on 4 September and appeared on neither page.
+#
+# Highest wins where a tag appears twice in TOPICS, which is how a couple of
+# them are written.
+SCORE_FOR_TAG = {}
+for _tag, _pts, _ in TOPICS:
+    SCORE_FOR_TAG[_tag] = max(SCORE_FOR_TAG.get(_tag, 0), _pts)
+
+
+# A company issues a press release because it wants the news noticed, so the
+# document is worth reading even when the headline says nothing at all.
+PRESS_RELEASE_CAT = re.compile(r"press release|media release", re.I)
+
+
+def is_press_release(category):
+    return bool(PRESS_RELEASE_CAT.search(category or ""))
+
 # ---------------------------------------------------------------------------
 # 6. THE THREE MEETING KINDS
 #    BSE files calls and meetings under ONE heading - "Analysts/Institutional
@@ -644,6 +671,10 @@ _MEETING_TAGS = {tag for tag, _ in MEETING_KINDS}
 # The score each kind carries, kept in step with TOPICS above so a concall out
 # of BSE's shared bucket ranks the same as one filed under a clear heading.
 MEETING_SCORE = {"Investor Presentation": 57, "Concall": 56, "Investor Meet": 55}
+
+# The three meeting kinds and the promoter/notice tags are scored by their own
+# constants rather than by a topic pattern, so they have to be added by hand.
+SCORE_FOR_TAG.update(MEETING_SCORE)
 
 # ---------------------------------------------------------------------------
 # 7. PROMOTER DEALING vs THE COMPANY ACQUIRING SOMETHING
@@ -719,6 +750,7 @@ _INTERSE = re.compile(
     r"exempt(ed)? from[^.]{0,30}open offer", re.I)
 
 INTERSE_SCORE = 45
+SCORE_FOR_TAG["Inter-se Transfer"] = INTERSE_SCORE
 
 
 def interse_transfer(text):
@@ -767,6 +799,7 @@ def promoter_deal(text):
 _DEALING_TAGS = {"Acquisition", "Stake Change", "Promoter Buy/Sell", "Other",
                  "Open Offer", "Rights Issue", "Inter-se Transfer"}
 PROMOTER_SCORE = 58
+SCORE_FOR_TAG["Promoter Buy/Sell"] = PROMOTER_SCORE
 
 
 # ---------------------------------------------------------------------------

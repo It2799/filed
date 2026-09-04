@@ -33,6 +33,7 @@ import requests
 
 import dedupe
 import mcap
+import rules
 import triage
 import pipeline
 
@@ -268,10 +269,32 @@ def main():
         kept = dedupe.collapse(kept)
 
         worth = [a for a in kept if a.get("score", 0) >= args.important_at]
-        cap = args.max_summaries or len(worth)
-        print(f"{len(kept)} stored, {len(worth)} relevant. Summarising "
-              + ("all." if not args.max_summaries else f"up to {cap}."))
-        pipeline.summarise(worth, provider_list, cap, workers=args.workers)
+
+        # Press releases get read even when they score below the line.
+        #
+        # A company files one under the category "Press Release" with the
+        # headline "Please refer attached file". That scores 44, and 44 is
+        # below the 55 needed to be summarised - so nothing ever asked what
+        # the release said, and the one thing a company issues BECAUSE it
+        # wants the news noticed was the one thing never read. 31 of the 33
+        # press releases filed on 4 September scored under the line, Balaji
+        # Telefilms' among them.
+        #
+        # The regex cannot help here: the headline says nothing and the topic
+        # patterns have nothing to match. Only the summary can, and once it
+        # names a real event the relabel in pipeline.summarise promotes the
+        # filing to what that event is worth.
+        also_read = [a for a in kept
+                     if a.get("score", 0) < args.important_at
+                     and rules.is_press_release(a.get("category", ""))]
+        todo = worth + also_read
+
+        cap = args.max_summaries or len(todo)
+        print(f"{len(kept)} stored, {len(worth)} relevant "
+              f"(+{len(also_read)} press releases below the line). "
+              + ("Summarising all." if not args.max_summaries
+                 else f"Summarising up to {cap}."))
+        pipeline.summarise(todo, provider_list, cap, workers=args.workers)
 
         if not args.no_mcap:
             mcap.attach(kept, workers=read_workers)

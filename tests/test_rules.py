@@ -1187,6 +1187,75 @@ for cat, head, want in [
 
 
 # ---------------------------------------------------------------------------
+# 18. The press releases
+#
+# A company files a press release under the category "Press Release" with the
+# headline "Please refer attached file". That scores 44 - below the 55 needed
+# to be shown, and below the 55 needed to be SUMMARISED. So nothing ever asked
+# what the release said, and the one thing a company issues BECAUSE it wants
+# the news noticed was the one thing never read.
+#
+# 31 of the 33 press releases filed on 4 September scored under the line.
+# Balaji Telefilms filed on both exchanges and appeared on neither page.
+#
+# The regex cannot help: the headline says nothing. Only the summary can, and
+# once it names a real event the filing has to be promoted to what that event
+# is worth - which the relabel step refused to do, by design, until now.
+# ---------------------------------------------------------------------------
+
+check(rules.is_press_release("Company Update / Press Release / Media"),
+      "a press release category is not being recognised")
+check(rules.is_press_release("Press Release"),
+      "a bare press release category is not being recognised")
+check(not rules.is_press_release("Corp. Action / Book Closure"),
+      "an ordinary category is being treated as a press release")
+
+# The headline alone is worthless, which is the whole problem.
+check(rules.score("Company Update / Press Release / Media",
+                  "Please refer attached file.")[0] < 55,
+      "the premise has changed - a bare press release headline now scores")
+
+# ...and the summary rescues it, with a score to match.
+BURIED_IN_A_PRESS_RELEASE = [
+    ("Balaji Telefilms received an order worth Rs 120 crore for a web series "
+     "slate.", "Order"),
+    ("Lupin has received approval from the USFDA for its generic version of "
+     "the drug.", "Product Approval"),
+    ("The company commissioned its new 500 MW greenfield plant at Jamnagar.",
+     "Capacity Increase"),
+    ("The board approved the acquisition of a 74% stake in ABC Private "
+     "Limited for Rs 260 crore.", "Acquisition"),
+]
+for summ, want in BURIED_IN_A_PRESS_RELEASE:
+    got = pipeline.category_from_summary(
+        "Company Update / Press Release / Media", "Please refer attached file.",
+        "Please refer attached file. " + summ)
+    check(got == want,
+          "real news inside a press release is not being found",
+          f"got {got!r}, wanted {want!r} <- {summ[:52]!r}")
+    check(rules.SCORE_FOR_TAG.get(got, 0) >= 55,
+          "the news was found but the filing stays below the line",
+          f"{got!r} is worth {rules.SCORE_FOR_TAG.get(got)}")
+
+# Every tag a summary can produce needs a score, or promoting it does nothing.
+for _tag in set(t for t, _, _ in rules.TOPICS):
+    check(rules.SCORE_FOR_TAG.get(_tag, 0) > 0,
+          f"{_tag!r} has no score, so a summary naming it cannot promote",
+          repr(rules.SCORE_FOR_TAG.get(_tag)))
+
+# "of" is optional in an order receipt - both wordings are the same news.
+for text in [
+    "The company received an order worth Rs 500 crore from NHAI",
+    "Receipt of order from Tata Projects Limited",
+    "Company has received orders aggregating Rs 45 crore",
+]:
+    pts, tag = rules.score_text(text, floor=0)
+    check(tag == "Order",
+          "an order win is not being recognised",
+          f"{(pts, tag)} <- {text[:56]!r}")
+
+
+# ---------------------------------------------------------------------------
 
 print(f"{CHECKS[0]} checks")
 if FAILURES:
