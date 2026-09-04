@@ -1401,6 +1401,149 @@ check(rules.SCORE_FOR_TAG.get(got, 0) >= 55,
 
 
 # ---------------------------------------------------------------------------
+# 21. Pref, Warrants, Promoter Buy/Sell, Dividend, Order, Acquisition
+#
+# Read end to end on 4 September, all six categories Ishan named. What came out
+# was four separate faults, none of which the evidence audit could see, because
+# every one of these filings does contain the words its category looks for.
+# ---------------------------------------------------------------------------
+
+# (a) A notice that the BOARD will meet, filed as the thing it will consider.
+#     The same mistake as the AGM notice, one meeting down. None of these
+#     boards had met.
+BOARD_NOTICES = [
+    "Manba Finance will hold a board meeting on 22 Sep 2026 to consider "
+    "increasing its authorised share capital",
+    "NHC Foods Ltd announced that its board will meet on September 9, 2026 to "
+    "discuss a possible fund raise",
+    "Commercial Syn Bags Limited will hold a board meeting on September 5, "
+    "2026. The board will discuss a preferential issue",
+    "Intimation of Board Meeting to be held on 12 September to consider and "
+    "approve the unaudited financial results",
+]
+for text in BOARD_NOTICES:
+    check(rules.board_meeting_notice(text),
+          "a notice of a future board meeting is not being recognised",
+          f"{text[:60]!r}")
+    got = pipeline.category_from_summary("Company Update / General", text, text)
+    check(got == "Board Meeting",
+          "a board that has not met yet is being credited with the decision",
+          f"got {got!r} <- {text[:56]!r}")
+
+# ...and a board that HAS met keeps its decision.
+BOARD_DECIDED = [
+    ("Outcome of Board Meeting: the board approved a preferential issue of "
+     "10 lakh shares", "Pref"),
+    ("The board approved a preferential issue of up to 10 lakh equity shares "
+     "at Rs 161 each", "Pref"),
+    ("Kiri Industries is issuing 60.82 lakh warrants to its promoters at "
+     "Rs 475 per warrant", "Warrants"),
+    ("Proceedings of the board meeting held on 3 September, at which the "
+     "dividend was approved", "Dividend"),
+]
+for text, want in BOARD_DECIDED:
+    check(not rules.board_meeting_notice(text),
+          "a completed board decision is being treated as a notice",
+          f"{text[:60]!r}")
+    pts, tag = rules.score_text(text, floor=0)
+    check(tag == want, f"this should still be {want}", f"{(pts, tag)}")
+
+# (b) Registering a new company is not buying one. 15 of the 144 filings under
+#     Acquisition were a company incorporating a subsidiary.
+NEW_SUBSIDIARIES = [
+    "Bondada Engineering has incorporated a new subsidiary, PhotonicGrid "
+    "Networks Private Limited",
+    "Brigade Enterprises has incorporated two wholly owned subsidiaries to "
+    "develop projects",
+    "Dhanuka Agritech has incorporated a wholly owned subsidiary in Ireland",
+    "TechEra Engineering announced the incorporation of a new subsidiary "
+    "named TechEra Aeronautics",
+    "Craftsman Automation has set up a step-down subsidiary in Germany",
+]
+for text in NEW_SUBSIDIARIES:
+    pts, tag = rules.score_text(text, floor=0)
+    check(tag == "New Subsidiary",
+          "registering a company is being published as buying one",
+          f"{(pts, tag)} <- {text[:56]!r}")
+
+# ...and buying one still is.
+for text, want in [
+    ("Acquisition of 100% shareholding in XYZ Private Limited", "Acquisition"),
+    ("The company acquired a 74% stake in its new subsidiary ABC Ltd",
+     "Acquisition"),
+    ("Scheme of Arrangement between the Company and its wholly owned "
+     "subsidiary", "Scheme Of Arrangement"),
+]:
+    pts, tag = rules.score_text(text, floor=0)
+    check(tag == want, f"a real {want} was lost to New Subsidiary",
+          f"{(pts, tag)} <- {text[:56]!r}")
+
+# (c) The promoter verb list. "sold" and "sell" were listed; "sale" and
+#     "buying" were not, so a promoter's own dealing matched no verb and its
+#     summary relabelled it an Acquisition.
+PROMOTER_WORDINGS = [
+    "Promoter Kiran B Vadodaria disclosed an open-market sale of 1,000,000 "
+    "Nila Spaces shares",
+    "Promoter S. Aravindan disclosed buying 9,481 additional shares in the "
+    "open market",
+    "Promoters Aditi Panandikar and Madhura Kare bought a total of 4,000 "
+    "equity shares",
+    "Promoter group PRI CAF PVT LTD has released pledged shares",
+]
+for text in PROMOTER_WORDINGS:
+    check(rules.promoter_deal(text),
+          "a promoter dealing matches none of the verbs",
+          f"{text[:60]!r}")
+    pts, tag = rules.score_text(text, floor=0)
+    check(tag == "Promoter Buy/Sell",
+          "a promoter dealing is not being recognised",
+          f"{(pts, tag)} <- {text[:56]!r}")
+
+# A buyback must not be swept up by the new "buy" verb.
+pts, tag = rules.score_text(
+    "Board Resolution approving buy-back of equity shares up to Rs 400 crore "
+    "held by promoters and public shareholders", floor=0)
+check(tag == "Buyback",
+      "the promoter verb list has swallowed a buyback",
+      f"{(pts, tag)}")
+
+# (d) Who moved the shares is not something a summary can overturn. These tags
+#     come from the stake-disclosure category, which is the authoritative
+#     record of WHO; a summary that simply does not repeat the word "promoter"
+#     is not evidence against it.
+for current in ("Promoter Buy/Sell", "Inter-se Transfer"):
+    got = pipeline.category_from_summary(
+        "Insider Trading / SAST",
+        "The Exchange has received the disclosure under Regulation 29(2)",
+        "Innovative Money Matters Pvt Ltd acquired 55,000 shares of Avonmore "
+        "Capital & Management Services Ltd, raising its stake from 33.55% to "
+        "33.57% via an open market purchase",
+        current)
+    check(got != "Acquisition",
+          f"a summary is overturning {current!r}, which the category settled",
+          f"got {got!r}")
+
+# But a genuine corporate acquisition in the same position still wins.
+got = pipeline.category_from_summary(
+    "Company Update / General", "Outcome of board meeting",
+    "The board approved the acquisition of a 74% stake in ABC Private Limited "
+    "for Rs 260 crore from its existing shareholders", "Other")
+check(got == "Acquisition",
+      "a real acquisition is being refused", f"got {got!r}")
+
+# (e) A registrar change is not a warrant issue. The letter recites every
+#     class of security the registrar will handle, which is how S&S Power
+#     Switchgear's "Change in RTA" reached Warrants at 61.
+for head in [
+    "Announcement under Regulation 30 (LODR) - Change in RTA",
+    "Change in Registrar and Share Transfer Agent from GNSA to KFin",
+]:
+    pts, tag = rules.score("Company Update / General", head)
+    check(pts < 55, "a registrar change is above the important line",
+          f"{(pts, tag)} <- {head[:56]!r}")
+
+
+# ---------------------------------------------------------------------------
 
 print(f"{CHECKS[0]} checks")
 if FAILURES:

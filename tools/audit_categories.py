@@ -44,6 +44,8 @@ EVIDENCE = {
              r"bagg|bags\b|\bwon\b|\bwins\b|secured|award|work order|"
              r"purchase order|mandate",
     "Dividend": r"dividend",
+    "New Subsidiary": r"subsidiar|incorporat|llp|formed|set up|"
+                      r"joint venture company",
     "Partnership": r"partner|alliance|collaborat|\bmou\b|memorandum of "
                    r"understanding|tie.?up|agreement",
     "Product Approval": r"approv|authoris|authoriz|\bfda\b|usfda|\bema\b|"

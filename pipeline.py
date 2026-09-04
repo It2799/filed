@@ -124,7 +124,7 @@ WEAK_FROM_SUMMARY = {"Meeting", "Routine", "Other", "Outcome", "Press Release",
                      "Corp Action", "Annual Report"}
 
 
-def category_from_summary(category, headline, blob):
+def category_from_summary(category, headline, blob, current=None):
     """The category a filing's own words argue for, or None to keep what it has.
 
     Pulled out of summarise() so the tests exercise the real decision instead
@@ -185,6 +185,32 @@ def category_from_summary(category, headline, blob):
     # Seven filings under Dividend on 3 September were meeting notices that
     # got there this way, along with several under Pref and Warrants.
     substantive = from_summary and from_summary not in WEAK_FROM_SUMMARY
+
+    # Who moved the shares is not something a summary can overturn.
+    #
+    # Promoter Buy/Sell and Inter-se Transfer are set from the stake-disclosure
+    # category, which is the authoritative record of WHO - the form is filed
+    # under SAST precisely to say so. The summary of one reads "Innovative
+    # Money Matters Pvt Ltd acquired 55,000 shares of Avonmore Capital",
+    # never using the word promoter at all, and scoring that gives Acquisition
+    # at 65. Twelve promoter dealings were being relabelled acquisitions on
+    # exactly that: a sentence that does not contradict the category, it just
+    # does not repeat it.
+    if (current in ("Promoter Buy/Sell", "Inter-se Transfer")
+            and from_summary in ("Acquisition", "Stake Change")):
+        from_summary = None
+
+    # A notice that the BOARD is going to meet is the same mistake one meeting
+    # down: it names the thing the board will consider, so it was filed as that
+    # thing. Manba Finance's "will hold a board meeting to consider increasing
+    # its authorised share capital" came out as Pref; NHC Foods' "board will
+    # meet to discuss a possible fund raise" as Warrants. Neither board had met.
+    #
+    # Checked before the general meeting test and before everything else,
+    # because a board notice mentioning the AGM would otherwise become a
+    # Meeting - which is nearer, and still not what the filing is.
+    if rules.board_meeting_notice(blob):
+        return "Board Meeting"
 
     if rules.meeting_notice(category or "", headline or "", ""):
         from_summary = "Meeting"
@@ -328,7 +354,7 @@ def summarise(kept, provider_list, max_summaries, workers=4, log=print):
             continue
 
         better = category_from_summary(
-            a.get("category", ""), a.get("headline", ""), blob)
+            a.get("category", ""), a.get("headline", ""), blob, a.get("tag"))
 
         if better and better != a["tag"]:
             log(f"  relabelled: {a['company'][:36]:<38} "

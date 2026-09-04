@@ -51,6 +51,12 @@ JUNK = [
     # Depository plumbing: the date a company's shares became transferable at
     # CDSL or NSDL.
     r"date of connectivity|connectivity (informed|intimated) by",
+    # Changing the registrar. The letter is addressed to shareholders and
+    # recites every class of security the registrar will handle, so S&S Power
+    # Switchgear's "Change in RTA" was published under Warrants at 61.
+    r"change (in|of) \brta\b|change (in|of) registrar|"
+    r"registrar and (share )?transfer agent|\brta\b (change|transition)|"
+    r"appointment of (the )?registrar",
     # A mutual fund's own paperwork - portfolio statements, net asset values,
     # expense ratios - which BSE carries alongside company announcements. A
     # fortnightly portfolio lists every instrument the fund holds, so reading
@@ -231,7 +237,26 @@ TOPICS = [
                                  r"warrants? (allotment|conversion|holders?|"
                                  r"into|at rs|of rs)|"
                                  r"(issue|issuance|allotment|conversion|subscription|"
-                                 r"exercise) of[^.]{0,30}warrants?"),
+                                 r"exercise) of[^.]{0,30}warrants?|"
+                                 # "of" is optional here too, and the quantity
+                                 # sits in between: "is issuing 60.82 lakh
+                                 # warrants to its promoters at Rs 475 per
+                                 # warrant" matched nothing at all.
+                                 # "of" is optional here too, and the quantity
+                                 # sits in between: "is issuing 60.82 lakh
+                                 # warrants to its promoters" matched nothing.
+                                 #
+                                 # The verb has to come FIRST. "Search warrant
+                                 # issued by the Income Tax Department" is a
+                                 # raid, and an earlier attempt at this made it
+                                 # a securities issue - which is why the
+                                 # pattern was tight in the first place.
+                                 # .{0,30} and not [^.]{0,30}: the quantity in
+                                 # between is "60.82 lakh", and a full stop
+                                 # class stops dead on the decimal point.
+                                 r"(issu|allot|convert|subscrib)\w*"
+                                 r".{0,30}\bwarrants?\b|"
+                                 r"\bwarrants? (issue\b|price|per warrant)"),
     ("Pref",                 60, r"preferential (issue|allotment|basis)|on a preferential"),
     # "fund raising" written forwards only. Half the filings say it backwards -
     # "raising of funds", "raise funds up to Rs 500 crore" - and those scored
@@ -734,8 +759,16 @@ SCORE_FOR_TAG.update(MEETING_SCORE)
 _PROMOTER_ACTOR = re.compile(
     r"promoter|promotor|\bpac\b|person acting in concert", re.I)
 
+# "sold" and "sell" were listed; "sale" was not. Nila Spaces' promoter
+# "disclosed an open-market sale of 1,000,000 shares" matched no verb at all,
+# so the filing was not recognised as a promoter dealing and its summary
+# relabelled it an Acquisition.
 _PROMOTER_DEAL = re.compile(
-    r"(acquir|purchas|bought|sold|sell|dispos|transferr?|gift|pledg|encumbr)", re.I)
+    r"(acquir|purchas|bought|sold|sell|sale|dispos|divest|"
+    # a word-bounded buy/buys/buying, not bare "buy", so that a buyback filing mentioning
+    # promoters is not read as one of them dealing.
+    r"\bbuy(s|ing)?\b|"
+    r"transferr?|gift|pledg|encumbr|subscrib)", re.I)
 
 # A real corporate deal, which wins even when a promoter is named nearby.
 _CORPORATE_DEAL = re.compile(
@@ -811,6 +844,44 @@ def interse_transfer(text):
     cleaned = _FORM_OPTION_LIST.sub(" ", text)
     cleaned = re.sub(r"\(e\.?g\.?[^)]{0,200}\)", " ", cleaned, flags=re.I)
     return bool(_INTERSE.search(cleaned))
+
+
+# Setting a company up is not buying one.
+#
+# 15 of the 144 filings under Acquisition were a company incorporating a
+# subsidiary - Bondada Engineering, Brigade Enterprises, Fineotex, Kalpataru,
+# Aurobindo, Dhanuka in Ireland, Craftsman in Germany. Nothing was bought and
+# no money changed hands with anyone; the company registered a new entity,
+# usually to enter a market or ring-fence a project.
+#
+# Real news, so it sits above the line, and clearly not a deal.
+_NEW_SUBSIDIARY = re.compile(
+    r"(incorporat\w+|form(ed|ation|ing)|set up|setting up|establish\w+|"
+    r"registered)[^.]{0,70}"
+    r"(wholly[- ]owned subsidiar|step[- ]down subsidiar|new subsidiar|"
+    r"subsidiar\w+ (company|named)|joint venture company)|"
+    r"incorporation of[^.]{0,50}(subsidiar|company|\bllp\b)", re.I)
+
+# ...unless it actually bought something, which wins.
+_BOUGHT_SOMETHING = re.compile(
+    r"acquisition of[^.]{0,50}(stake|shareholding|equity|business|"
+    r"undertaking|division)|"
+    r"acquir(e|ed|es|ing)[^.]{0,50}(stake|shareholding|\d[\d.]*\s?%|per cent)|"
+    r"share purchase agreement|slump sale|"
+    r"scheme of (arrangement|amalgamation|merger|demerger)|"
+    r"open offer|detailed public statement", re.I)
+
+NEW_SUBSIDIARY_SCORE = 56
+SCORE_FOR_TAG["New Subsidiary"] = NEW_SUBSIDIARY_SCORE
+
+
+def new_subsidiary(text):
+    """Did the company register a new entity rather than buy one?"""
+    if not text:
+        return False
+    if _BOUGHT_SOMETHING.search(text):
+        return False
+    return bool(_NEW_SUBSIDIARY.search(text))
 
 
 def promoter_deal(text):
@@ -918,6 +989,55 @@ def meeting_notice(category, headline, body=""):
     return bool(_MEETING_NOTICE_TEXT.search((headline or "") + " " + (body or "")))
 
 
+# The same mistake again, one meeting down.
+#
+# A company must tell the exchange when its board is GOING to meet and what it
+# will consider. That notice names the thing it will consider, so it was being
+# filed as that thing:
+#
+#   Manba Finance        "will hold a board meeting on 22 Sep to consider
+#                         increasing its authorised share capital"      -> Pref
+#   NHC Foods            "board will meet on 9 Sep to discuss a possible
+#                         fund raise"                               -> Warrants
+#   Commercial Syn Bags  "will hold a board meeting on 5 September"  -> Warrants
+#
+# None of them has decided anything. The board has not met.
+_BOARD_FUTURE = re.compile(
+    r"(board (meeting|of directors)[^.]{0,90}"
+    r"(will be held|is scheduled|to be held|will meet|shall be held|"
+    r"is proposed to be held)|"
+    r"(will hold|has scheduled|is convening|to convene)[^.]{0,40}"
+    r"board meeting|"
+    r"board (of directors )?will (meet|consider))", re.I)
+
+_BOARD_PURPOSE = re.compile(
+    r"to consider|to discuss|to approve|to evaluate|inter[- ]alia|"
+    r"for considering|to transact|"
+    # The purpose is often a sentence later, in the future tense: "...will hold
+    # a board meeting on September 5. The board will discuss a preferential
+    # issue." Commercial Syn Bags, filed as Warrants.
+    r"will (discuss|consider|deliberate|evaluate|take up)", re.I)
+
+# What makes it the EVENT rather than the notice. A board that has met and
+# decided is news; these words say it did.
+_BOARD_DONE = re.compile(
+    r"\boutcome\b|has approved|have approved|board approved|"
+    r"board has|were approved|was approved|approved the (allotment|issue|"
+    r"scheme|acquisition|appointment)|allotted|"
+    r"proceedings of|minutes of|considered and approved", re.I)
+
+BOARD_NOTICE_SCORE = 41
+
+
+def board_meeting_notice(text):
+    """Is this only a notice that the board is going to meet?"""
+    if not text:
+        return False
+    if _BOARD_DONE.search(text):
+        return False
+    return bool(_BOARD_FUTURE.search(text) and _BOARD_PURPOSE.search(text))
+
+
 def meeting_kind(category, headline):
     """Which of the three this filing actually is. Headline wins."""
     for tag, rx in _MEETING_RE:
@@ -1022,6 +1142,8 @@ def score(category, headline, critical=False):
         # pattern, so it has to be asked about here too. "Internal transfer of
         # shares between members of the promoter group" matches no topic at
         # all and would otherwise leave as Other(18).
+        if new_subsidiary(category + " || " + headline):
+            return NEW_SUBSIDIARY_SCORE, "New Subsidiary"
         if interse_transfer(category + " || " + headline):
             return INTERSE_SCORE, "Inter-se Transfer"
         if promoter_deal(category + " || " + headline):
@@ -1054,7 +1176,9 @@ def score(category, headline, critical=False):
 
     # A promoter dealing in their own shares is not the company acquiring
     # anything. See section 7 - points cannot separate these, only the actor.
-    if tag in _DEALING_TAGS and interse_transfer(both):
+    if tag in _DEALING_TAGS and new_subsidiary(both):
+        tag, pts = "New Subsidiary", NEW_SUBSIDIARY_SCORE
+    elif tag in _DEALING_TAGS and interse_transfer(both):
         tag, pts = "Inter-se Transfer", INTERSE_SCORE
     elif tag in _DEALING_TAGS and promoter_deal(both):
         tag, pts = "Promoter Buy/Sell", PROMOTER_SCORE
@@ -1098,6 +1222,19 @@ def score_text(text, floor=0):
         # promoter deals and meeting notices in score().
         if meeting_notice("", "", body):
             return MEETING_NOTICE_SCORE, "Meeting"
+        # Registering a new company matches no topic either - nothing was
+        # bought, sold, issued or paid. 15 of the 144 filings under Acquisition
+        # were this, and they got there from the PDF rather than from here.
+        if new_subsidiary(body):
+            return NEW_SUBSIDIARY_SCORE, "New Subsidiary"
+        # A promoter dealing matches no topic either - "disclosed an
+        # open-market sale of 1,000,000 shares" names no event the topic
+        # patterns know. score() has asked this at its own early return since
+        # the start; this function never did.
+        if interse_transfer(body):
+            return INTERSE_SCORE, "Inter-se Transfer"
+        if promoter_deal(body):
+            return PROMOTER_SCORE, "Promoter Buy/Sell"
         return 0, None
     pts, tag = max(hits)
 
@@ -1126,7 +1263,9 @@ def score_text(text, floor=0):
         if kind:
             tag, pts = kind, MEETING_SCORE[kind]
 
-    if tag in _DEALING_TAGS and interse_transfer(body):
+    if tag in _DEALING_TAGS and new_subsidiary(body):
+        tag, pts = "New Subsidiary", NEW_SUBSIDIARY_SCORE
+    elif tag in _DEALING_TAGS and interse_transfer(body):
         tag, pts = "Inter-se Transfer", INTERSE_SCORE
     elif tag in _DEALING_TAGS and promoter_deal(body):
         tag, pts = "Promoter Buy/Sell", PROMOTER_SCORE
