@@ -256,9 +256,18 @@ async function trigger(request) {
   // ?force=1 skips the check.
   const force = url.searchParams.get("force") === "1";
 
-  // Checked on every tick, and before the scrape decision returns early -
-  // otherwise the brief would only ever be looked at on the ticks that
-  // happened to start a scrape, which is most of them but not all.
+  // NOTE: this whole route is currently inert in production.
+  //
+  // It needs CRON_SECRET and GITHUB_DISPATCH_TOKEN, and neither is set on the
+  // Vercel project - "vercel env ls production" lists five variables, all of
+  // them Redis. So it answers 503 to every caller and always has, and the
+  // half-hourly refresh that does happen comes from scrape.yml dispatching its
+  // own successor, not from here.
+  //
+  // The brief check below was written on 4 September and described as working.
+  // It never ran once. It now lives in tools/ensure_brief.py, called by
+  // scrape.yml, which is the thing that actually runs. This stays for the day
+  // the two secrets are set, and is harmless until then.
   const brief = await ensureBrief(token);
 
   if (!force) {

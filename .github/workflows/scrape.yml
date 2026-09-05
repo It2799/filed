@@ -267,6 +267,27 @@ jobs:
         continue-on-error: true
         run: python tools/reconcile_feeds.py --show 10 --fail-over 120
 
+      # Make sure today's morning brief exists.
+      #
+      # This lives here because this workflow is the thing that actually runs
+      # every half hour - it dispatches its own successor, and the Actions tab
+      # proves it. The same check was written into the website's
+      # /api/cron/scrape route on 4 September and has never run once: that
+      # route needs CRON_SECRET and GITHUB_DISPATCH_TOKEN, neither of which is
+      # set on the Vercel project, so it answers 503 to every caller.
+      #
+      # Uses the machinery that works rather than the machinery that was
+      # supposed to. Never fails the run: a missing brief is a reason to start
+      # one, not to throw away a good scrape.
+      - name: Make sure today's brief is out
+        if: always()
+        continue-on-error: true
+        env:
+          KV_REST_API_URL: ${{ secrets.KV_REST_API_URL }}
+          KV_REST_API_TOKEN: ${{ secrets.KV_REST_API_TOKEN }}
+          DISPATCH_TOKEN: ${{ secrets.DISPATCH_TOKEN }}
+        run: python tools/ensure_brief.py
+
       - name: Keep the caches for the next run
         if: always()
         uses: actions/cache/save@v4
