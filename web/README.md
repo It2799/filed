@@ -33,6 +33,7 @@ private environment variables in Vercel for Production, Preview and Development:
 - `TRANSACTIONAL_FROM` — optional display sender; defaults to `Market Tide <SMTP_USER>`
 - `REPLY_TO_EMAIL` — reply destination; defaults to `market.tide27@gmail.com`
 - `KIT_API_KEY` — Kit key used to sync subscribers and send the Daily Brief
+- `KIT_FROM_EMAIL` — confirmed Kit sender; defaults to `market.tide27@gmail.com`
 - `KV_REST_API_URL` and `KV_REST_API_TOKEN` — Upstash Redis used for short-lived OTPs
 - `CRON_SECRET` — random value of at least 16 characters; Vercel sends it to the cron route
 - `GITHUB_DISPATCH_TOKEN` — GitHub token with Actions write access, used only to start the PDF worker
@@ -46,8 +47,8 @@ Daily Brief subscriptions are upserted into MongoDB's `users` collection,
 mirrored to Redis, and synced to Kit. The unique email index means a repeat
 subscription updates the same user rather than creating a duplicate. The
 morning worker publishes the issue first, then creates one Kit broadcast from
-`brief@markettide.in` for all active Kit subscribers. Set Kit's account-level
-reply-to address to `market.tide27@gmail.com`.
+`market.tide27@gmail.com` for all active Kit subscribers. Transactional messages
+use the same address through Gmail SMTP, while bulk delivery remains handled by Kit.
 
 To copy existing MongoDB subscribers into Kit once, run:
 

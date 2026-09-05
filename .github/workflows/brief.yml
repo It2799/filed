@@ -94,7 +94,7 @@ jobs:
           KV_REST_API_URL: ${{ secrets.KV_REST_API_URL }}
           KV_REST_API_TOKEN: ${{ secrets.KV_REST_API_TOKEN }}
           KIT_API_KEY: ${{ secrets.KIT_API_KEY }}
-          KIT_FROM_EMAIL: brief@markettide.in
+          KIT_FROM_EMAIL: market.tide27@gmail.com
         run: >-
           python -u newsletter.py
           ${{ github.event.inputs.day && format('--day {0}', github.event.inputs.day) || '' }}

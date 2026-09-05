@@ -623,7 +623,7 @@ def main():
 
         kit_key = os.environ.get("KIT_API_KEY")
         if kit_key:
-            from_addr = os.environ.get("KIT_FROM_EMAIL", "brief@markettide.in")
+            from_addr = os.environ.get("KIT_FROM_EMAIL", "market.tide27@gmail.com")
             broadcast = send_kit_broadcast(day_iso, len(picked), kit_key, from_addr)
             broadcast_id = broadcast.get("broadcast", {}).get("id") or broadcast.get("id", "created")
             print(f"  Kit broadcast scheduled: {broadcast_id}")
