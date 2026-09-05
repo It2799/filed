@@ -9,7 +9,20 @@ name: The morning brief
 
 on:
   schedule:
+    # 07:30 IST is 02:00 UTC, and that is the slot that matters. The rest are
+    # there because GitHub drops scheduled runs, routinely and without saying
+    # so: the 02:00 slot ran at 07:03 IST on 1 September, 06:41 on the 2nd,
+    # 06:48 on the 4th, and on the 5th did not fire at all. One slot is one
+    # chance.
+    #
+    # Five chances across an hour instead. The build below skips itself if
+    # today's issue is already out, so the extra slots cost nothing on a normal
+    # day and cover for a dropped one on a bad day.
     - cron: "0 2 * * *"
+    - cron: "12 2 * * *"
+    - cron: "27 2 * * *"
+    - cron: "43 2 * * *"
+    - cron: "8 3 * * *"
 
   workflow_dispatch:
     inputs:
@@ -56,7 +69,38 @@ jobs:
       - name: Check Chrome is here
         run: google-chrome --version
 
+      # Already out? Then stop. Five scheduled slots and a watchdog in
+      # scrape.yml all aim at the same issue, and only the first should build
+      # it. A manual dispatch always builds, so a bad issue can be replaced.
+      - name: Is today's issue already out?
+        id: check
+        if: github.event_name == 'schedule'
+        env:
+          KV_REST_API_URL: ${{ secrets.KV_REST_API_URL }}
+          KV_REST_API_TOKEN: ${{ secrets.KV_REST_API_TOKEN }}
+        run: |
+          python - <<'PY' >> "$GITHUB_OUTPUT"
+          import datetime, json, os, urllib.request
+          ist = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(hours=5, minutes=30)
+          today = ist.strftime("%Y-%m-%d")
+          newest = None
+          try:
+              req = urllib.request.Request(
+                  os.environ["KV_REST_API_URL"],
+                  data=json.dumps(["GET", "mt:brief:index"]).encode(),
+                  headers={"Authorization": "Bearer " + os.environ["KV_REST_API_TOKEN"],
+                           "Content-Type": "application/json"})
+              with urllib.request.urlopen(req, timeout=20) as r:
+                  raw = json.load(r).get("result")
+              days = json.loads(raw) if raw else []
+              newest = days[0] if days else None
+          except Exception as e:
+              print(f"# could not read the index: {e}")
+          print(f"done={'yes' if newest == today else 'no'}")
+          PY
+
       - name: Build the brief
+        if: steps.check.outputs.done != 'yes'
         env:
           KV_REST_API_URL: ${{ secrets.KV_REST_API_URL }}
           KV_REST_API_TOKEN: ${{ secrets.KV_REST_API_TOKEN }}

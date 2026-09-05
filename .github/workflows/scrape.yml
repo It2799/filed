@@ -42,12 +42,29 @@ on:
     # 18:07 UTC is spelled out on its own line so the job can recognise it:
     # that is the one run a day that rescrapes the full week, and it has to be
     # identifiable from github.event.schedule.
-    # Every two hours, not every half hour. The chain is what keeps the site
-    # refreshing now; this only has to restart it if a run dies without handing
-    # over. Firing it every 30 minutes just cancelled a perfectly healthy chain
-    # run twice an hour for no gain.
-    - cron: "37 1,3,5,7,9,11,13,15,17,19,21,23 * * *"
-    - cron: "7 18 * * *"
+    # Back to every hour at two offsets, after a night that showed why.
+    #
+    # This was every two hours on the reasoning that the chain keeps the site
+    # fresh and the cron only has to restart it. The chain does not always
+    # restart: the handover step is skipped when a run is CANCELLED, which is
+    # correct - a cancelled run's replacement continues the chain - but leaves
+    # nothing behind when a run is cancelled with no replacement coming. That
+    # happened at 01:20 UTC on 5 September and the site went four hours without
+    # a scrape, because the next cron slot was two hours away and GitHub
+    # dropped it.
+    #
+    # Twice an hour costs a cancelled loop run now and then. Four-hour holes
+    # cost readers.
+    - cron: "7 * * * *"
+    - cron: "37 * * * *"
+    # 18:09 UTC, on its own line, so the job can recognise it: that is the one
+    # run a day that rescrapes the whole week. It has to be a cron string
+    # nothing else uses, because github.event.schedule reports the pattern that
+    # fired and "7 * * * *" fires at 18:07 too - which would make the nightly
+    # full pass indistinguishable from an ordinary hourly one. Changing the
+    # hourly slots to "7 * * * *" without this line silently dropped the weekly
+    # rescrape, and nothing would have failed to say so.
+    - cron: "9 18 * * *"
 
   workflow_dispatch:
     inputs:
@@ -81,7 +98,7 @@ jobs:
     # nightly cron, by hand, or the dispatch endpoint asking for days=7 - since
     # that does one sweep and exits.
     timeout-minutes: >-
-      ${{ (github.event.schedule == '7 18 * * *'
+      ${{ (github.event.schedule == '9 18 * * *'
            || github.event.inputs.days == '7') && 40 || 350 }}
 
     steps:
@@ -152,7 +169,7 @@ jobs:
           # twenty-minute passes a night.
           if [ -n "${{ github.event.inputs.days }}" ]; then
             DAYS="${{ github.event.inputs.days }}"          # asked for explicitly
-          elif [ "${{ github.event.schedule }}" = "7 18 * * *" ]; then
+          elif [ "${{ github.event.schedule }}" = "9 18 * * *" ]; then
             DAYS=7                                          # the nightly full pass
           else
             DAYS=0                                          # top-up: today only
