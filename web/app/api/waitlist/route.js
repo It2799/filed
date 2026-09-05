@@ -2,6 +2,7 @@ import { addEmail, count } from "../../../lib/store";
 import { normalisePhone } from "../../../lib/phone";
 import { confirm } from "../../../lib/notify";
 import { configured as usersConfigured, subscribeUser } from "../../../lib/users";
+import { configured as kitConfigured, upsertSubscriber } from "../../../lib/kit";
 
 export const dynamic = "force-dynamic";
 
@@ -58,6 +59,13 @@ export async function POST(request) {
       { error: "Couldn't save that. Please try again in a moment." }, { status: 500 });
   }
 
+  let kitSynced = false;
+  try {
+    kitSynced = Boolean((await upsertSubscriber(email)).ok);
+  } catch (error) {
+    console.error("[waitlist] Kit sync failed:", error.message || error);
+  }
+
   // Confirmations are best-effort. A failure here must never lose the signup,
   // so this is deliberately after the save and never throws.
   let notified = {};
@@ -71,6 +79,8 @@ export async function POST(request) {
     alreadyJoined: result.alreadyJoined,
     backend: result.backend,
     profileSaved: usersConfigured(),
+    kitConfigured: kitConfigured(),
+    kitSynced,
     gaveWhatsApp: Boolean(phone),
     emailSent: Boolean(notified.email?.sent),
     whatsappSent: Boolean(notified.whatsapp?.sent),

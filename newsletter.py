@@ -496,31 +496,12 @@ def store(day_iso, pdf_path, url, token):
     return len(chunks), len(old_days)
 
 
-# -------------------------------------------------------------------- email
-
-# The waitlist, as web/lib/store.js writes it: one hash, email -> JSON record.
-WAITLIST_KEY = "waitlist"
-
-
-def subscribers(url, token):
-    flat = _redis(url, token, ["HGETALL", WAITLIST_KEY]) or []
-    out = []
-    for i in range(0, len(flat), 2):
-        addr = flat[i]
-        try:
-            rec = json.loads(flat[i + 1])
-            addr = rec.get("email") or addr
-        except Exception:
-            pass
-        if addr and "@" in addr:
-            out.append(addr.strip().lower())
-    return sorted(set(out))
-
+# ---------------------------------------------------------------------- Kit
 
 def email_body(day_txt, count, day_iso):
     link = f"https://markettide.in/brief/{day_iso}"
     return (
-        f"The morning brief for {day_txt} is attached.\n\n"
+        f"The morning brief for {day_txt} is ready.\n\n"
         f"Every day we sift through all the announcements filed with NSE & BSE. "
         f"This issue carries the top {count} from yesterday - what happened, the "
         f"key numbers, and why it matters.\n\n"
@@ -531,35 +512,39 @@ def email_body(day_txt, count, day_iso):
     )
 
 
-def send_email(pdf_path, day_iso, count, to, api_key, from_addr):
-    """One Resend call per recipient, so one bad address cannot sink the batch."""
-    import base64
+def send_kit_broadcast(day_iso, count, api_key, from_addr):
+    """Create one Kit broadcast to every active subscriber."""
     import requests
 
     day_txt = pretty_day(day_iso)
-    attachment = {
-        "filename": f"market-tide-brief-{day_iso}.pdf",
-        "content": base64.b64encode(open(pdf_path, "rb").read()).decode(),
+    link = f"https://markettide.in/brief/{day_iso}"
+    text = email_body(day_txt, count, day_iso)
+    html = (
+        f"<p>The morning brief for <strong>{day_txt}</strong> is ready.</p>"
+        f"<p>We sifted through NSE and BSE announcements and selected the top "
+        f"{count} filings that matter.</p>"
+        f'<p><a href="{link}">Read today\'s Daily Brief</a></p>'
+        f"<p>Market Tide summarises public exchange filings. It is not investment advice.</p>"
+    )
+    payload = {
+        "subject": f"The morning brief - {day_txt}",
+        "description": f"Market Tide Daily Brief for {day_txt}",
+        "content": html,
+        "public": False,
+        "published_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+        "send_at": (datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(minutes=1)).isoformat(),
+        "preview_text": text.split("\n\n", 1)[1][:140],
+        "email_address": from_addr,
     }
-    ok, failed = 0, []
-    for addr in to:
-        try:
-            r = requests.post(
-                "https://api.resend.com/emails",
-                headers={"Authorization": f"Bearer {api_key}",
-                         "Content-Type": "application/json"},
-                json={"from": from_addr, "to": [addr],
-                      "subject": f"The morning brief - {day_txt}",
-                      "text": email_body(day_txt, count, day_iso),
-                      "attachments": [attachment]},
-                timeout=45)
-            if r.ok:
-                ok += 1
-            else:
-                failed.append(f"{addr}: {r.status_code} {r.text[:120]}")
-        except Exception as exc:
-            failed.append(f"{addr}: {type(exc).__name__}")
-    return ok, failed
+    r = requests.post(
+        "https://api.kit.com/v4/broadcasts",
+        headers={"X-Kit-Api-Key": api_key, "Content-Type": "application/json"},
+        json=payload,
+        timeout=45,
+    )
+    if not r.ok:
+        raise RuntimeError(f"Kit {r.status_code}: {r.text[:200]}")
+    return r.json()
 
 
 # ---------------------------------------------------------------------- pdf
@@ -635,6 +620,15 @@ def main():
         parts, held = store(day_iso, pdf_path, url, token)
         print(f"  published as {parts} part(s); {held} older issue(s) removed")
         print(f"  https://markettide.in/brief/{day_iso}")
+
+        kit_key = os.environ.get("KIT_API_KEY")
+        if kit_key:
+            from_addr = os.environ.get("KIT_FROM_EMAIL", "brief@markettide.in")
+            broadcast = send_kit_broadcast(day_iso, len(picked), kit_key, from_addr)
+            broadcast_id = broadcast.get("broadcast", {}).get("id") or broadcast.get("id", "created")
+            print(f"  Kit broadcast scheduled: {broadcast_id}")
+        else:
+            print("  Kit broadcast skipped: KIT_API_KEY is not configured")
 
 
 if __name__ == "__main__":

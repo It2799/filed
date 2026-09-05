@@ -4,6 +4,8 @@ import { check } from "../../../../lib/otp";
 import { make, cookieHeader } from "../../../../lib/session";
 import { addEmail } from "../../../../lib/store";
 import { saveVerifiedUser, subscribeUser } from "../../../../lib/users";
+import { sendWelcomeEmail } from "../../../../lib/notify";
+import { upsertSubscriber } from "../../../../lib/kit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -40,7 +42,14 @@ export async function POST(request) {
 
   const phone = verdict.metadata?.phone || null;
   try {
-    await saveVerifiedUser({ email, phone });
+    const saved = await saveVerifiedUser({ email, phone });
+    if (saved.firstVerification) {
+      try {
+        await sendWelcomeEmail(email);
+      } catch (error) {
+        console.error("[auth] welcome email failed:", error.message || error);
+      }
+    }
   } catch (error) {
     console.error("[auth] could not save the account:", error.message || error);
     return Response.json(
@@ -57,6 +66,7 @@ export async function POST(request) {
   try {
     await addEmail(email, { via: "otp-login" });
     await subscribeUser({ email, phone, source: "otp-login" });
+    await upsertSubscriber(email);
   } catch (error) {
     console.error("[auth] could not record the signup:", error.message || error);
   }

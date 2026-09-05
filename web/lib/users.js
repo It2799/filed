@@ -36,6 +36,10 @@ export async function findByEmail(email) {
 export async function saveVerifiedUser({ email, phone }) {
   const users = await collection();
   const now = new Date();
+  const before = await users.findOne(
+    { email },
+    { projection: { _id: 0, emailVerifiedAt: 1 } }
+  );
   await users.updateOne(
     { email },
     {
@@ -49,7 +53,7 @@ export async function saveVerifiedUser({ email, phone }) {
     },
     { upsert: true }
   );
-  return { email, phone: phone || null };
+  return { email, phone: phone || null, firstVerification: !before?.emailVerifiedAt };
 }
 
 /** Mark an email as subscribed without creating duplicate users. */

@@ -11,13 +11,14 @@
 
 import { currentUser } from "../../../../lib/session";
 import { authReady } from "../../../../lib/auth-ready";
+import { emailConfigured } from "../../../../lib/notify";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET(request) {
   const user = currentUser(request);
-  const emailReady = Boolean(process.env.RESEND_API_KEY && process.env.FROM_EMAIL);
+  const emailReady = emailConfigured();
 
   return Response.json({
     user: user ? { id: user.id.slice(user.id.indexOf(":") + 1), channel: user.channel } : null,

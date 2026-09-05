@@ -1,4 +1,5 @@
 import { LEGAL } from "../../lib/legal";
+import ContactForm from "./ContactForm";
 
 export const metadata = { title: "Contact — Market Tide" };
 
@@ -24,6 +25,9 @@ export default function Contact() {
           <p className="small">Within 1 working day.</p>
         </div>
       </div>
+
+      <h2>Send a message</h2>
+      <ContactForm />
 
       <h2>Registered address</h2>
       <p className="address">

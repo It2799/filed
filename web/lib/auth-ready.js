@@ -1,12 +1,12 @@
 import { configured as otpConfigured } from "./otp.js";
 import { configured as usersConfigured } from "./users.js";
+import { emailConfigured } from "./notify.js";
 
 export function authReady() {
   return Boolean(
     otpConfigured() &&
     usersConfigured() &&
-    process.env.RESEND_API_KEY &&
-    process.env.FROM_EMAIL &&
+    emailConfigured() &&
     process.env.AUTH_SECRET
   );
 }

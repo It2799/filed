@@ -586,6 +586,27 @@ footer p { margin: 0 0 7px; }
 }
 .contact-card p { margin: 0 0 4px; font-size: 16px; }
 .contact-card .small { font-size: 12.5px; color: var(--dim); }
+.contact-form {
+  background: var(--panel); border: 1px solid var(--line); border-radius: 11px;
+  padding: 18px; display: grid; gap: 14px;
+}
+.contact-form-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; }
+.contact-form label { display: grid; gap: 6px; color: var(--muted); font-size: 13px; font-weight: 650; }
+.contact-form input, .contact-form textarea {
+  width: 100%; box-sizing: border-box; border: 1px solid var(--line); border-radius: 9px;
+  background: var(--bg); color: var(--ink); padding: 11px 12px; font: inherit;
+}
+.contact-form textarea { resize: vertical; }
+.contact-form input:focus, .contact-form textarea:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+.contact-form button {
+  justify-self: start; border: 0; border-radius: 9px; padding: 11px 18px;
+  background: var(--accent); color: var(--accent-ink); font-weight: 700; cursor: pointer;
+}
+.contact-form button:disabled { opacity: .6; cursor: wait; }
+.contact-form .contact-company { position: absolute; left: -10000px; }
+.contact-form .contact-success, .contact-form .contact-error { margin: 0; font-size: 13px; }
+.contact-form .contact-success { color: var(--pos); }
+.contact-form .contact-error { color: var(--neg); }
 
 /* footer policy links */
 .footer-links { display: flex; gap: 14px; flex-wrap: wrap; margin-bottom: 12px; }

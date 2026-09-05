@@ -28,8 +28,11 @@ private environment variables in Vercel for Production, Preview and Development:
 - `MONGODB_URI` — MongoDB connection string used for reader profiles
 - `MONGODB_DB` — optional database name; defaults to `market_tide`
 - `AUTH_SECRET` — a long random value used to sign sessions and OTP hashes
-- `RESEND_API_KEY` — Resend API key used to deliver verification emails
-- `FROM_EMAIL` — verified sender, for example `Market Tide <login@example.com>`
+- `SMTP_USER` — Gmail address used for OTP, welcome and contact email (`market.tide27@gmail.com`)
+- `SMTP_PASS` — a Google App Password, not the normal Gmail password
+- `TRANSACTIONAL_FROM` — optional display sender; defaults to `Market Tide <SMTP_USER>`
+- `REPLY_TO_EMAIL` — reply destination; defaults to `market.tide27@gmail.com`
+- `KIT_API_KEY` — Kit key used to sync subscribers and send the Daily Brief
 - `KV_REST_API_URL` and `KV_REST_API_TOKEN` — Upstash Redis used for short-lived OTPs
 - `CRON_SECRET` — random value of at least 16 characters; Vercel sends it to the cron route
 - `GITHUB_DISPATCH_TOKEN` — GitHub token with Actions write access, used only to start the PDF worker
@@ -39,9 +42,18 @@ code. Their normalized mobile number is stored in MongoDB only after successful
 verification. Returning readers enter only their email, and a signed session
 keeps them logged in for 30 days.
 
-Daily Brief subscriptions are upserted into MongoDB's `users` collection and
-mirrored to the existing Redis delivery list. The unique email index means a
-repeat subscription updates the same user rather than creating a duplicate.
+Daily Brief subscriptions are upserted into MongoDB's `users` collection,
+mirrored to Redis, and synced to Kit. The unique email index means a repeat
+subscription updates the same user rather than creating a duplicate. The
+morning worker publishes the issue first, then creates one Kit broadcast from
+`brief@markettide.in` for all active Kit subscribers. Set Kit's account-level
+reply-to address to `market.tide27@gmail.com`.
+
+To copy existing MongoDB subscribers into Kit once, run:
+
+```bash
+node --env-file=.env.local tools/migrate-subscribers-to-kit.mjs
+```
 
 ### Morning brief schedule
 
