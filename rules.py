@@ -190,7 +190,13 @@ TOPICS = [
     # understanding of the internal controls" scored 65 on the first attempt at
     # this. It has to be acquiring a stake, a percentage, a business, or a
     # named company.
-    ("Acquisition",          65, r"\bacquisition\b|"
+    # The bare word "acquisition" does not win when what is being acquired is
+    # a thing rather than a company. "In-principle approval for the
+    # acquisition of land for about Rs 50 crore" is a capacity increase, and
+    # it outranked one at 65 to 57 on this word alone.
+    ("Acquisition",          65, r"\bacquisition\b(?![^.]{0,40}\b(land|plant|"
+                                 r"machinery|equipment|aircraft|vessel|"
+                                 r"property|premises|building)\b)|"
                                  r"acquir(e|es|ed|ing)\b[^.]{0,60}"
                                  r"(stake|shareholding|control of|\d[\d.]*\s?%|"
                                  r"per cent|business|undertaking|subsidiar|"
@@ -427,6 +433,16 @@ TOPICS = [
                                  r"commencement of (production|operation)|"
                                  r"capex (plan|program|programme|of|outlay)|"
                                  r"capital expenditure of|"
+                                 # Buying an asset is not buying a company.
+                                 # Afcom Holdings' letter of intent with Boeing
+                                 # for four 777-8F aircraft, and Innova Captab
+                                 # buying land for Rs 50 crore, were both
+                                 # published as Acquisitions.
+                                 r"(purchase|acquisition|buy|buying|acquire) "
+                                 r"(of |up to |about )?[^.]{0,40}"
+                                 r"(land|plant|machinery|equipment|aircraft|"
+                                 r"vessel|property|building|premises|"
+                                 r"manufacturing facility)|"
                                  r"expansion (plan|project)|debottleneck"),
     # "guidance" alone used to be here, and it appears in any document that
     # mentions SEBI guidance or governance guidance - a chief general
@@ -859,8 +875,17 @@ _NEW_SUBSIDIARY = re.compile(
     r"(incorporat\w+|form(ed|ation|ing)|set up|setting up|establish\w+|"
     r"registered)[^.]{0,70}"
     r"(wholly[- ]owned subsidiar|step[- ]down subsidiar|new subsidiar|"
-    r"subsidiar\w+ (company|named)|joint venture company)|"
-    r"incorporation of[^.]{0,50}(subsidiar|company|\bllp\b)", re.I)
+    r"subsidiar\w+ (company|named)|joint venture company|"
+    # Welspun Corp's "associate company Welspun Slagexcel Private Ltd was
+    # incorporated" is the same event under a different word.
+    r"associate company)|"
+    r"incorporation of[^.]{0,50}(subsidiar|company|\bllp\b)|"
+    # ...and the same sentence written backwards. Welspun Corp's "associate
+    # company Welspun Slagexcel Private Ltd was incorporated" puts the verb
+    # last, and everything above requires it first.
+    r"(subsidiar\w+|associate company|joint venture company)"
+    r"[^.]{0,60}(was |has been |have been )?"
+    r"(incorporated|formed|registered)", re.I)
 
 # ...unless it actually bought something, which wins.
 _BOUGHT_SOMETHING = re.compile(
@@ -1025,6 +1050,101 @@ _BOARD_DONE = re.compile(
     r"board has|were approved|was approved|approved the (allotment|issue|"
     r"scheme|acquisition|appointment)|allotted|"
     r"proceedings of|minutes of|considered and approved", re.I)
+
+# When the meeting is what the filing is ABOUT.
+#
+# The existing rule says a notice wins only if the text names no substantive
+# event. That is too weak for the commonest shape of all, because these filings
+# name the dividend in the same breath as the meeting:
+#
+#   Rithwik       "will close its books from 24 to 30 September for the Annual
+#                  General Meeting and dividend"
+#   Kiran Vyapar  "book closure dates for its upcoming Annual General Meeting
+#                  ... to determine eligibility for the dividend payment"
+#   TANFAC        "share register will be closed ... for the 52nd AGM and
+#                  dividend entitlement"
+#   Pecos Hotels  "has scheduled its 21st Annual General Meeting ... has set
+#                  18 September as the record date"
+#
+# All four were published as Dividend. The word is there, so score_text
+# returns Dividend at 60, and 60 is substantive.
+#
+# Two ways the meeting is the subject rather than the context:
+#
+#   1. A book closure or record date that names the meeting as its PURPOSE.
+#      "for the AGM and dividend" is a closure for the AGM; the dividend rides
+#      along. Sunteck Realty's "record date for its upcoming dividend is
+#      17 September" names the dividend as the purpose and stays a Dividend -
+#      the AGM is a separate sentence, and [^.] cannot reach it.
+#
+#   2. The summary OPENS by scheduling one. What a filing leads with is what
+#      it is about. A scheduling verb is required: Foseco's "shareholders have
+#      approved a final dividend at its 41st Annual General Meeting" mentions
+#      the meeting in its first sentence too, and is a dividend.
+_CLOSURE_FOR_MEETING = re.compile(
+    r"(book closure|clos\w+[^.]{0,30}(books|register|share transfer books)|"
+    r"(share )?register[^.]{0,30}(will be |is |been )?clos|"
+    r"record date|announced the dates?)"
+    r"[^.]{0,150}(for|purpose of|in connection with|towards)[^.]{0,40}" + _GM,
+    re.I)
+
+# The meeting APPROVES the dividend; it is not what the record date is for.
+# "Shareholders on record by this date will be eligible for the payout, subject
+# to approval at the AGM" is a dividend, and a bare "dates?" in the pattern
+# above used to match the word "date" in it and read the AGM as the purpose.
+_MEETING_APPROVES = re.compile(
+    r"(subject to|pending|if|upon|after) approval[^.]{0,40}" + _GM + r"|"
+    r"approv\w+ (at|by|in)[^.]{0,20}" + _GM, re.I)
+
+_MEETING_SCHEDULED = re.compile(
+    r"(scheduled|convened|convening|will hold|will be held|is scheduled|"
+    r"announced the dates? for|notice of|intimation of|has fixed)"
+    r"[^.]{0,70}" + _GM + r"|"
+    + _GM + r"[^.]{0,50}(is |has been |will be |to be )"
+    r"(scheduled|convened|held)", re.I)
+
+
+def meeting_is_the_subject(text):
+    """Is the general meeting what this filing is about, not just context?"""
+    if not text:
+        return False
+
+    # The same first-purpose test applies to the opening sentence. "The board
+    # has set 23 September as the record date for the final dividend and
+    # scheduled its 41st AGM" opens by scheduling a meeting AND by declaring a
+    # dividend, and the dividend comes first - so it is a dividend, and the
+    # meeting is when it gets approved.
+    first = text.split(".", 1)[0]
+    m = _MEETING_SCHEDULED.search(first)
+    if m:
+        money = re.search(r"dividend|bonus|split|buy-?back", first[:m.start()],
+                          re.I)
+        if not money:
+            return True
+
+    m = _CLOSURE_FOR_MEETING.search(text)
+    if not m:
+        return False
+
+    # Which purpose is named FIRST.
+    #
+    # These filings routinely name two - "for the Annual General Meeting and
+    # dividend" - and the first one is what the closure is for. Without this
+    # test the pattern reaches over a hundred characters ahead and finds a
+    # meeting mentioned later in the same sentence, which turned 60 genuine
+    # dividends into meetings on the first attempt:
+    #
+    #   "record date for the final dividend and scheduled its 41st AGM"
+    #        dividend first  -> a Dividend, and the AGM is when it is approved
+    #   "close its books from 24 to 30 September for the AGM and dividend"
+    #        meeting first   -> a Meeting, and the dividend rides along
+    #
+    # The match ends at the meeting, so a dividend inside it came first.
+    clause = m.group(0)
+    if _MEETING_APPROVES.search(clause):
+        return False
+    return not re.search(r"dividend|bonus|split|buy-?back", clause, re.I)
+
 
 BOARD_NOTICE_SCORE = 41
 

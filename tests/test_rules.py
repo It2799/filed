@@ -1544,6 +1544,138 @@ for head in [
 
 
 # ---------------------------------------------------------------------------
+# 22. Which purpose is named FIRST
+#
+# The commonest shape of all, and the one that kept AGM notices in Dividend.
+# These filings name the meeting and the dividend in the same breath:
+#
+#   "close its books from 24 to 30 September for the Annual General Meeting
+#    and dividend"                                     -> the AGM is the purpose
+#   "record date for the final dividend and scheduled its 41st AGM"
+#                                                  -> the dividend is the purpose
+#
+# The word dividend is in both, so score_text returns Dividend at 60 for both,
+# and 60 is substantive - which is why the "notice wins when nothing else is
+# named" rule could never settle it. What settles it is which one is named
+# first. The closure is FOR the thing it names first; the other rides along.
+#
+# The first attempt had no such test and turned 60 genuine dividends into
+# meetings.
+# ---------------------------------------------------------------------------
+
+MEETING_IS_THE_POINT = [
+    "Rithwik Facility Management Services Ltd will close its books from 24 to "
+    "30 September 2026 for the Annual General Meeting and dividend.",
+    "Kiran Vyapar Limited has announced the book closure dates for its "
+    "upcoming Annual General Meeting. The company will close its share "
+    "transfer books to determine eligibility for the dividend payment.",
+    "TANFAC Industries announced that its share register will be closed from "
+    "Sep 17-23, with the record date set as Sep 16 for the 52nd AGM and "
+    "dividend entitlement.",
+    "ABC India Ltd has announced the dates for its upcoming Annual General "
+    "Meeting and dividend payment.",
+    "Pecos Hotels and Pubs Ltd has scheduled its 21st Annual General Meeting "
+    "for September 25. The company has set September 18 as the record date.",
+    "Ceinsys Tech Limited has fixed the record date for its upcoming 28th "
+    "Annual General Meeting and final dividend payment.",
+]
+for text in MEETING_IS_THE_POINT:
+    check(rules.meeting_is_the_subject(text),
+          "the meeting is the subject and is not being read as one",
+          f"{text[:64]!r}")
+
+THE_DIVIDEND_IS_THE_POINT = [
+    "The board has set 23 September 2026 as the record date for the final "
+    "dividend and scheduled its 41st Annual General Meeting.",
+    "Odyssey Corporation has set September 23 as the record date for its "
+    "upcoming dividend payment. Shareholders on record by this date will be "
+    "eligible for the payout, subject to approval at the AGM.",
+    "Vintage Coffee and Beverages has set September 23 as the record date for "
+    "its final dividend. Shareholders must hold the stock by this date to be "
+    "eligible for the payout, pending approval at the AGM.",
+    "Sunteck Realty has announced that the record date for its upcoming "
+    "dividend is September 17. The company also scheduled its 43rd Annual "
+    "General Meeting for September 22.",
+    "Foseco Crucible announced that shareholders have approved a final "
+    "dividend at its 41st Annual General Meeting. The payout is Rs 12.50.",
+]
+for text in THE_DIVIDEND_IS_THE_POINT:
+    check(not rules.meeting_is_the_subject(text),
+          "a dividend is being read as a meeting notice",
+          f"{text[:64]!r}")
+    got = pipeline.category_from_summary("Corp. Action", "Record date", text,
+                                         "Dividend")
+    check(got in ("Dividend", None),
+          "a real dividend was renamed", f"got {got!r}")
+
+# The meeting APPROVES a dividend; that is not what a record date is FOR.
+check(not rules.meeting_is_the_subject(
+        "Shareholders on record by this date will be eligible for the payout, "
+        "subject to approval at the AGM"),
+      "the approving meeting is being read as the purpose")
+
+
+# ---------------------------------------------------------------------------
+# 23. A deal has to be visible in the summary
+#
+# Acquisition is the category a reader looks at first and the one a PDF puts a
+# filing into most often by accident. When the summary of the same filing
+# contains no deal language at all, there was no deal.
+# ---------------------------------------------------------------------------
+
+NOT_DEALS = [
+    "Bodhtree Consulting has posted its long-term Bodhtree 2035 growth "
+    "roadmap on its website.",
+    "Shadowfax launched a Channel Partner Program to expand its Shadowfax 360 "
+    "service.",
+    "Mobavenue AI Tech Ltd announced it won four Gold and one Silver awards at "
+    "the DATAMATIXX Awards.",
+]
+for text in NOT_DEALS:
+    got = pipeline.category_from_summary("General Updates", "Press Release",
+                                         text, "Acquisition")
+    check(got != "Acquisition",
+          "a filing with no deal in it is staying under Acquisition",
+          f"got {got!r} <- {text[:56]!r}")
+
+# ...and these ARE deals, in wordings the first version of that rule missed.
+STILL_DEALS = [
+    "Capital India Finance is selling its RemitX forex assets to Kanji Forex.",
+    "International Gemological Institute will consolidate control over IGI "
+    "Botswana, making it a wholly owned subsidiary.",
+    "NLC India signed an addendum to transfer about 709 MW of renewable "
+    "assets.",
+]
+for text in STILL_DEALS:
+    got = pipeline.category_from_summary("General Updates", "Press Release",
+                                         text, "Acquisition")
+    check(got != "Other",
+          "a real deal is being demoted for wording the evidence does not know",
+          f"got {got!r} <- {text[:56]!r}")
+
+# Buying a thing is not buying a company.
+for text, want in [
+    ("The board gave in-principle approval to buy land for about Rs 50 crore",
+     "Capacity Increase"),
+    ("In-principle approval for the acquisition of land for about Rs 50 crore",
+     "Capacity Increase"),
+    ("Purchase of plant and machinery worth Rs 12 crore for the new unit",
+     "Capacity Increase"),
+]:
+    pts, tag = rules.score_text(text, floor=0)
+    check(tag == want, f"an asset purchase should be {want}",
+          f"{(pts, tag)} <- {text[:56]!r}")
+
+# Registering a company, with the verb last.
+pts, tag = rules.score_text(
+    "Welspun Corp announced that its associate company Welspun Slagexcel "
+    "Private Ltd was incorporated on 2 September", floor=0)
+check(tag == "New Subsidiary",
+      "a subsidiary incorporation written backwards is not recognised",
+      f"{(pts, tag)}")
+
+
+# ---------------------------------------------------------------------------
 
 print(f"{CHECKS[0]} checks")
 if FAILURES:

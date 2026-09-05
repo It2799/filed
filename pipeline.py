@@ -123,6 +123,26 @@ def fetch_and_score(start, end, min_score, log=print):
 WEAK_FROM_SUMMARY = {"Meeting", "Routine", "Other", "Outcome", "Press Release",
                      "Corp Action", "Annual Report"}
 
+# The categories a reader looks at first, and the ones a PDF most often puts a
+# filing into by accident - an auditor's profile listing "Merger & Acquisition"
+# among its services was enough, once. These have to be corroborated by the
+# summary.
+DEAL_TAGS = {"Acquisition", "Scheme Of Arrangement", "Open Offer"}
+
+_DEAL_EVIDENCE = re.compile(
+    r"acquisi|acquir|merger|amalgamat|de-?merger|slump sale|divest|"
+    r"\bstake\b|shareholding|takeover|share purchase|controlling interest|"
+    r"sold its|sale of|joint venture|open offer|scheme of arrangement|"
+    r"buy(s|ing)? out|hive[- ]off|transfer of[^.]{0,30}(business|undertaking)|"
+    # Three real deals were being demoted for wording this did not know.
+    # Capital India "is SELLING its RemitX forex assets to Kanji Forex";
+    # International Gemological "will CONSOLIDATE CONTROL over IGI Botswana,
+    # making it a wholly owned subsidiary"; NLC India "signed an addendum to
+    # TRANSFER about 709 MW of renewable assets".
+    r"sell(s|ing)?\b|consolidat\w+ control|control over|"
+    r"transfer(ring)? (of )?[^.]{0,30}(assets|megawatt|\bmw\b|portfolio)",
+    re.I)
+
 
 def category_from_summary(category, headline, blob, current=None):
     """The category a filing's own words argue for, or None to keep what it has.
@@ -209,8 +229,33 @@ def category_from_summary(category, headline, blob, current=None):
     # Checked before the general meeting test and before everything else,
     # because a board notice mentioning the AGM would otherwise become a
     # Meeting - which is nearer, and still not what the filing is.
+    # A deal has to be visible in the summary.
+    #
+    # Acquisition, Scheme Of Arrangement and Open Offer are the categories a
+    # reader looks at first, and the ones that arrive from the PDF most often -
+    # an attachment need only mention "merger & acquisition" once. When the
+    # summary of the same filing contains no deal language at all, there was no
+    # deal: Bodhtree's 2035 vision document, Shadowfax's channel partner
+    # programme, and Mobavenue winning four Gold awards at an industry event
+    # were all sitting under Acquisition.
+    #
+    # Whatever the summary DID find is used instead, and "Other" when it found
+    # nothing - which is honest, and keeps the filing on the site under All
+    # rather than on the front page as a deal that never happened.
+    if (current in DEAL_TAGS and blob
+            and not _DEAL_EVIDENCE.search(blob)):
+        return from_summary or "Other"
+
     if rules.board_meeting_notice(blob):
         return "Board Meeting"
+
+    # When the general meeting is what the filing is ABOUT - a book closure
+    # naming it as the purpose, or a summary that opens by scheduling one - it
+    # wins over a substantive read. These filings say "for the AGM and
+    # dividend" in one breath, so the dividend is always there to be scored,
+    # and five of them were sitting under Dividend on 4 September.
+    if rules.meeting_is_the_subject(blob):
+        return "Meeting"
 
     if rules.meeting_notice(category or "", headline or "", ""):
         from_summary = "Meeting"
@@ -335,10 +380,21 @@ def summarise(kept, provider_list, max_summaries, workers=4, log=print):
     # ---------------------------------------------------------------------
     fixed = 0
     for a in todo:
+        # The summary and the figures, but NOT why_it_matters.
+        #
+        # The summary is an account of what the filing says. why_it_matters is
+        # commentary about it, and commentary is where the negations live:
+        # Mukat Pipes' AGM book-closure carries "a routine administrative
+        # update regarding the upcoming AGM and voting eligibility, with no
+        # dividend declared for the year". Scoring that matches the word
+        # dividend, at 60, and the filing was published as one - on a sentence
+        # whose entire point is that there was no dividend.
+        #
+        # Nothing is lost. Anything why_it_matters names, the summary named
+        # first; that is what it is commentary on.
         blob = " ".join([
             a.get("summary") or "",
             " ".join(a.get("key_numbers") or []),
-            a.get("why_it_matters") or "",
         ]).strip()
         if not blob:
             continue
