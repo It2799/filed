@@ -51,3 +51,41 @@ export async function saveVerifiedUser({ email, phone }) {
   );
   return { email, phone: phone || null };
 }
+
+/** Mark an email as subscribed without creating duplicate users. */
+export async function subscribeUser({ email, phone = null, source = "brief" }) {
+  const users = await collection();
+  const now = new Date();
+  const current = await users.findOne(
+    { email },
+    { projection: { _id: 0, briefSubscribed: 1 } }
+  );
+  const alreadySubscribed = Boolean(current?.briefSubscribed);
+
+  await users.updateOne(
+    { email },
+    {
+      $set: {
+        email,
+        ...(phone ? { phone } : {}),
+        briefSubscribed: true,
+        briefSubscriptionSource: source,
+        briefSubscriptionUpdatedAt: now,
+        updatedAt: now,
+        ...(!alreadySubscribed ? { briefSubscribedAt: now } : {}),
+      },
+      $setOnInsert: { createdAt: now },
+    },
+    { upsert: true }
+  );
+
+  return { email, alreadySubscribed };
+}
+
+export async function closeUsersConnection() {
+  if (!clientPromise) return;
+  const client = await clientPromise;
+  await client.close();
+  clientPromise = undefined;
+  indexesReady = undefined;
+}

@@ -1,6 +1,7 @@
 import { addEmail, count } from "../../../lib/store";
 import { normalisePhone } from "../../../lib/phone";
 import { confirm } from "../../../lib/notify";
+import { configured as usersConfigured, subscribeUser } from "../../../lib/users";
 
 export const dynamic = "force-dynamic";
 
@@ -39,6 +40,13 @@ export async function POST(request) {
 
   let result;
   try {
+    if (usersConfigured()) {
+      await subscribeUser({
+        email,
+        phone,
+        source: String(body.source || "landing").slice(0, 40),
+      });
+    }
     result = await addEmail(email, {
       phone,
       wantsWhatsApp: Boolean(phone),
@@ -62,6 +70,7 @@ export async function POST(request) {
     joined: true,
     alreadyJoined: result.alreadyJoined,
     backend: result.backend,
+    profileSaved: usersConfigured(),
     gaveWhatsApp: Boolean(phone),
     emailSent: Boolean(notified.email?.sent),
     whatsappSent: Boolean(notified.whatsapp?.sent),

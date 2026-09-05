@@ -28,5 +28,5 @@ export const LEGAL = {
     { name: "1 year (standard)", price: 1499, months: 12 },
   ],
 
-  updated: "August 2026",
+  updated: "September 2026",
 };

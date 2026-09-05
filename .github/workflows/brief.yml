@@ -8,22 +8,8 @@ name: The morning brief
 # same morning instead of waiting a day.
 
 on:
-  schedule:
-    # 07:30 IST is 02:00 UTC, and that is the slot that matters. The rest are
-    # there because GitHub drops scheduled runs, routinely and without saying
-    # so: the 02:00 slot ran at 07:03 IST on 1 September, 06:41 on the 2nd,
-    # 06:48 on the 4th, and on the 5th did not fire at all. One slot is one
-    # chance.
-    #
-    # Five chances across an hour instead. The build below skips itself if
-    # today's issue is already out, so the extra slots cost nothing on a normal
-    # day and cover for a dropped one on a bad day.
-    - cron: "0 2 * * *"
-    - cron: "12 2 * * *"
-    - cron: "27 2 * * *"
-    - cron: "43 2 * * *"
-    - cron: "8 3 * * *"
-
+  # Vercel Cron owns the clock. This workflow is now only the PDF worker that
+  # Vercel dispatches, so GitHub's best-effort scheduler cannot make it late.
   workflow_dispatch:
     inputs:
       day:

@@ -31,16 +31,39 @@ private environment variables in Vercel for Production, Preview and Development:
 - `RESEND_API_KEY` — Resend API key used to deliver verification emails
 - `FROM_EMAIL` — verified sender, for example `Market Tide <login@example.com>`
 - `KV_REST_API_URL` and `KV_REST_API_TOKEN` — Upstash Redis used for short-lived OTPs
+- `CRON_SECRET` — random value of at least 16 characters; Vercel sends it to the cron route
+- `GITHUB_DISPATCH_TOKEN` — GitHub token with Actions write access, used only to start the PDF worker
 
 New readers enter email and mobile number, then verify the email with a six-digit
 code. Their normalized mobile number is stored in MongoDB only after successful
 verification. Returning readers enter only their email, and a signed session
 keeps them logged in for 30 days.
 
+Daily Brief subscriptions are upserted into MongoDB's `users` collection and
+mirrored to the existing Redis delivery list. The unique email index means a
+repeat subscription updates the same user rather than creating a duplicate.
+
+### Morning brief schedule
+
+Vercel Cron calls `/api/cron/brief` at `02:00 UTC`, which is `07:30 IST`.
+GitHub Actions no longer owns the schedule; it remains only the PDF-building
+worker dispatched by that Vercel endpoint. Cron jobs become active after a
+production deployment containing `vercel.json`.
+
+Vercel Pro invokes cron jobs with per-minute precision. On Vercel Hobby, a
+daily cron may run anywhere within the scheduled hour, so an exact 07:30
+delivery requires Pro or another precise clock.
+
+### Analytics
+
+The root layout includes Vercel Web Analytics. Enable Web Analytics once in the
+Vercel project dashboard, then redeploy to begin collecting anonymous page-view
+statistics.
+
 ## Where the emails go
 
-Out of the box nothing is stored in production — signups are accepted and
-logged so the page works while you decide. Pick one of these:
+MongoDB is the durable user/profile database. Upstash Redis remains the mailing
+list read by the Daily Brief sender, so both stores are updated on subscription.
 
 **Upstash Redis (recommended).** In your Vercel project go to Storage → Upstash
 Redis → Create. It injects `UPSTASH_REDIS_REST_URL` and

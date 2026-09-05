@@ -3,7 +3,7 @@
 import { check } from "../../../../lib/otp";
 import { make, cookieHeader } from "../../../../lib/session";
 import { addEmail } from "../../../../lib/store";
-import { saveVerifiedUser } from "../../../../lib/users";
+import { saveVerifiedUser, subscribeUser } from "../../../../lib/users";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -56,6 +56,7 @@ export async function POST(request) {
 
   try {
     await addEmail(email, { via: "otp-login" });
+    await subscribeUser({ email, phone, source: "otp-login" });
   } catch (error) {
     console.error("[auth] could not record the signup:", error.message || error);
   }

@@ -63,8 +63,10 @@ export default function Privacy() {
       <h2>4. Who else sees it</h2>
       <p>We use a small number of service providers, each seeing only what they need:</p>
       <ul>
-        <li><strong>Vercel</strong> — hosts the website.</li>
-        <li><strong>Upstash</strong> — stores the waitlist and the announcement data.</li>
+        <li><strong>Vercel</strong> — hosts the website and provides anonymized web analytics.</li>
+        <li><strong>MongoDB</strong> — stores account and subscription details.</li>
+        <li><strong>Upstash</strong> — stores the delivery list and announcement data.</li>
+        <li><strong>Resend</strong> — delivers verification and Daily Brief emails.</li>
         <li><strong>The payment gateway</strong> — handles your payment.</li>
         <li>
           <strong>AI providers</strong> — receive the text of public exchange
@@ -112,8 +114,8 @@ export default function Privacy() {
       <h2>8. Cookies</h2>
       <p>
         We use only what is needed to keep you signed in and to keep the site
-        working. We do not run advertising trackers or third-party analytics that
-        profile you across other websites.
+        working. We use anonymized Vercel Web Analytics to understand page usage;
+        it does not use advertising cookies or profile you across other websites.
       </p>
 
       <h2>9. Children</h2>
