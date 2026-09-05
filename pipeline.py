@@ -257,6 +257,15 @@ def category_from_summary(category, headline, blob, current=None):
     if rules.meeting_is_the_subject(blob):
         return "Meeting"
 
+    # The backstop. An AGM never belongs in another category, so if this is a
+    # notice of a general meeting and nothing was actually approved, declared,
+    # allotted, received or paid, it is a Meeting - whatever money words the
+    # text happens to contain. Filatex India's letter carrying "web links to
+    # the 36th AGM notice and a reminder to claim any unclaimed dividends" was
+    # published as a Dividend on those two words.
+    if rules.meeting_only(category or "", headline or "", blob):
+        return "Meeting"
+
     if rules.meeting_notice(category or "", headline or "", ""):
         from_summary = "Meeting"
     elif not substantive and rules.meeting_notice("", "", blob):

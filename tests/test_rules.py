@@ -1676,6 +1676,71 @@ check(tag == "New Subsidiary",
 
 
 # ---------------------------------------------------------------------------
+# 24. An AGM never belongs in another category
+#
+# Ishan's rule, stated plainly, after finding one more each time the last was
+# fixed. The rules above each settle one shape of it and each left a tail:
+# Filatex India's letter to shareholders carrying "web links to the 36th AGM
+# notice and annual report, and a reminder to claim any unclaimed dividends"
+# was published as a Dividend, on the words unclaimed dividends.
+#
+# So the backstop is blunt. If the filing is a notice of a general meeting and
+# nothing was approved, declared, allotted, received or paid, it is a Meeting -
+# whatever money words the text happens to contain.
+#
+# What keeps the real ones out is that a money filing always says the thing was
+# DONE. A dividend filing says the board recommended it, or the record date is
+# fixed, or the payout is Rs 12.50. A notice of a meeting says only that a
+# meeting will be held.
+# ---------------------------------------------------------------------------
+
+NOTICE_ONLY = [
+    ("Company Update / General",
+     "Please find attached letter for dispatch of weblinks to the shareholders",
+     "Filatex India sent a letter to shareholders without registered email "
+     "IDs, providing web links to the 36th AGM notice and FY 2025-26 annual "
+     "report, and reminding them to update their email and claim any "
+     "unclaimed dividends."),
+    ("General Updates", "Intimation",
+     "The company has scheduled its 41st Annual General Meeting for "
+     "September 24, 2026 via video conferencing."),
+    ("Company Update", "Notice of AGM",
+     "Notice of the 27th Annual General Meeting, which includes an enabling "
+     "resolution for a preferential issue of equity shares and warrants."),
+    ("Others", "Notice of postal ballot",
+     "The postal ballot seeks approval for the issue of convertible warrants "
+     "on a preferential basis."),
+]
+for cat, head, summ in NOTICE_ONLY:
+    check(rules.meeting_only(cat, head, summ),
+          "a notice with no money event is not being recognised as one",
+          f"{summ[:60]!r}")
+    got = pipeline.category_from_summary(cat, head, summ, "Dividend")
+    check(got == "Meeting",
+          "an AGM notice is landing somewhere other than Meeting",
+          f"got {got!r} <- {summ[:56]!r}")
+
+# Something HAPPENED, so the meeting is context and the event is the news.
+SOMETHING_HAPPENED = [
+    ("The board recommended a final dividend of Rs 5 per equity share, to be "
+     "approved at the ensuing annual general meeting."),
+    ("Sunteck Realty has announced that the record date for its upcoming "
+     "dividend is September 17. The company also scheduled its 43rd Annual "
+     "General Meeting."),
+    ("Prime Focus board approved raising up to INR 3,000 crore through "
+     "various securities. AGM scheduled for September 30 to approve this."),
+    ("Foseco Crucible announced that shareholders have approved a final "
+     "dividend of Rs 12.50 at its 41st Annual General Meeting."),
+    ("The board allotted 1.2 crore equity shares on a preferential basis, "
+     "as approved by the members at the extraordinary general meeting."),
+]
+for text in SOMETHING_HAPPENED:
+    check(not rules.meeting_only("General Updates", "Outcome", text),
+          "a completed money event is being read as a bare meeting notice",
+          f"{text[:64]!r}")
+
+
+# ---------------------------------------------------------------------------
 
 print(f"{CHECKS[0]} checks")
 if FAILURES:

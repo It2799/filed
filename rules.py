@@ -1146,6 +1146,40 @@ def meeting_is_the_subject(text):
     return not re.search(r"dividend|bonus|split|buy-?back", clause, re.I)
 
 
+# The backstop: a meeting notice is a Meeting unless something actually HAPPENED.
+#
+# Ishan's rule, stated plainly - an AGM never belongs in another category. The
+# rules above each settle one shape of that (the closure whose purpose is the
+# meeting, the summary that opens by scheduling one), and each leaves a tail.
+# Filatex India's letter to shareholders carrying "web links to the 36th AGM
+# notice and annual report, and a reminder to claim any unclaimed dividends"
+# was published as a Dividend on the word unclaimed dividends.
+#
+# So: if the filing is a notice of a general meeting, and nothing was approved,
+# declared, allotted, received or paid, it is a Meeting. What keeps the real
+# ones out is that a dividend filing always says the dividend was DONE - the
+# board recommended it, the record date is fixed, the payout is Rs 12.50 - and
+# a notice of a meeting says only that a meeting will be held.
+_MONEY_HAPPENED = re.compile(
+    r"(approved|declared|recommended|allotted|allotment of|received|paid|"
+    r"fixed|has set|issued|raising up to|will raise|completed|executed|"
+    r"entered into|sold|acquired|sanctioned)"
+    r"[^.]{0,80}(dividend|bonus|split|buy-?back|preferential|warrant|"
+    r"rights issue|\bqip\b|debenture|\bncds?\b|stake|shareholding|"
+    r"acquisition|crore|lakh|\brs\.? ?\d)|"
+    r"record date[^.]{0,60}(dividend|bonus|split)|"
+    r"(dividend|bonus|split)[^.]{0,60}(record date|of rs|per share|"
+    r"declared|recommended|approved|entitlement)", re.I)
+
+
+def meeting_only(category, headline, body=""):
+    """A notice of a meeting, with no money event actually recorded."""
+    text = " ".join(x for x in (headline, body) if x)
+    if not meeting_notice(category or "", headline or "", body or ""):
+        return False
+    return not _MONEY_HAPPENED.search(text)
+
+
 BOARD_NOTICE_SCORE = 41
 
 
