@@ -8,11 +8,18 @@ export default function Nav() {
 
   useEffect(() => {
     let active = true;
+    const syncAuthentication = (event) => {
+      if (active) setSignedIn(Boolean(event.detail?.signedIn));
+    };
+    window.addEventListener("market-tide-auth", syncAuthentication);
     fetch("/api/auth/me", { cache: "no-store" })
       .then((response) => response.json())
       .then((data) => active && setSignedIn(Boolean(data.user)))
       .catch(() => {});
-    return () => { active = false; };
+    return () => {
+      active = false;
+      window.removeEventListener("market-tide-auth", syncAuthentication);
+    };
   }, []);
 
   async function logout() {

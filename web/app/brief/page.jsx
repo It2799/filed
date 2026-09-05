@@ -67,9 +67,10 @@ export default function Brief() {
     });
 
   return (
-    <AuthGate>
+    <>
       <Nav />
-      <main className="mk">
+      <AuthGate mode="interaction">
+        <main className="mk">
         <section className="brief-hero">
           <p className="mk-kicker">Free daily newsletter</p>
           <h1 className="mk-h1">The morning brief</h1>
@@ -92,10 +93,10 @@ export default function Brief() {
                 <b>{pretty(latest)}</b>
               </div>
               <div className="brief-actions">
-                <a className="brief-cta" href={`/brief/${latest}`}>
+                <a className="brief-cta" href={`/brief/${latest}`} data-auth-required>
                   Read it →
                 </a>
-                <a className="brief-dl" href={`/brief/${latest}?download=1`}>
+                <a className="brief-dl" href={`/brief/${latest}?download=1`} data-auth-required>
                   Download PDF
                 </a>
               </div>
@@ -119,7 +120,7 @@ export default function Brief() {
                 </p>
               </div>
             ) : (
-              <form onSubmit={submit} className="sub-form">
+              <form onSubmit={submit} className="sub-form" data-auth-required>
                 <label htmlFor="sub-email" className="sub-label">
                   Get it in your inbox
                 </label>
@@ -213,8 +214,9 @@ export default function Brief() {
             </div>
           </div>
         </section>
-      </main>
-      <MkFooter />
-    </AuthGate>
+        </main>
+        <MkFooter />
+      </AuthGate>
+    </>
   );
 }

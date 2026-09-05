@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 
 const RESEND_AFTER = 45;
 
-function AuthPanel({ checking = false, ready = true, onAuthenticated, onClose }) {
+function AuthPanel({ ready = true, onAuthenticated, onClose }) {
   const [step, setStep] = useState("email");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
@@ -103,9 +103,7 @@ function AuthPanel({ checking = false, ready = true, onAuthenticated, onClose })
         No password to remember.
       </p>
 
-      {checking ? (
-        <div className="auth-checking"><span className="auth-spinner" /> Checking your session…</div>
-      ) : !ready ? (
+      {!ready ? (
         <div className="auth-error" role="alert">
           Sign-in setup is incomplete. Add MongoDB, email and authentication settings in Vercel.
         </div>
@@ -201,7 +199,7 @@ function AuthPanel({ checking = false, ready = true, onAuthenticated, onClose })
   );
 }
 
-export default function AuthGate({ children }) {
+export default function AuthGate({ children, mode = "locked" }) {
   const [status, setStatus] = useState("checking");
   const [ready, setReady] = useState(true);
 
@@ -215,41 +213,62 @@ export default function AuthGate({ children }) {
         setReady(signInReady);
         // Keep the current site available until every production service is
         // configured. As soon as they are ready, anonymous readers are gated.
-        setStatus((current) => {
-          if (data.user || !signInReady) return "open";
-          return current === "dismissed" ? "dismissed" : "locked";
-        });
+        setStatus(data.user || !signInReady ? "open" : mode === "interaction" ? "idle" : "locked");
       })
-      .catch(() => active && setStatus((current) => current === "dismissed" ? current : "locked"));
+      .catch(() => active && setStatus(mode === "interaction" ? "idle" : "locked"));
     return () => { active = false; };
-  }, []);
+  }, [mode]);
 
-  const locked = status !== "open";
-  const modalOpen = status === "checking" || status === "locked";
+  const locked = mode === "locked" && (status === "locked" || status === "dismissed");
+  const pending = mode === "locked" && status === "checking";
+  const modalOpen = status === "locked";
   useEffect(() => {
     document.body.classList.toggle("auth-open", modalOpen);
     return () => document.body.classList.remove("auth-open");
   }, [modalOpen]);
 
+  function requireAuthentication(event) {
+    if (mode !== "interaction" || status === "open") return;
+    const target = event.target.closest("[data-auth-required]");
+    if (!target) return;
+    event.preventDefault();
+    event.stopPropagation();
+    setStatus("locked");
+  }
+
+  function authenticated(data) {
+    setStatus("open");
+    window.dispatchEvent(new CustomEvent("market-tide-auth", {
+      detail: { signedIn: true, user: data?.user || null },
+    }));
+  }
+
   return (
     <>
-      <div className={locked ? `auth-protected auth-protected--locked${status === "dismissed" ? " auth-protected--dismissed" : ""}` : "auth-protected"} aria-hidden={locked}>
+      <div
+        className={`${mode === "interaction" ? "auth-interactive" : "auth-protected"}${locked ? ` auth-protected--locked${status === "dismissed" ? " auth-protected--dismissed" : ""}` : ""}${pending ? " auth-protected--pending" : ""}`}
+        aria-hidden={locked || pending}
+        onClickCapture={requireAuthentication}
+        onSubmitCapture={requireAuthentication}
+      >
         {children}
       </div>
       {modalOpen && (
-        <div className="auth-overlay">
+        <div className={`auth-overlay${mode === "interaction" ? " auth-overlay--clear" : ""}`}>
           <AuthPanel
-            checking={status === "checking"}
             ready={ready}
-            onAuthenticated={() => window.location.reload()}
-            onClose={() => setStatus("dismissed")}
+            onAuthenticated={authenticated}
+            onClose={() => setStatus(mode === "interaction" ? "idle" : "dismissed")}
           />
         </div>
       )}
       {status === "dismissed" && (
         <aside className="auth-lockbar" aria-live="polite">
-          <div><b>Member preview locked</b><span>Sign in to open the dashboard and Daily Brief.</span></div>
-          <button type="button" onClick={() => setStatus("locked")}>Sign in to unlock</button>
+          <div><b>Sign in free to unlock</b><span>Open the complete dashboard and every filing summary.</span></div>
+          <div className="auth-lockbar-actions">
+            <a href="/">Visit home page</a>
+            <button type="button" onClick={() => setStatus("locked")}>Sign in free</button>
+          </div>
         </aside>
       )}
     </>

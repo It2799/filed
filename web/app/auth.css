@@ -1,6 +1,8 @@
 body.auth-open { overflow: hidden; }
+body.auth-open .nav { z-index: 220; }
 
 .auth-protected { transition: filter .22s ease, opacity .22s ease; }
+.auth-protected--pending { visibility: hidden; min-height: 100vh; }
 .auth-protected--locked {
   filter: blur(9px);
   opacity: .58;
@@ -19,8 +21,8 @@ body.auth-open { overflow: hidden; }
   padding: 22px;
   overflow-y: auto;
   background: rgba(5, 8, 13, .58);
-  backdrop-filter: blur(3px);
 }
+.auth-overlay--clear { background: rgba(5, 8, 13, .42); }
 
 .auth-card {
   position: relative;
@@ -33,24 +35,29 @@ body.auth-open { overflow: hidden; }
   box-shadow: 0 30px 90px rgba(0, 0, 0, .5), 0 0 0 1px rgba(255,255,255,.025) inset;
 }
 .auth-close {
-  position: absolute; top: 14px; right: 16px; width: 32px; height: 32px;
-  border: 0; border-radius: 50%; color: var(--muted); background: transparent;
+  position: absolute; top: 14px; right: 16px; width: 32px; height: 32px; padding: 0;
+  box-sizing: border-box; border: 0; border-radius: 50%; color: var(--muted); background: transparent;
   font: 24px/1 var(--font-sans), sans-serif; cursor: pointer;
 }
-.auth-close:hover { color: var(--ink); background: var(--panel-2); }
+.auth-close:hover:not(:disabled) { color: var(--ink); background: var(--panel-2); }
 .auth-lockbar {
-  position: fixed; right: 22px; bottom: 22px; z-index: 200; width: min(390px, calc(100% - 44px));
-  display: flex; align-items: center; gap: 16px; padding: 14px 15px;
+  position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 200;
+  width: min(440px, calc(100% - 44px)); display: grid; gap: 18px; padding: 24px;
+  text-align: center;
   color: var(--ink); background: color-mix(in srgb, var(--panel) 97%, transparent);
-  border: 1px solid var(--line); border-radius: 13px; box-shadow: 0 18px 55px rgba(0,0,0,.4);
+  border: 1px solid var(--line); border-radius: 16px; box-shadow: 0 18px 55px rgba(0,0,0,.4);
 }
-.auth-lockbar div { display: grid; gap: 2px; min-width: 0; }
-.auth-lockbar b { font-size: 13px; }
-.auth-lockbar span { color: var(--dim); font-size: 11.5px; line-height: 1.35; }
+.auth-lockbar > div:first-child { display: grid; gap: 5px; min-width: 0; }
+.auth-lockbar b { font-size: 20px; }
+.auth-lockbar span { color: var(--dim); font-size: 13px; line-height: 1.45; }
+.auth-lockbar-actions { display: flex; justify-content: center; gap: 10px; }
+.auth-lockbar a,
 .auth-lockbar button {
-  flex: 0 0 auto; padding: 9px 12px; border: 0; border-radius: 8px; color: #fff;
-  background: linear-gradient(135deg, var(--grad-1), var(--grad-2)); font-weight: 680; cursor: pointer;
+  flex: 1 1 0; padding: 10px 13px; border-radius: 9px; font-size: 13px;
+  font-weight: 680; text-decoration: none; cursor: pointer;
 }
+.auth-lockbar a { color: var(--ink); background: var(--panel-2); border: 1px solid var(--line); }
+.auth-lockbar button { color: #fff; border: 0; background: linear-gradient(135deg, var(--grad-1), var(--grad-2)); }
 
 .auth-mark { display: flex; align-items: center; gap: 9px; font-weight: 760; font-size: 15px; }
 .auth-kicker {
@@ -109,5 +116,6 @@ body.auth-open { overflow: hidden; }
   .auth-overlay { align-items: end; padding: 0; }
   .auth-card { width: 100%; padding: 25px 20px calc(22px + env(safe-area-inset-bottom)); border-radius: 20px 20px 0 0; }
   .auth-card h1 { font-size: 27px; }
-  .auth-lockbar { right: 12px; bottom: 12px; width: calc(100% - 24px); }
+  .auth-lockbar { width: calc(100% - 24px); padding: 20px 16px; }
+  .auth-lockbar-actions { flex-direction: column-reverse; }
 }

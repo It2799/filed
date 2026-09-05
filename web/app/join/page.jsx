@@ -4,6 +4,7 @@ import { useState } from "react";
 import Nav from "../Nav";
 import MkFooter from "../MkFooter";
 import { SITE } from "../site";
+import AuthGate from "../AuthGate";
 
 const BENEFITS = [
   {
@@ -86,8 +87,8 @@ export default function Join() {
   return (
     <>
       <Nav />
-
-      <main className="mk">
+      <AuthGate mode="interaction">
+        <main className="mk">
         {/* ---------------- hero ---------------- */}
         <section className="mk-hero">
           <div className="launch-banner">
@@ -126,10 +127,10 @@ export default function Join() {
           </p>
 
           <div className="mk-ctas">
-            <a className="btn-lg btn-grad" href="#join">
+            <a className="btn-lg btn-grad" href="#join" data-auth-required>
               Join the club · free
             </a>
-            <a className="btn-lg btn-ghost" href="/dashboard">
+            <a className="btn-lg btn-ghost" href="/dashboard" data-auth-required>
               See the free dashboard
             </a>
           </div>
@@ -213,7 +214,7 @@ export default function Join() {
                 </div>
               ) : (
                 <>
-                  <form onSubmit={submit}>
+                  <form onSubmit={submit} data-auth-required>
                     <div className="row">
                       <input
                         type="email"
@@ -314,7 +315,7 @@ export default function Join() {
               Just serious people talking seriously about equity markets.
             </p>
             <div className="mk-ctas">
-              <a className="btn-lg btn-grad" href="#join">
+              <a className="btn-lg btn-grad" href="#join" data-auth-required>
                 Reserve my seat
               </a>
               <a
@@ -328,9 +329,10 @@ export default function Join() {
             </div>
           </div>
         </section>
-      </main>
+        </main>
 
-      <MkFooter />
+        <MkFooter />
+      </AuthGate>
     </>
   );
 }
