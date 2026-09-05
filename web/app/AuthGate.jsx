@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 
 const RESEND_AFTER = 45;
 
-function AuthPanel({ checking = false, ready = true, onAuthenticated }) {
+function AuthPanel({ checking = false, ready = true, onAuthenticated, onClose }) {
   const [step, setStep] = useState("email");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
@@ -94,6 +94,7 @@ function AuthPanel({ checking = false, ready = true, onAuthenticated }) {
 
   return (
     <section className="auth-card" role="dialog" aria-modal="true" aria-labelledby="auth-title">
+      <button type="button" className="auth-close" onClick={onClose} aria-label="Close sign-in popup">×</button>
       <div className="auth-mark"><span className="dot" /> Market Tide</div>
       <p className="auth-kicker">Member access</p>
       <h1 id="auth-title">Sign in to continue</h1>
@@ -214,31 +215,42 @@ export default function AuthGate({ children }) {
         setReady(signInReady);
         // Keep the current site available until every production service is
         // configured. As soon as they are ready, anonymous readers are gated.
-        setStatus(data.user || !signInReady ? "open" : "locked");
+        setStatus((current) => {
+          if (data.user || !signInReady) return "open";
+          return current === "dismissed" ? "dismissed" : "locked";
+        });
       })
-      .catch(() => active && setStatus("locked"));
+      .catch(() => active && setStatus((current) => current === "dismissed" ? current : "locked"));
     return () => { active = false; };
   }, []);
 
   const locked = status !== "open";
+  const modalOpen = status === "checking" || status === "locked";
   useEffect(() => {
-    document.body.classList.toggle("auth-open", locked);
+    document.body.classList.toggle("auth-open", modalOpen);
     return () => document.body.classList.remove("auth-open");
-  }, [locked]);
+  }, [modalOpen]);
 
   return (
     <>
-      <div className={locked ? "auth-protected auth-protected--locked" : "auth-protected"} aria-hidden={locked}>
+      <div className={locked ? `auth-protected auth-protected--locked${status === "dismissed" ? " auth-protected--dismissed" : ""}` : "auth-protected"} aria-hidden={locked}>
         {children}
       </div>
-      {locked && (
+      {modalOpen && (
         <div className="auth-overlay">
           <AuthPanel
             checking={status === "checking"}
             ready={ready}
-            onAuthenticated={() => setStatus("open")}
+            onAuthenticated={() => window.location.reload()}
+            onClose={() => setStatus("dismissed")}
           />
         </div>
+      )}
+      {status === "dismissed" && (
+        <aside className="auth-lockbar" aria-live="polite">
+          <div><b>Member preview locked</b><span>Sign in to open the dashboard and Daily Brief.</span></div>
+          <button type="button" onClick={() => setStatus("locked")}>Sign in to unlock</button>
+        </aside>
       )}
     </>
   );

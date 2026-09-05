@@ -1,6 +1,25 @@
+"use client";
+
+import { useEffect, useState } from "react";
 import { SITE, PRICE_LABEL } from "./site";
 
 export default function Nav() {
+  const [signedIn, setSignedIn] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    fetch("/api/auth/me", { cache: "no-store" })
+      .then((response) => response.json())
+      .then((data) => active && setSignedIn(Boolean(data.user)))
+      .catch(() => {});
+    return () => { active = false; };
+  }, []);
+
+  async function logout() {
+    await fetch("/api/auth/logout", { method: "POST" });
+    window.location.href = "/";
+  }
+
   return (
     <nav className="nav">
       <div className="nav-in">
@@ -10,7 +29,11 @@ export default function Nav() {
         <div className="nav-links">
           <a href="/dashboard">Dashboard</a>
           <a href="/brief">Daily brief</a>
-          <a href="/login">Sign in</a>
+          {signedIn ? (
+            <button type="button" className="nav-account" onClick={logout}>Log out</button>
+          ) : (
+            <a href="/login">Sign in</a>
+          )}
           <a className="nav-cta" href="/join">
             {SITE.free ? "Join free" : `Join · ${PRICE_LABEL}`}
           </a>

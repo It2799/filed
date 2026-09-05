@@ -51,7 +51,7 @@
   align-items: center;
   gap: 6px;
 }
-.nav-links a {
+.nav-links a, .nav-account {
   color: var(--muted);
   text-decoration: none;
   font-size: 14px;
@@ -59,7 +59,8 @@
   padding: 8px 12px;
   border-radius: 8px;
 }
-.nav-links a:hover {
+.nav-account { border: 0; background: transparent; font-family: inherit; cursor: pointer; }
+.nav-links a:hover, .nav-account:hover {
   color: var(--ink);
   background: var(--glass);
 }
@@ -80,12 +81,12 @@
   .nav-in { padding: 11px 14px; gap: 10px; }
   .nav-brand { font-size: 15.5px; }
   .nav-links { gap: 2px; }
-  .nav-links a { font-size: 13px; padding: 7px 8px; }
+  .nav-links a, .nav-account { font-size: 13px; padding: 7px 8px; }
   .nav-cta { padding: 8px 12px !important; }
 }
 @media (max-width: 380px) {
   .nav-brand span:not(.dot) { display: none; }   /* the dot alone is enough */
-  .nav-links a { font-size: 12.5px; padding: 6px 6px; }
+  .nav-links a, .nav-account { font-size: 12.5px; padding: 6px 6px; }
 }
 
 /* ---------- page shell ---------- */

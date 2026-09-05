@@ -14,6 +14,7 @@
 
 import crypto from "node:crypto";
 
+process.env.NODE_ENV = "production";
 process.env.AUTH_SECRET = "test-secret-not-a-real-one";
 process.env.KV_REST_API_URL = "https://redis.invalid";
 process.env.KV_REST_API_TOKEN = "test-token";
@@ -154,6 +155,13 @@ for (const flag of ["HttpOnly", "Secure", "SameSite=Lax", "Path=/"]) {
 }
 check(session.clearHeader().includes("Max-Age=0"),
       "signing out expires the cookie");
+
+process.env.NODE_ENV = "development";
+check(!session.cookieHeader(cookie).includes("Secure"),
+      "the local HTTP cookie is not marked Secure");
+check(!session.clearHeader().includes("Secure"),
+      "the local logout cookie is not marked Secure");
+process.env.NODE_ENV = "production";
 
 // ------------------------------------------------------------ 2. the code
 

@@ -76,26 +76,30 @@ export function read(value) {
 
 /** The Set-Cookie header that signs somebody in. */
 export function cookieHeader(value) {
-  return [
+  const parts = [
     `${COOKIE}=${value}`,
     "Path=/",
     "HttpOnly",
-    "Secure",
     "SameSite=Lax",
     `Max-Age=${MAX_AGE_SECONDS}`,
-  ].join("; ");
+  ];
+  // Browsers reject Secure cookies on plain http://127.0.0.1. Production is
+  // HTTPS, so keep the protection there while allowing local sign-in tests.
+  if (process.env.NODE_ENV === "production") parts.splice(3, 0, "Secure");
+  return parts.join("; ");
 }
 
 /** The Set-Cookie header that signs somebody out. */
 export function clearHeader() {
-  return [
+  const parts = [
     `${COOKIE}=`,
     "Path=/",
     "HttpOnly",
-    "Secure",
     "SameSite=Lax",
     "Max-Age=0",
-  ].join("; ");
+  ];
+  if (process.env.NODE_ENV === "production") parts.splice(3, 0, "Secure");
+  return parts.join("; ");
 }
 
 /** The signed-in reader for a request, or null. */
