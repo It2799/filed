@@ -31,6 +31,35 @@ export async function diagnoseEmailConnection() {
   return { configured: true, connected: false, attempts };
 }
 
+export async function diagnoseEmailDelivery() {
+  if (!emailConfigured()) return { configured: false, attempts: [] };
+  const attempts = [];
+  for (const client of mailers()) {
+    try {
+      const info = await client.sendMail({
+        from: from(),
+        to: process.env.SMTP_USER.trim(),
+        replyTo: SUPPORT,
+        subject: "Market Tide email delivery test",
+        text: "This message confirms that Gmail delivery from the Market Tide production server is working.",
+      });
+      attempts.push({ port: client.options.port, secure: client.options.secure, ok: true });
+      return { configured: true, delivered: true, accepted: info.accepted?.length || 0, attempts };
+    } catch (error) {
+      attempts.push({
+        port: client.options.port,
+        secure: client.options.secure,
+        ok: false,
+        code: error.code || null,
+        responseCode: error.responseCode || null,
+        command: error.command || null,
+        response: String(error.response || "").replace(/[\w.+-]+@[\w.-]+/g, "[email]").slice(0, 300),
+      });
+    }
+  }
+  return { configured: true, delivered: false, attempts };
+}
+
 function mailers() {
   if (!emailConfigured()) return [];
   if (transporters) return transporters;
