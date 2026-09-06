@@ -71,7 +71,12 @@ export async function POST(request) {
     console.error("[auth] could not record the signup:", error.message || error);
   }
 
-  return new Response(JSON.stringify({ ok: true, id: email, channel: "email" }), {
+  return new Response(JSON.stringify({
+    ok: true,
+    id: email,
+    channel: "email",
+    user: { id: email, channel: "email", phone },
+  }), {
     status: 200,
     headers: {
       "Content-Type": "application/json",

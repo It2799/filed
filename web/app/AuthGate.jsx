@@ -4,10 +4,10 @@ import { useEffect, useRef, useState } from "react";
 
 const RESEND_AFTER = 45;
 
-function AuthPanel({ ready = true, onAuthenticated, onClose }) {
+function AuthPanel({ ready = true, initialEmail = "", initialPhone = "", onAuthenticated, onClose }) {
   const [step, setStep] = useState("email");
-  const [email, setEmail] = useState("");
-  const [phone, setPhone] = useState("");
+  const [email, setEmail] = useState(() => String(initialEmail).trim().toLowerCase());
+  const [phone, setPhone] = useState(() => String(initialPhone).replace(/\D/g, "").slice(-10));
   const [code, setCode] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");

@@ -1,5 +1,6 @@
 import { Inter, Instrument_Serif } from "next/font/google";
 import AnalyticsGate from "./AnalyticsGate";
+import { SiteAuthProvider } from "./SiteAuth";
 import "./globals.css";
 import "./theme.css";
 import "./marketing.css";
@@ -51,7 +52,7 @@ export default function RootLayout({ children }) {
   return (
     <html lang="en" className={`${inter.variable} ${serif.variable}`}>
       <body>
-        {children}
+        <SiteAuthProvider>{children}</SiteAuthProvider>
         <AnalyticsGate />
       </body>
     </html>

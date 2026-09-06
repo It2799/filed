@@ -1,29 +1,15 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
 import { SITE, PRICE_LABEL } from "./site";
+import { useSiteAuth } from "./SiteAuth";
 
 export default function Nav() {
-  const [signedIn, setSignedIn] = useState(false);
+  const pathname = usePathname();
+  const { user, openAuth, logout } = useSiteAuth();
 
-  useEffect(() => {
-    let active = true;
-    const syncAuthentication = (event) => {
-      if (active) setSignedIn(Boolean(event.detail?.signedIn));
-    };
-    window.addEventListener("market-tide-auth", syncAuthentication);
-    fetch("/api/auth/me", { cache: "no-store" })
-      .then((response) => response.json())
-      .then((data) => active && setSignedIn(Boolean(data.user)))
-      .catch(() => {});
-    return () => {
-      active = false;
-      window.removeEventListener("market-tide-auth", syncAuthentication);
-    };
-  }, []);
-
-  async function logout() {
-    await fetch("/api/auth/logout", { method: "POST" });
+  async function signOut() {
+    await logout();
     window.location.href = "/";
   }
 
@@ -36,10 +22,16 @@ export default function Nav() {
         <div className="nav-links">
           <a href="/dashboard">Dashboard</a>
           <a href="/brief">Daily brief</a>
-          {signedIn ? (
-            <button type="button" className="nav-account" onClick={logout}>Log out</button>
+          {user ? (
+            <button type="button" className="nav-account" onClick={signOut}>Log out</button>
           ) : (
-            <a href="/login">Sign in</a>
+            <button
+              type="button"
+              className="nav-account"
+              onClick={() => openAuth({ clear: true, returnTo: pathname === "/" ? "/dashboard" : null })}
+            >
+              Sign in
+            </button>
           )}
           <a className="nav-cta" href="/join">
             {SITE.free ? "Join free" : `Join · ${PRICE_LABEL}`}

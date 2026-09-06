@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Nav from "../Nav";
 import MkFooter from "../MkFooter";
 import { SITE } from "../site";
-import AuthGate from "../AuthGate";
+import { useSiteAuth } from "../SiteAuth";
 
 /**
  * One page for the brief: read it, download it, subscribe to it.
@@ -19,6 +19,7 @@ import AuthGate from "../AuthGate";
  * which is where anything older belongs.
  */
 export default function Brief() {
+  const { user, openAuth } = useSiteAuth();
   const [latest, setLatest] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -37,8 +38,11 @@ export default function Brief() {
     return () => { dead = true; };
   }, []);
 
-  async function submit(e) {
-    e.preventDefault();
+  useEffect(() => {
+    if (user?.id && !email) setEmail(user.id);
+  }, [email, user]);
+
+  async function subscribe(address) {
     if (state === "sending") return;
     setState("sending");
     setError("");
@@ -46,7 +50,7 @@ export default function Brief() {
       const res = await fetch("/api/waitlist", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, company, source: "brief" }),
+        body: JSON.stringify({ email: address, company, source: "brief" }),
       });
       const d = await res.json();
       if (!res.ok) {
@@ -61,6 +65,23 @@ export default function Brief() {
     }
   }
 
+  function submit(e) {
+    e.preventDefault();
+    if (!user) {
+      openAuth({
+        clear: true,
+        email,
+        onAuthenticated: (signedInUser) => {
+          const address = email || signedInUser?.id || "";
+          setEmail(address);
+          subscribe(address);
+        },
+      });
+      return;
+    }
+    subscribe(email || user.id);
+  }
+
   const pretty = (iso) =>
     new Date(iso + "T00:00:00Z").toLocaleDateString("en-IN", {
       day: "numeric", month: "long", year: "numeric", timeZone: "UTC",
@@ -69,7 +90,6 @@ export default function Brief() {
   return (
     <>
       <Nav />
-      <AuthGate mode="interaction">
         <main className="mk">
         <section className="brief-hero">
           <p className="mk-kicker">Free daily newsletter</p>
@@ -120,7 +140,7 @@ export default function Brief() {
                 </p>
               </div>
             ) : (
-              <form onSubmit={submit} className="sub-form" data-auth-required>
+              <form onSubmit={submit} className="sub-form">
                 <label htmlFor="sub-email" className="sub-label">
                   Get it in your inbox
                 </label>
@@ -216,7 +236,6 @@ export default function Brief() {
         </section>
         </main>
         <MkFooter />
-      </AuthGate>
     </>
   );
 }

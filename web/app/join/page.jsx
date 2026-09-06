@@ -1,10 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Nav from "../Nav";
 import MkFooter from "../MkFooter";
 import { SITE } from "../site";
-import AuthGate from "../AuthGate";
+import { useSiteAuth } from "../SiteAuth";
 
 const BENEFITS = [
   {
@@ -50,6 +50,7 @@ const BENEFITS = [
 ];
 
 export default function Join() {
+  const { user, openAuth } = useSiteAuth();
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [company, setCompany] = useState(""); // honeypot
@@ -60,8 +61,12 @@ export default function Join() {
     "Hi, I'd like to join The Equity Markets Club."
   )}`;
 
-  async function submit(e) {
-    e.preventDefault();
+  useEffect(() => {
+    if (user?.id && !email) setEmail(user.id);
+    if (user?.phone && !phone) setPhone(user.phone.replace(/^\+91/, ""));
+  }, [email, phone, user]);
+
+  async function reserve(details) {
     if (state === "sending") return;
     setState("sending");
     setError("");
@@ -69,7 +74,7 @@ export default function Join() {
       const res = await fetch("/api/waitlist", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, phone, company, source: "club" }),
+        body: JSON.stringify({ email: details.email, phone: details.phone, company, source: "club" }),
       });
       const d = await res.json();
       if (!res.ok) {
@@ -84,10 +89,31 @@ export default function Join() {
     }
   }
 
+  function submit(e) {
+    e.preventDefault();
+    if (!user) {
+      openAuth({
+        clear: true,
+        email,
+        phone,
+        onAuthenticated: (signedInUser) => {
+          const details = {
+            email: email || signedInUser?.id || "",
+            phone: phone || signedInUser?.phone?.replace(/^\+91/, "") || "",
+          };
+          setEmail(details.email);
+          setPhone(details.phone);
+          reserve(details);
+        },
+      });
+      return;
+    }
+    reserve({ email: email || user.id, phone: phone || user.phone || "" });
+  }
+
   return (
     <>
       <Nav />
-      <AuthGate mode="interaction">
         <main className="mk">
         {/* ---------------- hero ---------------- */}
         <section className="mk-hero">
@@ -127,7 +153,7 @@ export default function Join() {
           </p>
 
           <div className="mk-ctas">
-            <a className="btn-lg btn-grad" href="#join" data-auth-required>
+            <a className="btn-lg btn-grad" href="#join">
               Join the club · free
             </a>
             <a className="btn-lg btn-ghost" href="/dashboard" data-auth-required>
@@ -214,7 +240,7 @@ export default function Join() {
                 </div>
               ) : (
                 <>
-                  <form onSubmit={submit} data-auth-required>
+                  <form onSubmit={submit}>
                     <div className="row">
                       <input
                         type="email"
@@ -243,6 +269,7 @@ export default function Join() {
                           type="tel"
                           inputMode="numeric"
                           maxLength={14}
+                          required
                           value={phone}
                           onChange={(e) => setPhone(e.target.value)}
                           placeholder="WhatsApp number"
@@ -315,7 +342,7 @@ export default function Join() {
               Just serious people talking seriously about equity markets.
             </p>
             <div className="mk-ctas">
-              <a className="btn-lg btn-grad" href="#join" data-auth-required>
+              <a className="btn-lg btn-grad" href="#join">
                 Reserve my seat
               </a>
               <a
@@ -332,7 +359,6 @@ export default function Join() {
         </main>
 
         <MkFooter />
-      </AuthGate>
     </>
   );
 }

@@ -12,6 +12,7 @@
 import { currentUser } from "../../../../lib/session";
 import { authReady } from "../../../../lib/auth-ready";
 import { emailConfigured } from "../../../../lib/notify";
+import { findByEmail } from "../../../../lib/users";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -19,9 +20,21 @@ export const dynamic = "force-dynamic";
 export async function GET(request) {
   const user = currentUser(request);
   const emailReady = emailConfigured();
+  let profile = null;
+  if (user?.channel === "email") {
+    try {
+      profile = await findByEmail(user.id.slice(user.id.indexOf(":") + 1));
+    } catch {
+      // A profile lookup should not turn a valid session into a signed-out UI.
+    }
+  }
 
   return Response.json({
-    user: user ? { id: user.id.slice(user.id.indexOf(":") + 1), channel: user.channel } : null,
+    user: user ? {
+      id: user.id.slice(user.id.indexOf(":") + 1),
+      channel: user.channel,
+      phone: profile?.phone || null,
+    } : null,
     channels: {
       email: emailReady,
       whatsapp: false,
