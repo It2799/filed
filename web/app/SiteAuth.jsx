@@ -65,7 +65,7 @@ export function SiteAuthProvider({ children }) {
   }, [openAuth]);
 
   useEffect(() => {
-    if (user) return undefined;
+    if (user || !ready) return undefined;
     const protect = (event) => {
       const target = event.target.closest?.("[data-auth-required]");
       if (!target) return;
@@ -75,7 +75,7 @@ export function SiteAuthProvider({ children }) {
     };
     document.addEventListener("click", protect, true);
     return () => document.removeEventListener("click", protect, true);
-  }, [openAuth, user]);
+  }, [openAuth, ready, user]);
 
   useEffect(() => {
     document.body.classList.toggle("auth-open", Boolean(modal));

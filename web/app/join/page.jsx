@@ -50,7 +50,7 @@ const BENEFITS = [
 ];
 
 export default function Join() {
-  const { user, openAuth } = useSiteAuth();
+  const { ready, user, openAuth } = useSiteAuth();
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [company, setCompany] = useState(""); // honeypot
@@ -91,7 +91,7 @@ export default function Join() {
 
   function submit(e) {
     e.preventDefault();
-    if (!user) {
+    if (!user && ready) {
       openAuth({
         clear: true,
         email,
@@ -108,7 +108,7 @@ export default function Join() {
       });
       return;
     }
-    reserve({ email: email || user.id, phone: phone || user.phone || "" });
+    reserve({ email: email || user?.id || "", phone: phone || user?.phone || "" });
   }
 
   return (

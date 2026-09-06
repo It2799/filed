@@ -6,7 +6,7 @@ import { useSiteAuth } from "./SiteAuth";
 
 export default function Nav() {
   const pathname = usePathname();
-  const { user, openAuth, logout } = useSiteAuth();
+  const { ready, user, openAuth, logout } = useSiteAuth();
 
   async function signOut() {
     await logout();
@@ -24,7 +24,7 @@ export default function Nav() {
           <a href="/brief">Daily brief</a>
           {user ? (
             <button type="button" className="nav-account" onClick={signOut}>Log out</button>
-          ) : (
+          ) : ready ? (
             <button
               type="button"
               className="nav-account"
@@ -32,7 +32,7 @@ export default function Nav() {
             >
               Sign in
             </button>
-          )}
+          ) : null}
           <a className="nav-cta" href="/join">
             {SITE.free ? "Join free" : `Join · ${PRICE_LABEL}`}
           </a>

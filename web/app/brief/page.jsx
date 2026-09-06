@@ -19,7 +19,7 @@ import { useSiteAuth } from "../SiteAuth";
  * which is where anything older belongs.
  */
 export default function Brief() {
-  const { user, openAuth } = useSiteAuth();
+  const { ready, user, openAuth } = useSiteAuth();
   const [latest, setLatest] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -67,7 +67,7 @@ export default function Brief() {
 
   function submit(e) {
     e.preventDefault();
-    if (!user) {
+    if (!user && ready) {
       openAuth({
         clear: true,
         email,
@@ -79,7 +79,7 @@ export default function Brief() {
       });
       return;
     }
-    subscribe(email || user.id);
+    subscribe(email || user?.id || "");
   }
 
   const pretty = (iso) =>

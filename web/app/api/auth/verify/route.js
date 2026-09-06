@@ -43,7 +43,7 @@ export async function POST(request) {
   const phone = verdict.metadata?.phone || null;
   try {
     const saved = await saveVerifiedUser({ email, phone });
-    if (saved.shouldSendWelcome) {
+    if (saved.shouldSendWelcome && process.env.SEND_WELCOME_EMAILS === "true") {
       try {
         const welcome = await sendWelcomeEmail(email);
         if (welcome.sent) await markWelcomeEmailSent(email, "gmail-after-verification");
