@@ -1,30 +1,15 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-
-const RESEND_AFTER = 45;
+import { useEffect, useState } from "react";
 
 function AuthPanel({ ready = true, initialEmail = "", initialPhone = "", onAuthenticated, onClose }) {
   const [step, setStep] = useState("email");
   const [email, setEmail] = useState(() => String(initialEmail).trim().toLowerCase());
   const [phone, setPhone] = useState(() => String(initialPhone).replace(/\D/g, "").slice(-10));
-  const [code, setCode] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const [wait, setWait] = useState(0);
-  const codeBox = useRef(null);
 
-  useEffect(() => {
-    if (wait <= 0) return undefined;
-    const timer = setTimeout(() => setWait((value) => value - 1), 1000);
-    return () => clearTimeout(timer);
-  }, [wait]);
-
-  useEffect(() => {
-    if (step === "code") codeBox.current?.focus();
-  }, [step]);
-
-  async function requestCode(withPhone = "") {
+  async function signIn(withPhone = "") {
     if (busy) return;
     setBusy(true);
     setError("");
@@ -41,47 +26,7 @@ function AuthPanel({ ready = true, initialEmail = "", initialPhone = "", onAuthe
         return;
       }
       if (!response.ok) {
-        setError(data.error || "We could not send the code. Please try again.");
-        return;
-      }
-      setStep("code");
-      setWait(RESEND_AFTER);
-    } catch {
-      setError("Could not reach the server. Check your connection and try again.");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function submitEmail(event) {
-    event.preventDefault();
-    await requestCode();
-  }
-
-  async function submitPhone(event) {
-    event.preventDefault();
-    await requestCode(phone);
-  }
-
-  async function verify(event) {
-    event.preventDefault();
-    if (busy || code.length !== 6) return;
-    setBusy(true);
-    setError("");
-    try {
-      const response = await fetch("/api/auth/verify", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, code }),
-      });
-      const data = await response.json();
-      if (!response.ok) {
-        setError(
-          data.attemptsLeft
-            ? `${data.error} ${data.attemptsLeft} tries left.`
-            : data.error || "That code did not work."
-        );
-        setCode("");
+        setError(data.error || "We could not sign you in. Please try again.");
         return;
       }
       onAuthenticated?.(data);
@@ -92,6 +37,16 @@ function AuthPanel({ ready = true, initialEmail = "", initialPhone = "", onAuthe
     }
   }
 
+  async function submitEmail(event) {
+    event.preventDefault();
+    await signIn();
+  }
+
+  async function submitPhone(event) {
+    event.preventDefault();
+    await signIn(phone);
+  }
+
   return (
     <section className="auth-card" role="dialog" aria-modal="true" aria-labelledby="auth-title">
       <button type="button" className="auth-close" onClick={onClose} aria-label="Close sign-in popup">×</button>
@@ -99,7 +54,7 @@ function AuthPanel({ ready = true, initialEmail = "", initialPhone = "", onAuthe
       <p className="auth-kicker">Member access</p>
       <h1 id="auth-title">Sign in to continue</h1>
       <p className="auth-copy">
-        Open the complete dashboard and daily brief with a quick email check.
+        Open the complete dashboard and daily brief with your email.
         No password to remember.
       </p>
 
@@ -127,7 +82,7 @@ function AuthPanel({ ready = true, initialEmail = "", initialPhone = "", onAuthe
             Returning member? We&apos;ll recognize your email and won&apos;t ask for your phone again.
           </p>
         </form>
-      ) : step === "phone" ? (
+      ) : (
         <form onSubmit={submitPhone} className="auth-form">
           <div className="auth-identity">
             <span>Creating an account for</span><b>{email}</b>
@@ -148,53 +103,19 @@ function AuthPanel({ ready = true, initialEmail = "", initialPhone = "", onAuthe
             />
           </div>
           <button type="submit" disabled={busy || phone.length !== 10}>
-            {busy ? "Sending…" : "Verify my email"}
+            {busy ? "Signing in…" : "Continue to Market Tide"}
           </button>
           <p className="auth-note">
-            We ask for this once. After your email is verified, it is saved securely for future sign-ins.
+            We ask for this once and save it securely for future sign-ins.
           </p>
           <button type="button" className="auth-link" onClick={() => { setStep("email"); setError(""); }}>
             Use a different email
           </button>
         </form>
-      ) : (
-        <form onSubmit={verify} className="auth-form">
-          <div className="auth-identity">
-            <span>Six-digit code sent to</span><b>{email}</b>
-          </div>
-          <label htmlFor="gate-code">Verification code</label>
-          <input
-            ref={codeBox}
-            id="gate-code"
-            className="auth-code"
-            type="text"
-            inputMode="numeric"
-            pattern="[0-9]*"
-            maxLength={6}
-            required
-            autoComplete="one-time-code"
-            value={code}
-            onChange={(event) => setCode(event.target.value.replace(/\D/g, "").slice(0, 6))}
-            placeholder="000000"
-          />
-          <button type="submit" disabled={busy || code.length !== 6}>
-            {busy ? "Verifying…" : "Open Market Tide"}
-          </button>
-          <div className="auth-actions">
-            <button type="button" className="auth-link" onClick={() => { setStep("email"); setCode(""); setError(""); }}>
-              Change email
-            </button>
-            {wait > 0 ? <span>Resend in {wait}s</span> : (
-              <button type="button" className="auth-link" onClick={() => requestCode(phone)}>
-                Send code again
-              </button>
-            )}
-          </div>
-        </form>
       )}
 
       {error && <p className="auth-error" role="alert">{error}</p>}
-      <p className="auth-trust">Your OTP expires in 10 minutes and works only once.</p>
+      <p className="auth-trust">No password or OTP required during temporary access.</p>
     </section>
   );
 }

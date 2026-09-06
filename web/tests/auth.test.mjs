@@ -16,7 +16,6 @@ import crypto from "node:crypto";
 
 process.env.NODE_ENV = "production";
 process.env.AUTH_SECRET = "test-secret-not-a-real-one";
-process.env.MEMBER_AUTH_ENABLED = "true";
 process.env.KV_REST_API_URL = "https://redis.invalid";
 process.env.KV_REST_API_TOKEN = "test-token";
 

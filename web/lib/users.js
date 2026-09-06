@@ -61,6 +61,20 @@ export async function saveVerifiedUser({ email, phone }) {
   };
 }
 
+export async function saveDirectUser({ email, phone }) {
+  const users = await collection();
+  const now = new Date();
+  await users.updateOne(
+    { email },
+    {
+      $set: { email, ...(phone ? { phone } : {}), lastLoginAt: now },
+      $setOnInsert: { createdAt: now },
+    },
+    { upsert: true }
+  );
+  return { email, phone: phone || null };
+}
+
 export async function markWelcomeEmailSent(email, via = "gmail") {
   const users = await collection();
   await users.updateOne(

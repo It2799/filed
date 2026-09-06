@@ -1,12 +1,12 @@
-/** Start email verification for a protected-page sign-in.
- * New reader: email -> phone -> OTP.
- * Returning reader: email -> OTP; the saved phone is not requested again.
+/** Start a temporary OTP-free protected-page sign-in.
+ * New reader: email -> phone -> session. Returning reader: email -> session.
  */
 
 import { normalisePhone } from "../../../../lib/phone";
-import { issue } from "../../../../lib/otp";
-import { sendEmailCode } from "../../../../lib/notify";
-import { configured as usersConfigured, findByEmail } from "../../../../lib/users";
+import { make, cookieHeader } from "../../../../lib/session";
+import { addEmail } from "../../../../lib/store";
+import { configured as usersConfigured, findByEmail, saveDirectUser, subscribeUser } from "../../../../lib/users";
+import { upsertSubscriber } from "../../../../lib/kit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -61,38 +61,37 @@ export async function POST(request) {
   }
 
   const id = `email:${email}`;
-  const made = await issue(id, { email, phone, returning });
-  if (!made.ok && made.reason === "not_configured") {
-    return Response.json({ error: "Email verification is not configured yet." }, { status: 503 });
-  }
-  if (!made.ok && made.reason === "too_many") {
-    const mins = Math.ceil((made.retryInSeconds || 900) / 60);
+  try {
+    await saveDirectUser({ email, phone });
+  } catch (error) {
+    console.error("[auth] could not save the account:", error.message || error);
     return Response.json(
-      { error: `Too many codes requested. Try again in ${mins} minute(s).` },
-      { status: 429 }
+      { error: "We could not finish signing you in. Please try again." },
+      { status: 503 }
     );
   }
-  if (!made.ok) {
-    return Response.json({ error: "Could not start sign-in." }, { status: 500 });
-  }
+
+  const cookie = make({ id, channel: "email" });
+  if (!cookie) return Response.json({ error: "Signing in is not configured yet." }, { status: 503 });
 
   try {
-    const sent = await sendEmailCode(email, made.code);
-    if (!sent.sent) {
-      return Response.json({ error: "Email verification is not connected yet." }, { status: 503 });
-    }
+    await addEmail(email, { via: "direct-login" });
+    await subscribeUser({ email, phone, source: "direct-login" });
+    await upsertSubscriber(email);
   } catch (error) {
-    console.error("[auth] could not send the code:", error.message || error);
-    return Response.json(
-      { error: "We could not send the email just now. Please try again." },
-      { status: 502 }
-    );
+    console.error("[auth] could not record the signup:", error.message || error);
   }
 
-  return Response.json({
+  return new Response(JSON.stringify({
     ok: true,
+    authenticated: true,
     email,
     returning,
-    expiresInSeconds: made.expiresInSeconds,
+    id: email,
+    channel: "email",
+    user: { id: email, channel: "email", phone },
+  }), {
+    status: 200,
+    headers: { "Content-Type": "application/json", "Set-Cookie": cookieHeader(cookie) },
   });
 }
