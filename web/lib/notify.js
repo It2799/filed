@@ -3,26 +3,46 @@
 import nodemailer from "nodemailer";
 
 const SUPPORT = process.env.REPLY_TO_EMAIL || "market.tide27@gmail.com";
-let transporter;
+let transporters;
 
 export function emailConfigured() {
   return Boolean(process.env.SMTP_USER && process.env.SMTP_PASS);
 }
 
-function mailer() {
-  if (!emailConfigured()) return null;
-  if (!transporter) {
-    transporter = nodemailer.createTransport({
-      host: process.env.SMTP_HOST || "smtp.gmail.com",
-      port: Number(process.env.SMTP_PORT || 465),
-      secure: String(process.env.SMTP_SECURE || "true") !== "false",
-      auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
-      connectionTimeout: 6000,
-      greetingTimeout: 6000,
-      socketTimeout: 10000,
-    });
+function mailers() {
+  if (!emailConfigured()) return [];
+  if (transporters) return transporters;
+
+  const host = process.env.SMTP_HOST || "smtp.gmail.com";
+  const primaryPort = Number(process.env.SMTP_PORT || 465);
+  const primarySecure = process.env.SMTP_SECURE == null
+    ? primaryPort === 465
+    : String(process.env.SMTP_SECURE) !== "false";
+  const credentials = {
+    user: process.env.SMTP_USER.trim(),
+    // Google displays app passwords in four groups. Vercel values sometimes
+    // keep those spaces, while Gmail expects the underlying 16 characters.
+    pass: process.env.SMTP_PASS.replace(/\s+/g, ""),
+  };
+  const connections = [{ port: primaryPort, secure: primarySecure }];
+  if (host === "smtp.gmail.com") {
+    const fallback = primaryPort === 465
+      ? { port: 587, secure: false }
+      : { port: 465, secure: true };
+    connections.push(fallback);
   }
-  return transporter;
+
+  transporters = connections.map(({ port, secure }) => nodemailer.createTransport({
+    host,
+    port,
+    secure,
+    requireTLS: !secure,
+    auth: credentials,
+    connectionTimeout: 10000,
+    greetingTimeout: 10000,
+    socketTimeout: 15000,
+  }));
+  return transporters;
 }
 
 function from() {
@@ -30,10 +50,18 @@ function from() {
 }
 
 async function deliver(message) {
-  const client = mailer();
-  if (!client) return { sent: false, reason: "email not configured" };
-  const info = await client.sendMail({ from: from(), replyTo: SUPPORT, ...message });
-  return { sent: true, id: info.messageId };
+  const clients = mailers();
+  if (!clients.length) return { sent: false, reason: "email not configured" };
+  let lastError;
+  for (const client of clients) {
+    try {
+      const info = await client.sendMail({ from: from(), replyTo: SUPPORT, ...message });
+      return { sent: true, id: info.messageId };
+    } catch (error) {
+      lastError = error;
+    }
+  }
+  throw lastError;
 }
 
 export const WELCOME_EMAIL = Object.freeze({
