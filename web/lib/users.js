@@ -86,6 +86,29 @@ export async function subscribeUser({ email, phone = null, source = "brief" }) {
   return { email, alreadySubscribed };
 }
 
+/** Private admin view. Callers must enforce admin authentication first. */
+export async function listUsersForAdmin(limit = 5000) {
+  const users = await collection();
+  return users.find(
+    {},
+    {
+      projection: {
+        _id: 0,
+        email: 1,
+        phone: 1,
+        createdAt: 1,
+        updatedAt: 1,
+        emailVerifiedAt: 1,
+        lastLoginAt: 1,
+        briefSubscribed: 1,
+        briefSubscribedAt: 1,
+        briefSubscriptionUpdatedAt: 1,
+        briefSubscriptionSource: 1,
+      },
+    }
+  ).sort({ createdAt: -1 }).limit(Math.max(1, Math.min(Number(limit) || 5000, 5000))).toArray();
+}
+
 export async function closeUsersConnection() {
   if (!clientPromise) return;
   const client = await clientPromise;

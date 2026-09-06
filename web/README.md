@@ -37,6 +37,9 @@ private environment variables in Vercel for Production, Preview and Development:
 - `KV_REST_API_URL` and `KV_REST_API_TOKEN` — Upstash Redis used for short-lived OTPs
 - `CRON_SECRET` — random value of at least 16 characters; Vercel sends it to the cron route
 - `GITHUB_DISPATCH_TOKEN` — GitHub token with Actions write access, used only to start the PDF worker
+- `ADMIN_PATH_TOKEN` — long random token used in the private `/control/<token>` URL
+- `ADMIN_PASSWORD` — password required before any admin data is returned
+- `ADMIN_SESSION_SECRET` — optional separate secret for the 12-hour admin session; falls back to `AUTH_SECRET`
 
 New readers enter email and mobile number, then verify the email with a six-digit
 code. Their normalized mobile number is stored in MongoDB only after successful

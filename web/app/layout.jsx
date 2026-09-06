@@ -1,10 +1,11 @@
 import { Inter, Instrument_Serif } from "next/font/google";
-import { Analytics } from "@vercel/analytics/next";
+import AnalyticsGate from "./AnalyticsGate";
 import "./globals.css";
 import "./theme.css";
 import "./marketing.css";
 import "./dash.css";
 import "./auth.css";
+import "./admin.css";
 
 // Inter for everything functional - it was built for screens and its tabular
 // figures keep columns of rupee amounts from jittering. Instrument Serif only
@@ -51,7 +52,7 @@ export default function RootLayout({ children }) {
     <html lang="en" className={`${inter.variable} ${serif.variable}`}>
       <body>
         {children}
-        <Analytics />
+        <AnalyticsGate />
       </body>
     </html>
   );
