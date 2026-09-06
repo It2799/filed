@@ -36,16 +36,44 @@ async function deliver(message) {
   return { sent: true, id: info.messageId };
 }
 
-export async function sendWelcomeEmail(to) {
-  return deliver({
-    to,
-    subject: "Welcome to Market Tide",
+export const WELCOME_EMAIL = Object.freeze({
+    subject: "Welcome to Market Tide — your member access is ready",
     text:
-      "Welcome to Market Tide.\n\n"
-      + "Your account is ready. You can now open the Dashboard and Daily Brief using your email. "
-      + "On future sign-ins we will remember your mobile number, so you only need your email and the six-digit code.\n\n"
-      + "Market Tide summarises public exchange filings. It is not investment advice.\n",
-  });
+      "Hi there,\n\n"
+      + "Welcome to Market Tide.\n\n"
+      + "Your free member access is now ready. We built Market Tide to help you understand important NSE and BSE company filings without spending hours reading every document.\n\n"
+      + "Here’s what you now have access to:\n\n"
+      + "• Market Dashboard: Important company announcements explained in simple language, with links to the original filings.\n"
+      + "• Daily Brief: A focused morning summary of the filings that matter.\n"
+      + "• Member Access: Sign in securely using your email and a six-digit OTP—no password to remember.\n"
+      + "• Equity Markets Club: Connect with people who take markets, businesses and research seriously.\n\n"
+      + "Open your dashboard: https://markettide.in/dashboard\n"
+      + "Read the Daily Brief: https://markettide.in/brief\n"
+      + "Join the community: https://markettide.in/join\n\n"
+      + "A quick reminder: Market Tide provides information and summaries, not investment advice. AI-generated summaries can contain mistakes, so always check the original exchange filing before making any decision.\n\n"
+      + "If you have any questions, simply reply to this email. We read every response.\n\n"
+      + "Welcome aboard,\nMarket Tide\nNSE & BSE filings, made easier to understand\nEmail: market.tide27@gmail.com\nContact: +91 82004 40146\nhttps://markettide.in\n\n"
+      + "Don’t want to receive emails from us? Reply with Unsubscribe, and we’ll remove you.\n",
+    html:
+      '<div style="max-width:620px;margin:0 auto;font-family:Arial,sans-serif;color:#17191d;line-height:1.65">'
+      + '<p>Hi there,</p><p><strong>Welcome to Market Tide.</strong></p>'
+      + '<p>Your free member access is now ready. We built Market Tide to help you understand important NSE and BSE company filings without spending hours reading every document.</p>'
+      + '<p><strong>Here’s what you now have access to:</strong></p><ul>'
+      + '<li><strong>Market Dashboard:</strong> Important company announcements explained in simple language, with links to the original filings.</li>'
+      + '<li><strong>Daily Brief:</strong> A focused morning summary of the filings that matter.</li>'
+      + '<li><strong>Member Access:</strong> Sign in securely using your email and a six-digit OTP—no password to remember.</li>'
+      + '<li><strong>Equity Markets Club:</strong> Connect with people who take markets, businesses and research seriously.</li></ul>'
+      + '<p><a href="https://markettide.in/dashboard"><strong>Open your dashboard</strong></a><br>'
+      + '<a href="https://markettide.in/brief"><strong>Read the Daily Brief</strong></a><br>'
+      + '<a href="https://markettide.in/join"><strong>Join the community</strong></a></p>'
+      + '<p><small>A quick reminder: Market Tide provides information and summaries, not investment advice. AI-generated summaries can contain mistakes, so always check the original exchange filing before making any decision.</small></p>'
+      + '<p>If you have any questions, simply reply to this email. We read every response.</p>'
+      + '<p>Welcome aboard,<br><strong>Market Tide</strong><br>NSE &amp; BSE filings, made easier to understand<br>Email: <a href="mailto:market.tide27@gmail.com">market.tide27@gmail.com</a><br>Contact: <a href="tel:+918200440146">+91 82004 40146</a><br><a href="https://markettide.in">markettide.in</a></p>'
+      + '<p><small>Don’t want to receive emails from us? Reply with <strong>Unsubscribe</strong>, and we’ll remove you.</small></p></div>',
+});
+
+export async function sendWelcomeEmail(to) {
+  return deliver({ to, ...WELCOME_EMAIL });
 }
 
 export const sendEmail = sendWelcomeEmail;
@@ -68,14 +96,4 @@ export async function sendContactMessage({ name, email, message }) {
     subject: `Market Tide contact: ${name}`,
     text: `From: ${name} <${email}>\n\n${message}`,
   });
-}
-
-/** Best-effort welcome notification; saving a signup must not depend on SMTP. */
-export async function confirm({ email }) {
-  try {
-    return { email: await sendWelcomeEmail(email) };
-  } catch (error) {
-    console.error("[notify] email failed:", error.message || error);
-    return { email: { sent: false, error: String(error.message || error) } };
-  }
 }

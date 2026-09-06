@@ -38,7 +38,7 @@ export async function saveVerifiedUser({ email, phone }) {
   const now = new Date();
   const before = await users.findOne(
     { email },
-    { projection: { _id: 0, emailVerifiedAt: 1 } }
+    { projection: { _id: 0, emailVerifiedAt: 1, welcomeEmailSentAt: 1 } }
   );
   await users.updateOne(
     { email },
@@ -53,7 +53,20 @@ export async function saveVerifiedUser({ email, phone }) {
     },
     { upsert: true }
   );
-  return { email, phone: phone || null, firstVerification: !before?.emailVerifiedAt };
+  return {
+    email,
+    phone: phone || null,
+    firstVerification: !before?.emailVerifiedAt,
+    shouldSendWelcome: !before?.welcomeEmailSentAt,
+  };
+}
+
+export async function markWelcomeEmailSent(email, via = "gmail") {
+  const users = await collection();
+  await users.updateOne(
+    { email },
+    { $set: { welcomeEmailSentAt: new Date(), welcomeEmailVia: via } }
+  );
 }
 
 /** Mark an email as subscribed without creating duplicate users. */
@@ -104,6 +117,8 @@ export async function listUsersForAdmin(limit = 5000) {
         briefSubscribedAt: 1,
         briefSubscriptionUpdatedAt: 1,
         briefSubscriptionSource: 1,
+        welcomeEmailSentAt: 1,
+        welcomeEmailVia: 1,
       },
     }
   ).sort({ createdAt: -1 }).limit(Math.max(1, Math.min(Number(limit) || 5000, 5000))).toArray();

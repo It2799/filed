@@ -1,6 +1,5 @@
 import { addEmail, count } from "../../../lib/store";
 import { normalisePhone } from "../../../lib/phone";
-import { confirm } from "../../../lib/notify";
 import { configured as usersConfigured, subscribeUser } from "../../../lib/users";
 import { configured as kitConfigured, upsertSubscriber } from "../../../lib/kit";
 
@@ -66,13 +65,6 @@ export async function POST(request) {
     console.error("[waitlist] Kit sync failed:", error.message || error);
   }
 
-  // Confirmations are best-effort. A failure here must never lose the signup,
-  // so this is deliberately after the save and never throws.
-  let notified = {};
-  if (!result.alreadyJoined) {
-    notified = await confirm({ email, phone });
-  }
-
   return Response.json({
     ok: true,
     joined: true,
@@ -82,8 +74,8 @@ export async function POST(request) {
     kitConfigured: kitConfigured(),
     kitSynced,
     gaveWhatsApp: Boolean(phone),
-    emailSent: Boolean(notified.email?.sent),
-    whatsappSent: Boolean(notified.whatsapp?.sent),
+    emailSent: false,
+    whatsappSent: false,
   });
 }
 

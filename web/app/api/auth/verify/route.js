@@ -3,7 +3,7 @@
 import { check } from "../../../../lib/otp";
 import { make, cookieHeader } from "../../../../lib/session";
 import { addEmail } from "../../../../lib/store";
-import { saveVerifiedUser, subscribeUser } from "../../../../lib/users";
+import { markWelcomeEmailSent, saveVerifiedUser, subscribeUser } from "../../../../lib/users";
 import { sendWelcomeEmail } from "../../../../lib/notify";
 import { upsertSubscriber } from "../../../../lib/kit";
 
@@ -43,9 +43,10 @@ export async function POST(request) {
   const phone = verdict.metadata?.phone || null;
   try {
     const saved = await saveVerifiedUser({ email, phone });
-    if (saved.firstVerification) {
+    if (saved.shouldSendWelcome) {
       try {
-        await sendWelcomeEmail(email);
+        const welcome = await sendWelcomeEmail(email);
+        if (welcome.sent) await markWelcomeEmailSent(email, "gmail-after-verification");
       } catch (error) {
         console.error("[auth] welcome email failed:", error.message || error);
       }
