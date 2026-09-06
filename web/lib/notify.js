@@ -1,118 +1,74 @@
-/** Transactional email (OTP, welcome, contact) through Gmail SMTP. */
-
-import nodemailer from "nodemailer";
+/** Transactional email (OTP, welcome, contact) through Resend. */
 
 const SUPPORT = process.env.REPLY_TO_EMAIL || "market.tide27@gmail.com";
-let transporters;
+const API = "https://api.resend.com/emails";
 
 export function emailConfigured() {
-  return Boolean(process.env.SMTP_USER && process.env.SMTP_PASS);
+  return Boolean(process.env.RESEND_API_KEY);
 }
 
 export async function diagnoseEmailConnection() {
-  if (!emailConfigured()) return { configured: false, attempts: [] };
-  const attempts = [];
-  for (const client of mailers()) {
-    try {
-      await client.verify();
-      attempts.push({ port: client.options.port, secure: client.options.secure, ok: true });
-      return { configured: true, connected: true, attempts };
-    } catch (error) {
-      attempts.push({
-        port: client.options.port,
-        secure: client.options.secure,
-        ok: false,
-        code: error.code || null,
-        responseCode: error.responseCode || null,
-        command: error.command || null,
-      });
-    }
-  }
-  return { configured: true, connected: false, attempts };
+  if (!emailConfigured()) return { configured: false, connected: false };
+  const response = await fetch("https://api.resend.com/domains", {
+    headers: { Authorization: `Bearer ${process.env.RESEND_API_KEY}` },
+    cache: "no-store",
+  });
+  if (!response.ok) return { configured: true, connected: false, responseCode: response.status };
+  const data = await response.json();
+  const verified = (data.data || []).some(
+    (domain) => domain.name === "markettide.in" && domain.status === "verified"
+  );
+  return { configured: true, connected: verified, domainVerified: verified };
 }
 
 export async function diagnoseEmailDelivery() {
-  if (!emailConfigured()) return { configured: false, attempts: [] };
-  const attempts = [];
-  for (const client of mailers()) {
-    try {
-      const info = await client.sendMail({
-        from: from(),
-        to: process.env.SMTP_USER.trim(),
-        replyTo: SUPPORT,
-        subject: "Market Tide email delivery test",
-        text: "This message confirms that Gmail delivery from the Market Tide production server is working.",
-      });
-      attempts.push({ port: client.options.port, secure: client.options.secure, ok: true });
-      return { configured: true, delivered: true, accepted: info.accepted?.length || 0, attempts };
-    } catch (error) {
-      attempts.push({
-        port: client.options.port,
-        secure: client.options.secure,
-        ok: false,
-        code: error.code || null,
-        responseCode: error.responseCode || null,
-        command: error.command || null,
-        response: String(error.response || "").replace(/[\w.+-]+@[\w.-]+/g, "[email]").slice(0, 300),
-      });
-    }
+  if (!emailConfigured()) return { configured: false, delivered: false };
+  try {
+    const result = await deliver({
+      to: SUPPORT,
+      subject: "Market Tide email delivery test",
+      text: "This message confirms that Resend delivery from the Market Tide production server is working.",
+    });
+    return { configured: true, delivered: result.sent, provider: "resend" };
+  } catch (error) {
+    return {
+      configured: true,
+      delivered: false,
+      provider: "resend",
+      responseCode: error.statusCode || null,
+      code: error.code || null,
+    };
   }
-  return { configured: true, delivered: false, attempts };
-}
-
-function mailers() {
-  if (!emailConfigured()) return [];
-  if (transporters) return transporters;
-
-  const host = process.env.SMTP_HOST || "smtp.gmail.com";
-  const primaryPort = Number(process.env.SMTP_PORT || 465);
-  const primarySecure = process.env.SMTP_SECURE == null
-    ? primaryPort === 465
-    : String(process.env.SMTP_SECURE) !== "false";
-  const credentials = {
-    user: process.env.SMTP_USER.trim(),
-    // Google displays app passwords in four groups. Vercel values sometimes
-    // keep those spaces, while Gmail expects the underlying 16 characters.
-    pass: process.env.SMTP_PASS.replace(/\s+/g, ""),
-  };
-  const connections = [{ port: primaryPort, secure: primarySecure }];
-  if (host === "smtp.gmail.com") {
-    const fallback = primaryPort === 465
-      ? { port: 587, secure: false }
-      : { port: 465, secure: true };
-    connections.push(fallback);
-  }
-
-  transporters = connections.map(({ port, secure }) => nodemailer.createTransport({
-    host,
-    port,
-    secure,
-    requireTLS: !secure,
-    auth: credentials,
-    connectionTimeout: 10000,
-    greetingTimeout: 10000,
-    socketTimeout: 15000,
-  }));
-  return transporters;
 }
 
 function from() {
-  return process.env.TRANSACTIONAL_FROM || `Market Tide <${process.env.SMTP_USER}>`;
+  return process.env.RESEND_FROM || "Market Tide <brief@markettide.in>";
 }
 
 async function deliver(message) {
-  const clients = mailers();
-  if (!clients.length) return { sent: false, reason: "email not configured" };
-  let lastError;
-  for (const client of clients) {
-    try {
-      const info = await client.sendMail({ from: from(), replyTo: SUPPORT, ...message });
-      return { sent: true, id: info.messageId };
-    } catch (error) {
-      lastError = error;
-    }
+  if (!emailConfigured()) return { sent: false, reason: "email not configured" };
+  const { replyTo, ...content } = message;
+  const response = await fetch(API, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      from: from(),
+      reply_to: replyTo || SUPPORT,
+      ...content,
+    }),
+    cache: "no-store",
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    const error = new Error(`Resend ${response.status}: ${data.message || "delivery failed"}`);
+    error.statusCode = response.status;
+    error.code = data.name || null;
+    throw error;
   }
-  throw lastError;
+  return { sent: true, id: data.id };
 }
 
 export const WELCOME_EMAIL = Object.freeze({

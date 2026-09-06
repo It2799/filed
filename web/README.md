@@ -28,9 +28,8 @@ private environment variables in Vercel for Production, Preview and Development:
 - `MONGODB_URI` — MongoDB connection string used for reader profiles
 - `MONGODB_DB` — optional database name; defaults to `market_tide`
 - `AUTH_SECRET` — a long random value used to sign sessions and OTP hashes
-- `SMTP_USER` — Gmail address used for OTP, welcome and contact email (`market.tide27@gmail.com`)
-- `SMTP_PASS` — a Google App Password, not the normal Gmail password
-- `TRANSACTIONAL_FROM` — optional display sender; defaults to `Market Tide <SMTP_USER>`
+- `RESEND_API_KEY` — Resend key used for OTP, welcome and contact email
+- `RESEND_FROM` — verified sender; defaults to `Market Tide <brief@markettide.in>`
 - `REPLY_TO_EMAIL` — reply destination; defaults to `market.tide27@gmail.com`
 - `KIT_API_KEY` — Kit key used to sync subscribers and send the Daily Brief
 - `KIT_FROM_EMAIL` — confirmed Kit sender; defaults to `market.tide27@gmail.com`
@@ -51,7 +50,7 @@ mirrored to Redis, and synced to Kit. The unique email index means a repeat
 subscription updates the same user rather than creating a duplicate. The
 morning worker publishes the issue first, then creates one Kit broadcast from
 `market.tide27@gmail.com` for all active Kit subscribers. Transactional messages
-use the same address through Gmail SMTP, while bulk delivery remains handled by Kit.
+use Resend from `brief@markettide.in` with replies going to Gmail, while bulk delivery remains handled by Kit.
 
 To copy existing MongoDB subscribers into Kit once, run:
 

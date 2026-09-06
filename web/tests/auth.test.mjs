@@ -91,13 +91,11 @@ const readiness = await import("../lib/auth-ready.js");
 // The public pages must not be accidentally locked while production setup is
 // incomplete. The gate activates only when all four services are present.
 delete process.env.MONGODB_URI;
-delete process.env.SMTP_USER;
-delete process.env.SMTP_PASS;
+delete process.env.RESEND_API_KEY;
 check(readiness.authReady() === false,
       "member access stays off while MongoDB or email delivery is missing");
 process.env.MONGODB_URI = "mongodb://unused.invalid/test";
-process.env.SMTP_USER = "test@example.com";
-process.env.SMTP_PASS = "test-app-password";
+process.env.RESEND_API_KEY = "re_test_key";
 check(readiness.authReady() === true,
       "member access turns on when storage, delivery and signing are configured");
 
