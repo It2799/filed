@@ -9,6 +9,28 @@ export function emailConfigured() {
   return Boolean(process.env.SMTP_USER && process.env.SMTP_PASS);
 }
 
+export async function diagnoseEmailConnection() {
+  if (!emailConfigured()) return { configured: false, attempts: [] };
+  const attempts = [];
+  for (const client of mailers()) {
+    try {
+      await client.verify();
+      attempts.push({ port: client.options.port, secure: client.options.secure, ok: true });
+      return { configured: true, connected: true, attempts };
+    } catch (error) {
+      attempts.push({
+        port: client.options.port,
+        secure: client.options.secure,
+        ok: false,
+        code: error.code || null,
+        responseCode: error.responseCode || null,
+        command: error.command || null,
+      });
+    }
+  }
+  return { configured: true, connected: false, attempts };
+}
+
 function mailers() {
   if (!emailConfigured()) return [];
   if (transporters) return transporters;
