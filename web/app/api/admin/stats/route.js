@@ -22,6 +22,15 @@ function newest(...values) {
   return values.filter(Boolean).sort().at(-1) || null;
 }
 
+const NEWSLETTER_SOURCES = new Set(["brief", "landing", "newsletter", "legacy-waitlist"]);
+
+function sourceLabel(source) {
+  if (source === "club") return "Join page";
+  if (NEWSLETTER_SOURCES.has(source)) return "Newsletter";
+  if (source.includes("login")) return "Login";
+  return source;
+}
+
 async function traffic() {
   const url = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL;
   const token = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN;
@@ -84,13 +93,14 @@ export async function GET(request) {
       if (!member) continue;
       member.phone = row.phone || member.phone;
       member.verified = Boolean(row.emailVerifiedAt);
-      member.subscribed = Boolean(row.briefSubscribed);
+      const subscriptionSource = String(row.briefSubscriptionSource || "").toLowerCase();
+      member.subscribed = Boolean(row.briefSubscribed && NEWSLETTER_SOURCES.has(subscriptionSource));
       member.createdAt = iso(row.createdAt);
       member.lastLoginAt = iso(row.lastLoginAt);
       if (member.verified) member.sources.add("Login");
-      if (member.subscribed) {
-        const source = String(row.briefSubscriptionSource || "brief").toLowerCase();
-        member.sources.add(source === "club" ? "Join page" : source === "brief" ? "Newsletter" : source);
+      if (subscriptionSource) member.sources.add(sourceLabel(subscriptionSource));
+      for (const source of row.acquisitionSources || []) {
+        member.sources.add(sourceLabel(String(source).toLowerCase()));
       }
       member.lastActivityAt = newest(
         member.createdAt,
@@ -98,7 +108,8 @@ export async function GET(request) {
         iso(row.emailVerifiedAt),
         iso(row.updatedAt),
         iso(row.briefSubscribedAt),
-        iso(row.briefSubscriptionUpdatedAt)
+        iso(row.briefSubscriptionUpdatedAt),
+        iso(row.leadUpdatedAt)
       );
     }
 
@@ -106,9 +117,9 @@ export async function GET(request) {
       const member = ensure(row.email);
       if (!member) continue;
       member.phone = member.phone || row.phone || null;
-      member.subscribed = true;
       const source = String(row.source || "waitlist").toLowerCase();
-      member.sources.add(source === "club" ? "Join page" : source === "brief" ? "Newsletter" : source);
+      member.subscribed = member.subscribed || NEWSLETTER_SOURCES.has(source);
+      member.sources.add(sourceLabel(source));
       member.createdAt = member.createdAt || iso(row.at);
       member.lastActivityAt = newest(member.lastActivityAt, iso(row.at));
     }

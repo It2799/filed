@@ -621,14 +621,17 @@ def main():
         print(f"  published as {parts} part(s); {held} older issue(s) removed")
         print(f"  https://markettide.in/brief/{day_iso}")
 
+        delivery = os.environ.get("NEWSLETTER_DELIVERY", "substack").strip().lower()
         kit_key = os.environ.get("KIT_API_KEY")
-        if kit_key:
+        if delivery == "kit" and kit_key:
             from_addr = os.environ.get("KIT_FROM_EMAIL", "market.tide27@gmail.com")
             broadcast = send_kit_broadcast(day_iso, len(picked), kit_key, from_addr)
             broadcast_id = broadcast.get("broadcast", {}).get("id") or broadcast.get("id", "created")
             print(f"  Kit broadcast scheduled: {broadcast_id}")
+        elif delivery == "substack":
+            print("  Substack delivery: issue prepared for manual scheduling at 08:00 IST")
         else:
-            print("  Kit broadcast skipped: KIT_API_KEY is not configured")
+            print(f"  Newsletter delivery skipped: provider '{delivery}' is not configured")
 
 
 if __name__ == "__main__":

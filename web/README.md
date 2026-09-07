@@ -28,11 +28,11 @@ private environment variables in Vercel for Production, Preview and Development:
 - `MONGODB_URI` — MongoDB connection string used for reader profiles
 - `MONGODB_DB` — optional database name; defaults to `market_tide`
 - `AUTH_SECRET` — a long random value used to sign sessions and OTP hashes
-- `RESEND_API_KEY` — Resend key used for OTP, welcome and contact email
+- `RESEND_API_KEY` — current transactional provider key; this will be replaced by Brevo for OTP
 - `RESEND_FROM` — verified sender; defaults to `Market Tide <brief@markettide.in>`
 - `REPLY_TO_EMAIL` — reply destination; defaults to `market.tide27@gmail.com`
-- `KIT_API_KEY` — Kit key used to sync subscribers and send the Daily Brief
-- `KIT_FROM_EMAIL` — confirmed Kit sender; defaults to `market.tide27@gmail.com`
+- `NEXT_PUBLIC_SUBSTACK_URL` — publication URL, for example `https://markettide.substack.com`
+- `NEWSLETTER_DELIVERY` — use `substack` to prevent the worker from sending through Kit
 - `KV_REST_API_URL` and `KV_REST_API_TOKEN` — Upstash Redis used for short-lived OTPs
 - `CRON_SECRET` — random value of at least 16 characters; Vercel sends it to the cron route
 - `GITHUB_DISPATCH_TOKEN` — GitHub token with Actions write access, used only to start the PDF worker
@@ -45,18 +45,22 @@ code. Their normalized mobile number is stored in MongoDB only after successful
 verification. Returning readers enter only their email, and a signed session
 keeps them logged in for 30 days.
 
-Daily Brief subscriptions are upserted into MongoDB's `users` collection,
-mirrored to Redis, and synced to Kit. The unique email index means a repeat
-subscription updates the same user rather than creating a duplicate. The
-morning worker publishes the issue first, then creates one Kit broadcast from
-`market.tide27@gmail.com` for all active Kit subscribers. Transactional messages
-use Resend from `brief@markettide.in` with replies going to Gmail, while bulk delivery remains handled by Kit.
+When `NEXT_PUBLIC_SUBSTACK_URL` is set, the Daily Brief page uses Substack's
+official embedded signup form. New newsletter subscribers therefore go directly
+to Substack. Market Tide login and community records remain in MongoDB and are
+not silently treated as newsletter consent. The morning worker generates and
+publishes the PDF, while the final Substack post is reviewed and scheduled for
+08:00 IST in Substack.
 
-To copy existing MongoDB subscribers into Kit once, run:
+To create a one-time CSV containing only explicit Daily Brief subscribers, run:
 
 ```bash
-node --env-file=.env.local tools/migrate-subscribers-to-kit.mjs
+npm run export:substack
 ```
+
+The default export includes only records whose subscription source is `brief`.
+After manually confirming that an older landing form clearly promised the Daily
+Brief, include those records with `SUBSTACK_IMPORT_SOURCES=brief,landing`.
 
 ### Morning brief schedule
 

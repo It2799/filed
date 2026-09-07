@@ -6,6 +6,7 @@ dashboard.html
 cache.json
 *.bak.json
 web/waitlist.local.jsonl
+web/exports/
 
 # Python
 __pycache__/

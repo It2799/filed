@@ -778,6 +778,14 @@
 .sub-error { margin: 12px 0 0; font-size: 14px; color: var(--neg); }
 .sub-done b { display: block; font-size: 19px; font-weight: 720; margin-bottom: 7px; }
 .sub-done p { margin: 0; color: var(--muted); font-size: 15px; line-height: 1.55; }
+.substack-frame {
+  display: block;
+  width: 100%;
+  height: 150px;
+  border: 0;
+  border-radius: 12px;
+  background: var(--panel);
+}
 
 /* "Then", not "or" - both steps are wanted, so the divider says so */
 .sub-and {

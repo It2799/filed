@@ -2,10 +2,8 @@
 
 import { check } from "../../../../lib/otp";
 import { make, cookieHeader } from "../../../../lib/session";
-import { addEmail } from "../../../../lib/store";
-import { markWelcomeEmailSent, saveVerifiedUser, subscribeUser } from "../../../../lib/users";
+import { markWelcomeEmailSent, saveVerifiedUser } from "../../../../lib/users";
 import { sendWelcomeEmail } from "../../../../lib/notify";
-import { upsertSubscriber } from "../../../../lib/kit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -62,14 +60,6 @@ export async function POST(request) {
   const cookie = make({ id, channel: "email" });
   if (!cookie) {
     return Response.json({ error: "Signing in is not configured yet." }, { status: 503 });
-  }
-
-  try {
-    await addEmail(email, { via: "otp-login" });
-    await subscribeUser({ email, phone, source: "otp-login" });
-    await upsertSubscriber(email);
-  } catch (error) {
-    console.error("[auth] could not record the signup:", error.message || error);
   }
 
   return new Response(JSON.stringify({

@@ -1,7 +1,6 @@
 import { addEmail, count } from "../../../lib/store";
 import { normalisePhone } from "../../../lib/phone";
-import { configured as usersConfigured, subscribeUser } from "../../../lib/users";
-import { configured as kitConfigured, upsertSubscriber } from "../../../lib/kit";
+import { configured as usersConfigured, saveLeadUser, subscribeUser } from "../../../lib/users";
 
 export const dynamic = "force-dynamic";
 
@@ -25,6 +24,8 @@ export async function POST(request) {
     return Response.json(
       { error: "That doesn't look like an email address." }, { status: 400 });
   }
+  const source = String(body.source || "landing").slice(0, 40).toLowerCase();
+  const isNewsletterSignup = source === "brief" || source === "landing";
 
   // WhatsApp number is optional, but if given it has to be a real one.
   const rawPhone = String(body.phone || "").trim();
@@ -41,28 +42,18 @@ export async function POST(request) {
   let result;
   try {
     if (usersConfigured()) {
-      await subscribeUser({
-        email,
-        phone,
-        source: String(body.source || "landing").slice(0, 40),
-      });
+      if (isNewsletterSignup) await subscribeUser({ email, phone, source });
+      else await saveLeadUser({ email, phone, source });
     }
     result = await addEmail(email, {
       phone,
       wantsWhatsApp: Boolean(phone),
-      source: String(body.source || "landing").slice(0, 40),
+      source,
     });
   } catch (err) {
     console.error("[waitlist] save failed:", err);
     return Response.json(
       { error: "Couldn't save that. Please try again in a moment." }, { status: 500 });
-  }
-
-  let kitSynced = false;
-  try {
-    kitSynced = Boolean((await upsertSubscriber(email)).ok);
-  } catch (error) {
-    console.error("[waitlist] Kit sync failed:", error.message || error);
   }
 
   return Response.json({
@@ -71,8 +62,7 @@ export async function POST(request) {
     alreadyJoined: result.alreadyJoined,
     backend: result.backend,
     profileSaved: usersConfigured(),
-    kitConfigured: kitConfigured(),
-    kitSynced,
+    newsletterSignup: isNewsletterSignup,
     gaveWhatsApp: Boolean(phone),
     emailSent: false,
     whatsappSent: false,

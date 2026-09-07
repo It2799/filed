@@ -4,9 +4,7 @@
 
 import { normalisePhone } from "../../../../lib/phone";
 import { make, cookieHeader } from "../../../../lib/session";
-import { addEmail } from "../../../../lib/store";
-import { configured as usersConfigured, findByEmail, saveDirectUser, subscribeUser } from "../../../../lib/users";
-import { upsertSubscriber } from "../../../../lib/kit";
+import { configured as usersConfigured, findByEmail, saveDirectUser } from "../../../../lib/users";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -73,14 +71,6 @@ export async function POST(request) {
 
   const cookie = make({ id, channel: "email" });
   if (!cookie) return Response.json({ error: "Signing in is not configured yet." }, { status: 503 });
-
-  try {
-    await addEmail(email, { via: "direct-login" });
-    await subscribeUser({ email, phone, source: "direct-login" });
-    await upsertSubscriber(email);
-  } catch (error) {
-    console.error("[auth] could not record the signup:", error.message || error);
-  }
 
   return new Response(JSON.stringify({
     ok: true,

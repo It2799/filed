@@ -5,7 +5,9 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start"
+    "start": "next start",
+    "export:substack": "node --env-file=.env.local tools/export-substack-subscribers.mjs",
+    "export:substack:all": "node --env-file=.env.local tools/export-substack-subscribers.mjs --all"
   },
   "dependencies": {
     "@vercel/analytics": "^2.0.1",

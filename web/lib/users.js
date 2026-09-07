@@ -75,6 +75,26 @@ export async function saveDirectUser({ email, phone }) {
   return { email, phone: phone || null };
 }
 
+/** Store a community/interest lead without treating it as newsletter consent. */
+export async function saveLeadUser({ email, phone = null, source = "unknown" }) {
+  const users = await collection();
+  const now = new Date();
+  await users.updateOne(
+    { email },
+    {
+      $set: {
+        email,
+        ...(phone ? { phone } : {}),
+        leadUpdatedAt: now,
+      },
+      $addToSet: { acquisitionSources: source },
+      $setOnInsert: { createdAt: now },
+    },
+    { upsert: true }
+  );
+  return { email, phone, source };
+}
+
 export async function markWelcomeEmailSent(email, via = "gmail") {
   const users = await collection();
   await users.updateOne(
@@ -133,6 +153,8 @@ export async function listUsersForAdmin(limit = 5000) {
         briefSubscriptionSource: 1,
         welcomeEmailSentAt: 1,
         welcomeEmailVia: 1,
+        acquisitionSources: 1,
+        leadUpdatedAt: 1,
       },
     }
   ).sort({ createdAt: -1 }).limit(Math.max(1, Math.min(Number(limit) || 5000, 5000))).toArray();

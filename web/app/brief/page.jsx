@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Nav from "../Nav";
 import MkFooter from "../MkFooter";
+import SubstackSignup from "../SubstackSignup";
 import { SITE } from "../site";
 import { useSiteAuth } from "../SiteAuth";
 
@@ -27,6 +28,9 @@ export default function Brief() {
   const [company, setCompany] = useState("");   // honeypot
   const [state, setState] = useState("idle");
   const [error, setError] = useState("");
+  const usesSubstack = /^https:\/\/[a-z0-9-]+\.substack\.com\/?$/i.test(
+    process.env.NEXT_PUBLIC_SUBSTACK_URL || "https://markettide.substack.com"
+  );
 
   useEffect(() => {
     let dead = false;
@@ -95,7 +99,7 @@ export default function Brief() {
           <p className="mk-kicker">Free daily newsletter</p>
           <h1 className="mk-h1">The morning brief</h1>
           <p className="mk-sub">
-            Every morning at 7:30 we send you the{" "}
+            Every morning at 8:00 we send you the{" "}
             <strong>50 filings that actually matter</strong> from yesterday and
             overnight — what happened, the key numbers, and why it matters. One
             PDF. Free.
@@ -123,18 +127,20 @@ export default function Brief() {
             </div>
           ) : (
             <p className="brief-empty">
-              The first issue goes out tomorrow at 7:30 in the morning. Until
+              The first issue goes out tomorrow at 8:00 in the morning. Until
               then, every filing is on the <a href="/dashboard">dashboard</a>.
             </p>
           )}
 
           {/* ---- subscribe, on the same page ---- */}
           <div className="sub-card" id="subscribe">
-            {state === "done" ? (
+            {usesSubstack ? (
+              <SubstackSignup />
+            ) : state === "done" ? (
               <div className="sub-done">
                 <b>You&apos;re in.</b>
                 <p>
-                  The next brief lands tomorrow at 7:30 in the morning. Now join
+                  The next brief lands tomorrow at 8:00 in the morning. Now join
                   the WhatsApp community below — that&apos;s where the day gets
                   discussed.
                 </p>
