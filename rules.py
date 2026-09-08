@@ -748,6 +748,20 @@ RETAG = [
     # Who the order came FROM settles it. A customer places an order; a
     # registrar, a ministry or a tribunal issues one. Both arrive under
     # "Receipt of Order".
+    # An order that IMPOSES something is never a customer order, whoever
+    # it names and whichever way round it is said. This is the reliable
+    # half of the question: a customer places an order, it does not levy
+    # a penalty or demand a duty.
+    ("Legal/Reg", r"(impos\w+|levy|levied|demand\w*|recover\w*)"
+                  r"[^.]{0,40}(penalt|\bfine\b|fine of|interest|tax|"
+                  r"duty|\bgst\b|\bigst\b|excise)|"
+                  r"order-in-(original|appeal|revision)|"
+                  # "an IRDAI order" - the regulator named first.
+                  r"(\bsebi\b|\brbi\b|\birdai?\b|\btrai\b|\bcci\b|"
+                  r"\bdgft\b|\bpfrda\b|\bnclt\b|\bnclat\b|tribunal|"
+                  r"customs|excise|income tax|commissioner|magistrate|"
+                  r"collector|ministry|registrar|adjudicating officer)"
+                  r"[^.]{0,30}\border\b"),
     ("Legal/Reg", r"(order|approval|permission|sanction|no objection|\bnoc\b|"
                   r"direction|notice) (from|of|by|issued by) "
                   r"(the )?(government|ministry|registrar|regional director|"
@@ -1482,7 +1496,18 @@ def meeting_kind(category, headline):
 # SANCTIONING a scheme of arrangement would have gone the same way, and that
 # is the scheme itself, not litigation.
 _CONSENT = re.compile(
-    r"approval|permission|sanction|no objection|\bnoc\b", re.I)
+    r"approv\w*|permi\w+|sanction\w*|no objection|\bnoc\b|consent", re.I)
+# What makes an order a legal matter is that it takes something from the
+# company: a penalty, a demand, a recovery. Not who signed it, and not
+# which way round the sentence is written.
+#
+# Lactose India's "amalgamation has become effective, following the NCLT
+# order dated August 20" names no approval at all, so looking for a
+# consent word was not enough - it was still filed as litigation.
+_ADVERSE = re.compile(
+    r"impos\w+|levy|levied|demand\w*|penalt\w*|\bfine[sd]?\b|recover\w*|"
+    r"prosecut\w*|show cause|attach\w+ (of|the)|freez\w+|disqualif\w*|"
+    r"suspend\w*|cancell?\w*|revok\w*|restrain\w*|injunct\w*", re.I)
 _CONSENT_FOR = re.compile(
     r"appoint|scheme of (arrangement|amalgamation|merger)|"
     r"licen[cs]e|registration|renewal|merger|amalgamat|fund rais|"
@@ -1507,9 +1532,16 @@ def retag(text):
             continue
         # A consent, plus a named event for the consent to be about: leave
         # the event's own tag alone.
+        # Read around the match, not just the match. Four real mergers
+        # were sent to Legal/Reg by "NCLT order" - and the word that makes
+        # it a consent, "approving", sat just outside the matched span:
+        # Share India Securities, Venmax Drugs, Lactose India and GB Global
+        # had all just had their schemes sanctioned.
+        near = (text or "")[max(0, m.start() - 130):m.end() + 130]
         if (r_tag == "Legal/Reg"
-                and _CONSENT.search(m.group(0))
-                and _CONSENT_FOR.search(text or "")):
+                and not _ADVERSE.search(near)
+                and (_CONSENT.search(near)
+                     or _CONSENT_FOR.search(text or ""))):
             continue
         return r_tag
     return None
@@ -1542,8 +1574,19 @@ def retag(text):
 # those DO end sentences, and merging two sentences would let a window cross
 # from one event into the next, which is the fault the windows prevent.
 _HONORIFIC = re.compile(
-    r"\b(mr|mrs|ms|dr|shri|smt|sri|kum|prof|messrs|m/s)\.", re.I)
+    r"\b(mr|mrs|ms|dr|shri|smt|sri|kum|prof|messrs|m/s|rs|inr)\.",
+    re.I)
 _INITIAL = re.compile(r"\b([A-Za-z])\.(?=\s*[A-Z])")
+# And the one inside a number. "set a record date for a Rs 0.60
+# dividend" has a full stop between "record date" and "dividend", so the
+# rule that recognises a dividend record date -
+# record date[^.]{0,60}(dividend) - could not see past "Rs 0". Aristo
+# Bio-Tech's board set a record date for a 60 paise dividend and the
+# filing was published as a Meeting, which is the mistake that turned
+# sixty real dividends into meetings once already. One pattern was given
+# .{0,30} for this in August; every other windowed pattern still had the
+# hole.
+_DECIMAL = re.compile(r"(\d)\.(\d)")
 
 
 # The exchange categories that mean "this filing is a stake disclosure".
@@ -1572,7 +1615,9 @@ def soften_stops(text):
     """Drop the full stops that are not ends of sentences."""
     if not text:
         return text
-    return _INITIAL.sub(r"\1", _HONORIFIC.sub(r"\1", text))
+    text = _HONORIFIC.sub(r"\1", text)
+    text = _INITIAL.sub(r"\1", text)
+    return _DECIMAL.sub(r"\1\2", text)
 
 
 def _best(text):
@@ -1906,8 +1951,13 @@ TAG_EVIDENCE = {
     # moved the shares. The summary of one reads "Innovative Money Matters Pvt
     # Ltd acquired 55,000 shares of Avonmore Capital" and never says promoter,
     # so asking it to corroborate would demote every one of them.
+    # Vas Infrastructure and JCT both filed notices of their Committee of
+    # Creditors meetings, which is a thing only a company in insolvency
+    # files, and neither summary used any of the words above.
     "Nclt": r"\bnclt\b|\bnclat\b|tribunal|insolvency|resolution plan|"
-            r"\bcirp\b|liquidat|moratorium|\bibc\b",
+            r"\bcirp\b|liquidat|moratorium|\bibc\b|"
+            r"committee of creditors|\bcoc\b|resolution professional|"
+            r"creditors|capital reduction|reduction of (share )?capital",
     "Listing Approval": r"listing|trading|in-?principle|admitted|dealings",
     "Esop": r"esop|employee stock|stock option|\bsar\b|share-?based",
     # PTC Industries' sustainability report was published as Legal/Reg

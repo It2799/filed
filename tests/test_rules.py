@@ -2336,6 +2336,156 @@ check(tag == "Routine", "calling a bond is not being read as repaying one",
 
 
 # ---------------------------------------------------------------------------
+# 33. A decimal point is not the end of a sentence.
+#
+# The same fault as the honorific, in the place it does the most damage. The
+# rule that recognises a dividend record date is
+# "record date[^.]{0,60}(dividend)", and in
+#
+#   "set a record date for a Rs 0.60 dividend"
+#
+# there is a full stop between the two words, so it saw nothing, so no money
+# event was found, so Aristo Bio-Tech's dividend was published as a Meeting.
+# That is the mistake that turned sixty real dividends into meetings in
+# August, arriving by a different route.
+check(rules.soften_stops("a record date for a Rs 0.60 dividend")
+      == "a record date for a Rs 060 dividend",
+      "a decimal point is still being read as the end of a sentence")
+
+check(rules._MONEY_HAPPENED.search(rules.soften_stops(
+          "The board approved the re-appointment of two directors, appointed "
+          "a cost auditor, set a record date for a Rs 0.60 dividend, and "
+          "scheduled the 21st AGM for 30 Sep 2026")) is not None,
+      "a dividend behind a decimal point is invisible to the money test")
+
+
+# ---------------------------------------------------------------------------
+# 34. A record date is a dividend when it is a record date FOR the dividend.
+#
+# All 32 of these read the same way and every one was a Meeting, because the
+# meeting is named first and that is the discriminator. Two things outrank
+# word order: the exchange filed them under Record Date, and a payout is
+# what the date decides.
+DIVIDEND_RECORD_DATES = [
+    ("Record Date",
+     "Everest Kanto Cylinder Limited has scheduled its 47th Annual General "
+     "Meeting for September 29, 2026. The company has set September 18, "
+     "2026, as the record date to determine shareholder eligibility for the "
+     "proposed dividend."),
+    ("Corp. Action / Record Date",
+     "BEML Limited has scheduled its 62nd Annual General Meeting for "
+     "September 29, 2026, to be held via video conferencing. The company has "
+     "set September 22, 2026, as the record date to determine shareholder "
+     "eligibility for the final dividend."),
+    ("Record Date",
+     "Aristo Bio-Tech has scheduled its 21st Annual General Meeting for "
+     "September 30, 2026. The company also declared a final dividend of "
+     "Rs 0.60 per share and set September 23, 2026, as the record date for "
+     "eligibility."),
+    ("Corp. Action / Book Closure",
+     "One Global Service Provider Ltd announced the record date and book "
+     "closure period for its 34th AGM and dividend payment."),
+]
+for cat, summ in DIVIDEND_RECORD_DATES:
+    got = pipeline.category_from_summary(
+        cat, "has informed the Exchange that Record date for the", summ,
+        "Meeting")
+    check(got == "Dividend",
+          "a dividend record date is being published as a meeting",
+          f"got {got!r} <- {summ[:56]!r}")
+
+# And a record date fixed only to decide who may VOTE is the meeting. This is
+# the line that keeps the rule above from becoming the next over-correction,
+# and it is the user's standing rule: an AGM belongs in no other category.
+AGM_ONLY_RECORD_DATES = [
+    ("Record Date",
+     "The company has set September 22, 2026, as the record date to "
+     "determine which shareholders may vote at the 41st Annual General "
+     "Meeting, to be held on September 30, 2026."),
+    ("Corp. Action / Record Date",
+     "Filatex India sent a letter to shareholders without registered email "
+     "IDs, providing web links to the 36th AGM notice and the annual report, "
+     "and reminding them to claim any unclaimed dividends."),
+]
+for cat, summ in AGM_ONLY_RECORD_DATES:
+    got = pipeline.category_from_summary(
+        cat, "Record date and e-voting details", summ, "Meeting")
+    check(got != "Dividend",
+          "an AGM-only record date is being published as a dividend",
+          f"got {got!r} <- {summ[:56]!r}")
+
+
+# ---------------------------------------------------------------------------
+# 35. What makes an order a legal matter is that it TAKES something.
+#
+# Not who signed it, and not which way round the sentence runs. Adding the
+# reversed form - "an IRDAI order" rather than "an order from IRDAI" - swept
+# up four real mergers whose schemes had just been sanctioned, because those
+# say "NCLT order" too.
+ADVERSE = [
+    "ICICI Lombard got an IRDAI order on Sep 7 2026 imposing a Rs 1 crore "
+    "penalty for breaches in outsourcing regulations",
+    "Carraro India received an Order-in-original from Customs demanding a "
+    "differential IGST of about Rs 15.24 crore and a penalty of Rs 5 crore",
+    "The company received a GST demand order from the Commissioner imposing "
+    "a penalty of Rs 2 crore",
+]
+for text in ADVERSE:
+    pts, tag = rules.score_text(text, floor=0)
+    check(tag == "Legal/Reg",
+          "a regulator's penalty is being published as a customer order win",
+          f"{(pts, tag)} <- {text[:56]!r}")
+
+FRIENDLY = [
+    "Share India Securities has received the NCLT order approving its merger "
+    "with Silverleaf Capital Services",
+    "Lactose India Ltd announced that the amalgamation with Vitanosh "
+    "Ingredients Private Ltd has become effective from September 5 2026, "
+    "following the NCLT order dated August 20 2026",
+    "The Board of GB Global Limited has formally acknowledged the NCLT order "
+    "sanctioning its merger with Dev Land & Housing Private Limited",
+    "Real Touch Finance received approval from the Reserve Bank of India to "
+    "appoint Mr. Chinnian Mani as Managing Director",
+]
+for text in FRIENDLY:
+    pts, tag = rules.score_text(text, floor=0)
+    check(tag != "Legal/Reg",
+          "an order granting what the company asked for reads as litigation",
+          f"{(pts, tag)} <- {text[:56]!r}")
+
+
+# ---------------------------------------------------------------------------
+# 36. Two more categories that were reading their own filings as nothing.
+#
+# A Committee of Creditors meeting is a thing only a company in insolvency
+# files, and the Nclt evidence knew none of those words - so Vas
+# Infrastructure and JCT were demoted out of the category they belonged in.
+for summ in [
+    "Vas Infrastructure Ltd has notified that its 28th Committee of "
+    "Creditors meeting will take place on 9 September 2026",
+    "JCT Ltd announced that its 16th Committee of Creditors meeting will be "
+    "held on 7 September 2026 via video conference",
+]:
+    check(rules.tag_supported("Nclt", summ),
+          "an insolvency filing cannot corroborate its own category",
+          summ[:56])
+
+# And when the exchange says the filing IS the results, it is. Maruti
+# Interior's Q1 filing "also noted the completion of a Rs 45.30 crore Rights
+# Issue", and Rights Issue scores 72 against Results' 64, so a completed
+# issue from an earlier month became the news.
+check(pipeline.category_from_summary(
+          "Result / Financial Results",
+          "Financial result of the company for the quarter ended 30th June",
+          "Maruti Interior Products reported its financial results for the "
+          "quarter ended June 30, 2026. The company also noted the "
+          "completion of a Rs 45.30 crore Rights Issue and the acquisition "
+          "of the remaining 70% stake in Arrowin Metaltech.",
+          "Results") == "Results",
+      "a results filing is being renamed after something it mentions")
+
+
+# ---------------------------------------------------------------------------
 
 print(f"{CHECKS[0]} checks")
 if FAILURES:

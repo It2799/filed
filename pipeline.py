@@ -150,6 +150,24 @@ _DEAL_EVIDENCE = re.compile(
     re.I)
 
 
+# A record date is only a dividend if it is a record date FOR the dividend.
+#
+# All 39 of these read the same way - "has scheduled its 47th Annual General
+# Meeting for September 29 ... has set September 18 as the record date to
+# determine shareholder eligibility for the proposed dividend" - and every
+# one was published as a Meeting, because the meeting is named first.
+#
+# The window is wide (120 characters) because the sentence that links them is
+# long: "the record date to determine shareholder eligibility for the final
+# dividend" is 71 characters between the two words.
+_RECORD_DATE_FOR = re.compile(
+    r"(record date|book closure|cut-?off date|"
+    r"(register|books?) of (members|transfer)[^.]{0,40}clos)"
+    r"[^.]{0,120}(dividend|bonus|split|interim payout)|"
+    r"(dividend|bonus|split)[^.]{0,120}"
+    r"(record date|book closure|cut-?off date)", re.I)
+
+
 def category_from_summary(category, headline, blob, current=None):
     """The category a filing's own words argue for, or None to keep what it has.
 
@@ -167,6 +185,23 @@ def category_from_summary(category, headline, blob, current=None):
     # every time. The tags to refuse are the vague ones, not the low-scoring
     # ones. Nothing is lost by relabelling: the SCORE is never changed here,
     # so a filing keeps its place on the page and only gets a truer name.
+    # Normalise the text ONCE, here, before any rule reads it.
+    #
+    # score() and score_text() do this internally, but the dozen
+    # predicates below - meeting_only, meeting_is_the_subject,
+    # debt_servicing, board_meeting_notice - are called with the raw
+    # blob, and every one of them is windowed with [^.]. A full stop that
+    # is not the end of a sentence blinds all of them at once:
+    #
+    #   "set a record date for a Rs 0.60 dividend, and scheduled the AGM"
+    #        record date[^.]{0,60}(dividend) cannot see past "Rs 0",
+    #        so no money event was found, so the filing was a Meeting
+    #
+    # That is Aristo Bio-Tech, and it is the mistake that turned sixty
+    # real dividends into meetings in August. Normalising in one place is
+    # the difference between fixing this and fixing it again next month.
+    blob = rules.soften_stops(blob)
+
     _, from_summary = rules.score_text(blob, floor=0)
 
     # A letter of intent can describe an acquisition, not a customer order.
@@ -291,6 +326,19 @@ def category_from_summary(category, headline, blob, current=None):
     if rules.listing_approval(blob):
         return "Listing Approval"
 
+    # When the exchange says the filing IS the financial results, it is.
+    #
+    # A results summary mentions whatever else the quarter contained, and
+    # the mention outscores the results: Maruti Interior Products' Q1
+    # filing "also noted the completion of a Rs 45.30 crore Rights
+    # Issue", and Rights Issue scores 72 against Results' 64, so a
+    # completed issue from some earlier month became the news.
+    if (re.search(r"^result|financial result|(quarterly|annual) result",
+                  category or "", re.I)
+            and re.search(r"result|quarter|profit|revenue|loss|ebitda",
+                          blob, re.I)):
+        return "Results"
+
     if rules.board_meeting_notice(blob):
         return "Board Meeting"
 
@@ -299,6 +347,30 @@ def category_from_summary(category, headline, blob, current=None):
     # wins over a substantive read. These filings say "for the AGM and
     # dividend" in one breath, so the dividend is always there to be scored,
     # and five of them were sitting under Dividend on 4 September.
+    # A dividend record date is a dividend, even when the summary opens by
+    # scheduling the meeting.
+    #
+    # Aristo Bio-Tech filed under "Record Date", with a headline that says
+    # "Record date for the...", and a summary reading "has scheduled its 21st
+    # Annual General Meeting ... also declared a final dividend of Rs 0.60
+    # per share and set September 23 as the record date". The AGM is named
+    # first, so the test below - which asks which purpose is named first -
+    # made it a Meeting.
+    #
+    # Two sources say otherwise and both are more reliable than word order:
+    # the exchange filed it as a record date, and a dividend was actually
+    # DECLARED. meeting_only is what separates this from the AGM notice that
+    # merely reminds shareholders to claim old dividends - there, nothing was
+    # declared, and it stays a Meeting.
+    # Stated rather than inferred: the record date has to be FOR the payout.
+    # A record date fixed only to decide who may vote at the meeting is the
+    # meeting, and stays one.
+    if (re.search(r"record date|book closure", category or "", re.I)
+            and from_summary in ("Dividend", "Bonus", "Split", "Corp Action")
+            and _RECORD_DATE_FOR.search(blob)
+            and not rules.meeting_only(category or "", headline or "", blob)):
+        return from_summary
+
     if rules.meeting_is_the_subject(blob):
         return "Meeting"
 
