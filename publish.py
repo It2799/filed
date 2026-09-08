@@ -180,6 +180,17 @@ def publish_index(url, token, today, run_stats):
             c = json.loads(mark)
             for k in totals:
                 totals[k] += int(c.get(k) or 0)
+
+            # A day recorded before the boards were tagged has "scanned" but
+            # neither half of the split, so it contributes nothing to either -
+            # and the main board's headline figure collapsed from 19,139 to
+            # 2,591, which is today alone, the moment the split was introduced.
+            #
+            # Everything on those days was shown as main board, because that is
+            # all there was, so that is where their count belongs. It corrects
+            # itself as each day gets rescraped with the tagging.
+            if c.get("scanned") and not c.get("scanned_main")                     and not c.get("scanned_sme"):
+                totals["scanned_main"] += int(c.get("scanned") or 0)
         except Exception:
             pass
 
