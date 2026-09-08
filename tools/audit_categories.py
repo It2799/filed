@@ -91,8 +91,16 @@ EVIDENCE = {
     "Capacity Increase": r"capacity|plant|greenfield|brownfield|capex|expansion|"
                          r"commission|production|facility|debottleneck|"
                          r"capital expenditure|\bunit\b",
+    # Read too narrowly this flagged three filings that were right:
+    # TAC Infosec adding clients, JSW Steel's crude steel output, and
+    # Atishay's UPI proposal being accepted. An operating update is
+    # mostly not filed under the words "business update" - it is filed
+    # as a number about output, customers or a contract going live.
     "Business Update": r"business update|guidance|outlook|operational update|"
-                       r"monthly|sales|volume|performance|update on",
+                       r"monthly|sales|volume|performance|update on|"
+                       r"output|production|client|customer|order book|"
+                       r"revenue|accept|empanel|go.?live|commenc|"
+                       r"launch|milestone|capacity utilis",
     "Change In Management": r"appoint|resign|cessation|director|\bkmp\b|chief|"
                             r"officer|managing director|\bceo\b|\bcfo\b|"
                             r"company secretary|elevat|designat",

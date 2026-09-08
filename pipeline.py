@@ -248,8 +248,16 @@ def category_from_summary(category, headline, blob, current=None):
     # Whatever the summary DID find is used instead, and "Other" when it found
     # nothing - which is honest, and keeps the filing on the site under All
     # rather than on the front page as a deal that never happened.
+    # Both halves have to agree: deal language somewhere, AND language
+    # for THIS deal. One shared regex for all three tags was not enough,
+    # because "sale of" satisfies it and a sale is not a scheme. Two
+    # divestments and a property sale were sitting under Scheme Of
+    # Arrangement on 8 September on exactly that - Elgi Equipments,
+    # Gujarat Apollo and Sanginita - and a scheme outranks an
+    # acquisition (69 to 65), so nothing else could dislodge them.
     if (current in DEAL_TAGS and blob
-            and not _DEAL_EVIDENCE.search(blob)):
+            and not (_DEAL_EVIDENCE.search(blob)
+                     and rules.tag_supported(current, blob))):
         return from_summary or "Other"
 
     # Paying a debt is not raising one, and this has to be an explicit return.
@@ -297,6 +305,38 @@ def category_from_summary(category, headline, blob, current=None):
         from_summary = "Meeting"
     elif not substantive:
         from_summary = None
+
+    # The same rule, for every other category that claims a specific event.
+    #
+    # The deal check above was written for three categories because that is
+    # where a reader happened to notice it. The fault is not specific to
+    # deals - triage reads every attachment and promotes on a regex hit, so
+    # any passing word in a forty-page document can name the filing. On
+    # 8 September:
+    #
+    #   Maral Overseas       a report on the re-lodgement of physical share
+    #                        transfer requests, published as a Clinical Trial
+    #   Venus Remedies (x2)  a special window for re-lodging physical shares,
+    #                        also Clinical Trial
+    #   Superior Industrial  a secretarial audit report, published as a Buyback
+    #   Elgi Equipments      a subsidiary selling its stake, as a Scheme
+    #
+    # Each one scored 18/Other on its headline and NOTHING on its summary.
+    # The summary is written from the same document by a model that read all
+    # of it, so if the document were really about a clinical trial the summary
+    # would say so. It says nothing of the kind, which makes the match
+    # incidental.
+    #
+    # Narrow on purpose - it only fires when the tag could ONLY have come from
+    # the document: not from the headline, and not from the summary. A tag the
+    # headline states outright is left alone even when the summary is silent,
+    # because then two sources are not disagreeing, one is just quieter.
+    if (current and blob
+            and current not in DEAL_TAGS
+            and current != from_summary
+            and rules.score(category or "", headline or "")[1] != current
+            and not rules.tag_supported(current, blob)):
+        return from_summary or "Other"
 
     # retag() still has the last word. It exists for the cases where the words
     # are right but the meaning is inverted - a tax demand and an order win are

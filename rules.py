@@ -127,6 +127,17 @@ JUNK = [
     # down to how the date was punctuated: "quarter ended 30.6.2025" is 9
     # characters and was junked, "30.06.2025" is 10 and got through.
     r"^(?!.*\b(results?|earnings|outcome)\b).*\bfor the quarter ended.{0,10}$",
+    # SEBI opened a special window for shareholders to re-lodge physical
+    # share transfer requests, and every company files a monthly report
+    # on it whether or not anybody used the window - Hisar Spinning
+    # Mills' report says the registrar received none. Five were live on
+    # 8 September and all five were published as Clinical Trials, on
+    # "trans" and a stray "phase" somewhere in the attachment.
+    r"re-?lodg(e|ing|ement|ment)",
+    r"special window[^.]{0,40}(physical|re-?lodg|transfer)",
+    # Unclaimed shares moving to the demat suspense account, and the
+    # letters chasing shareholders about them, are the same paperwork.
+    r"(demat|unclaimed) suspense (escrow )?account",
 ]
 # NOTE: ESOP, annual reports and AoA/MoA amendments used to be dropped here.
 # They're now kept as their own low-scoring categories, so they show under
@@ -214,8 +225,20 @@ TOPICS = [
                                  r"per cent|business|undertaking|subsidiar|"
                                  r"private limited|\blimited\b|\bltd\b|\bllp\b|\binc\b)|"
                                  r"amalgamation|"
-                                 r"\bmerger\b|slump sale|divestment|divestiture|stake sale|"
+                                 r"\bmerger\b|slump sale|stake sale|"
+                                 # Selling is as much a deal as buying. On 8 September three
+                                 # divestments were tagged by whatever else their summary
+                                 # happened to mention, because only the noun was listed here:
+                                 # "divestment" matched, "divested its entire stake" did not,
+                                 # and neither did "sale of the investment in Credo". Elgi
+                                 # Equipments and Gujarat Apollo went to Scheme Of Arrangement,
+                                 # Sanginita to New Subsidiary.
+                                 r"divest(s|ed|ing|ment|iture)\b|"
                                  r"sale of (the )?(subsidiary|business|undertaking|division)|"
+                                 r"sal(e|es) of[^.]{0,40}"
+                                 r"\b(stake|shareholding|investment|equity stake)\b|"
+                                 r"sold[^.]{0,40}"
+                                 r"\b(stake|shareholding|entire (investment|holding))\b|"
                                  r"(enter\w*|form\w*|incorporat\w*|sign\w*|establish\w*|announc\w*) "
                                  r"[^.]{0,30}joint venture|"
                                  r"joint venture (agreement|with|company is|will be)|"
@@ -1703,3 +1726,103 @@ def score_text(text, floor=0):
 
     pts = min(pts, 100)
     return (pts, tag) if pts >= floor else (0, None)
+
+
+# ---------------------------------------------------------------------------
+# 12. A TAG FROM THE PDF HAS TO BE CORROBORATED BY THE SUMMARY
+#
+# Triage reads every attachment and promotes on a regex hit, which is how real
+# news buried under "General Updates" gets found. It is also how a passing
+# word in a 40-page document decides a category. On 8 September:
+#
+#   Maral Overseas       a report on re-lodgement of physical share transfer
+#                        requests, published as a Clinical Trial
+#   Venus Remedies       a special window for re-lodging physical shares, also
+#                        a Clinical Trial
+#   Elgi Equipments      a subsidiary divesting a stake, a Scheme Of Arrangement
+#   Superior Industrial  a secretarial audit report, a Buyback
+#
+# In every case the headline scored 18/Other and the SUMMARY named nothing of
+# the kind. The summary is written from the same document, so if the document
+# really were about a clinical trial the summary would say so. It does not,
+# which means the match was incidental.
+#
+# So a tag that could only have come from the document has to be visible in the
+# summary too. This is the same rule that already guarded Acquisition, Scheme
+# and Open Offer, applied to every category that claims a specific event -
+# because the fault was never specific to deals.
+#
+# Deliberately absent: Meeting, Routine, Other, Corp Action, Board Meeting and
+# the rest that say "we could not tell". There is nothing to corroborate.
+TAG_EVIDENCE = {
+    # This has to stay in step with pipeline._DEAL_EVIDENCE, which
+    # learned three wordings the hard way by demoting three real deals
+    # that used them. Both regexes now judge the same tag, so a wording
+    # missing from either one demotes a genuine deal.
+    "Acquisition": r"acquisi|acquir|merger|amalgamat|slump sale|divest|"
+                   r"stake|shareholding|takeover|share purchase|"
+                   r"sell|sold|sale of|controlling interest|hive[- ]off|"
+                   r"consolidat\w+ control|control over|joint venture|"
+                   r"transfer(ring)? (of )?[^.]{0,30}"
+                   r"(assets|megawatt|\bmw\b)",
+    "Scheme Of Arrangement": r"scheme of|amalgamat|de-?merger|arrangement|"
+                             r"\bnclt\b|merger",
+    "Open Offer": r"open offer|detailed public statement|public announcement|"
+                  r"manager to the offer|letter of offer|takeover",
+    "Buyback": r"buy-?\s?back|bought back|tender offer",
+    # "on a private placement basis to the promoters" is the same event
+    # without the word, and allotment covers the rest.
+    "Pref": r"preferential|private placement|allot",
+    "Warrants": r"warrant",
+    "Rights Issue": r"rights issue|right issue|rights entitlement",
+    "Qip": r"\bqip\b|qualified institution",
+    "Qip Allotment": r"\bqip\b|qualified institution",
+    "Bonus": r"bonus",
+    "Split": r"split|sub-?division|face value",
+    "Dividend": r"dividend",
+    "Fund Raising": r"fund ?rais|rais\w+|\bncds?\b|debenture|\bbond|"
+                    r"commercial paper|private placement|borrow|\bfpo\b",
+    "Order": r"order|contract|letter of (award|intent|acceptance)|tender|"
+             r"bagg|\bwon\b|\bwins\b|secured|award|mandate|\bloa\b|\bloi\b",
+    "Clinical Trial": r"clinical|trial|phase|patient|endpoint|topline|enrol|"
+                      r"dosing|pivotal|molecule|therap|efficacy",
+    "Product Approval": r"approv|\bfda\b|usfda|cdsco|\banda\b|\bdmf\b|"
+                        r"clearance|cleared|registration|launch|drug|"
+                        r"formulation|generic|marketing authoris",
+    "Plant Inspection": r"inspect|audit|form 483|observation|warning letter|"
+                        r"\beir\b|import alert|\bgmp\b|facility|plant",
+    "Capacity Increase": r"capacity|plant|greenfield|brownfield|capex|"
+                         r"expansion|commission|production|facility|"
+                         r"capital expenditure|land|machinery|equipment",
+    "Partnership": r"partner|alliance|collaborat|\bmou\b|"
+                   r"memorandum of understanding|tie-?up|agreement",
+    "New Subsidiary": r"subsidiar|incorporat|\bllp\b|associate company|"
+                      r"joint venture",
+    "Delisting": r"delist",
+    # Deliberately absent: Promoter Buy/Sell, Inter-se Transfer and Stake
+    # Change. Those are not read off the document at all - they come from the
+    # stake-disclosure form, which is filed under SAST precisely to say who
+    # moved the shares. The summary of one reads "Innovative Money Matters Pvt
+    # Ltd acquired 55,000 shares of Avonmore Capital" and never says promoter,
+    # so asking it to corroborate would demote every one of them.
+    "Nclt": r"\bnclt\b|\bnclat\b|tribunal|insolvency|resolution plan|"
+            r"\bcirp\b|liquidat|moratorium|\bibc\b",
+    "Listing Approval": r"listing|trading|in-?principle|admitted|dealings",
+    "Esop": r"esop|employee stock|stock option|\bsar\b|share-?based",
+}
+
+_TAG_EVIDENCE_RE = {t: re.compile(p, re.I) for t, p in TAG_EVIDENCE.items()}
+
+
+def tag_supported(tag, text):
+    """Does `text` contain anything that would justify `tag`?
+
+    True for any tag with no evidence rule - those are the ones that make no
+    claim, and there is nothing to check.
+    """
+    rx = _TAG_EVIDENCE_RE.get(tag)
+    if rx is None:
+        return True
+    if not text:
+        return True                    # nothing to judge on; leave it alone
+    return bool(rx.search(text))

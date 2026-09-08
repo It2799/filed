@@ -2026,6 +2026,156 @@ for text in [
 
 
 # ---------------------------------------------------------------------------
+# 27. A tag that could only have come from the PDF has to be visible in the
+#     summary too.
+#
+# The 8 September audit found the same fault in four categories at once, and
+# the shape was identical every time: the headline scored 18/Other, the
+# summary named nothing at all, and the tag came from a regex hitting a word
+# somewhere in a forty-page attachment. triage reads every attachment, which
+# is how real news buried under "General Updates" gets found - and also how a
+# passing word decides a category.
+#
+# The rule is that the summary is written from the same document by a model
+# that read all of it. If the document were really about a clinical trial, the
+# summary would say so.
+
+triage = __import__("triage")
+
+# (a) Every Clinical Trial live on 8 September was the re-lodgement window:
+#     a monthly compliance report on physical share transfer requests, which
+#     most companies file to say nobody used it.
+RELODGEMENT = [
+    "Report on re-lodgment of Transfer Requests of Physical Shares for "
+    "August 2026",
+    "Report for re-lodgement of physical shares for the month of August 2026",
+    "Social Media Post on awareness on transfer of physical shares - special "
+    "window for re-lodgement",
+    "Intimation of transfer of unclaimed shares to the demat suspense account",
+    "Form MR-3 (Secretarial Audit Report for the Financial Year ended "
+    "31st March 2026)",
+]
+_NEVER = [re.compile(p, re.I) for p in triage.NEVER_PROMOTE]
+for head in RELODGEMENT:
+    pts, tag = rules.score("", head)
+    check(pts < 55 and tag not in ("Clinical Trial", "Buyback"),
+          "compliance paperwork is scoring as news",
+          f"{(pts, tag)} <- {head[:56]!r}")
+    check(any(rx.search(head) for rx in _NEVER),
+          "compliance paperwork can still be promoted from inside the PDF",
+          head[:56])
+
+# (b) And the four filings themselves, with the summaries they actually had.
+#     Each one keeps a tag no source but the attachment ever argued for.
+PDF_ONLY = [
+    ("Clinical Trial",
+     "Maral Overseas Limited has informed the Exchange regarding 'Report on "
+     "re-lodgment of Transfer Requests'",
+     "Maral Overseas Limited submitted a report to the stock exchanges on the "
+     "re-lodgment of physical share transfer requests for August 2026 under "
+     "the SEBI special-window provision."),
+    ("Clinical Trial", "As per the pdf enclosed.",
+     "Venus Remedies Ltd has announced a special window for re-lodgement of "
+     "transfer requests for physical shares. The company has shared the "
+     "details on its social media channels."),
+    ("Clinical Trial",
+     "Report for re-lodgement of physical shares for August 2026 attached.",
+     "Hisar Spinning Mills filed a report on re-lodgement of physical share "
+     "transfer requests for August 2026. The registrar confirmed that no "
+     "requests were received, processed, approved or rejected."),
+    ("Buyback",
+     "Form MR-3 (Secretarial Audit Report for the Financial Year ended "
+     "31st March 2026",
+     "Superior Industrial Enterprises has released its Secretarial Audit "
+     "Report for the financial year ended March 31, 2026. The auditors "
+     "confirmed that the company has generally complied with all applicable "
+     "provisions."),
+]
+for tag, head, summ in PDF_ONLY:
+    got = pipeline.category_from_summary("General Updates", head, summ, tag)
+    check(got != tag,
+          "a tag the summary does not support is surviving from the PDF",
+          f"kept {tag!r} <- {summ[:56]!r}")
+
+# (c) But a tag the HEADLINE states outright is left alone even when the
+#     summary is quieter. Two sources are not disagreeing there; one is just
+#     saying less. This is the guard that stops (b) from becoming the next
+#     over-correction.
+check(pipeline.category_from_summary(
+          "Board Meeting", "Declaration of interim dividend of Rs 4 per share",
+          "The board met on Tuesday and approved a payout to shareholders "
+          "of record.", "Dividend") != "Other",
+      "a tag the headline states outright is being demoted")
+
+# (d) Promoter dealings are exempt, and have to stay exempt. They are not
+#     read off the document at all - they come from the stake-disclosure
+#     form, whose whole purpose is to record who moved the shares. Their
+#     summaries routinely never use the word "promoter".
+for tag in ("Promoter Buy/Sell", "Inter-se Transfer"):
+    check(rules.tag_supported(tag, "Innovative Money Matters Pvt Ltd "
+                              "acquired 55,000 shares of Avonmore Capital"),
+          "a promoter dealing is being asked to corroborate itself",
+          tag)
+
+# ---------------------------------------------------------------------------
+# 28. Selling is as much a deal as buying.
+#
+# Only the NOUN "divestment" was in the Acquisition pattern, so three
+# divestments on 8 September were tagged by whatever else their summary
+# mentioned - and because Scheme Of Arrangement scores 69 against
+# Acquisition's 65, nothing could dislodge two of them.
+DIVESTMENTS = [
+    "ELGI Compressors USA Inc. has divested its entire stake in Gentex Air "
+    "Solutions LLC to the joint-venture partner, releasing exclusivity",
+    "The board approved an in-principle sale of the stake in Credo Advanced "
+    "Chemicals Ltd to Mr Naman Madhav Patel for Rs 37.63 crore",
+    "The company sold its entire shareholding in the wholly owned subsidiary "
+    "for a consideration of Rs 120 crore",
+]
+for text in DIVESTMENTS:
+    pts, tag = rules.score_text(text, floor=0)
+    check(tag == "Acquisition", "a divestment is not being recognised as one",
+          f"{(pts, tag)} <- {text[:56]!r}")
+
+# A sale is not a scheme. One shared evidence regex for all three deal tags
+# was satisfied by "sale of", which is how Elgi Equipments, Gujarat Apollo
+# and Sanginita all sat under Scheme Of Arrangement.
+for summ in DIVESTMENTS + [
+    "The board approved the sale of its Gujarat property and related assets "
+    "to AAG Capital Holdings Private Limited, a related party, for "
+    "Rs 12.54 crore"
+]:
+    got = pipeline.category_from_summary(
+        "General Updates", "informed the Exchange about General Updates",
+        summ, "Scheme Of Arrangement")
+    check(got != "Scheme Of Arrangement",
+          "a sale is being kept as a scheme of arrangement",
+          f"{summ[:56]!r}")
+
+# A real scheme is still a scheme.
+for summ in [
+    "The board approved a scheme of arrangement for the demerger of the "
+    "consumer business into a separate listed entity, subject to NCLT",
+    "The NCLT has sanctioned the composite scheme of amalgamation between "
+    "the company and its wholly owned subsidiary",
+]:
+    got = pipeline.category_from_summary(
+        "Scheme of Arrangement", "Scheme of Arrangement", summ,
+        "Scheme Of Arrangement")
+    check(got in (None, "Scheme Of Arrangement"),
+          "a genuine scheme of arrangement is being demoted", summ[:56])
+
+# And a property sale is not an acquisition either - the same reason buying
+# land is not. Consistency here is the point: the land guard was added in
+# August for purchases, and a sale has to read the same way.
+pts, tag = rules.score_text(
+    "The board approved the sale of its Gujarat property and related assets "
+    "to AAG Capital Holdings Private Limited for Rs 12.54 crore", floor=0)
+check(tag != "Acquisition", "a property sale is being published as a deal",
+      f"{(pts, tag)}")
+
+
+# ---------------------------------------------------------------------------
 
 print(f"{CHECKS[0]} checks")
 if FAILURES:

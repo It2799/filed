@@ -111,6 +111,17 @@ NEVER_PROMOTE = [
     r"mutual fund|fortnightly portfolio|monthly portfolio|"
     r"net asset value|\bnav\b\s*(as on|as of|as at|[0-9])|"
     r"expense ratio|scheme information document",
+    # The re-lodgement window: a monthly compliance report, and the
+    # source of all five Clinical Trials live on 8 September. Junked in
+    # rules too, but this is the half that matters - the tag came from
+    # the attachment, not the headline.
+    r"re-?lodg(e|ing|ement|ment)",
+    r"special window[^.]{0,40}(physical|re-?lodg|transfer)",
+    r"(demat|unclaimed) suspense (escrow )?account",
+    # A secretarial audit report mentions every resolution of the year,
+    # including buy-backs. Superior Industrial Enterprises' Form MR-3
+    # was published as a Buyback.
+    r"secretarial audit report|form mr-?3",
 ]
 
 # Matched against the CATEGORY ALONE, never the headline.
