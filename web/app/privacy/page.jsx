@@ -42,6 +42,11 @@ export default function Privacy() {
           <strong>Basic technical data</strong> — the usual server logs any
           website keeps, used to keep the service working and to spot abuse.
         </li>
+        <li>
+          <strong>Usage data</strong> — pages viewed, visit times and approximate
+          active session duration. When you are signed in, this activity is
+          connected to your Market Tide email account.
+        </li>
       </ul>
       <p>
         We do not ask for your PAN, demat account, broker login, portfolio or
@@ -114,8 +119,10 @@ export default function Privacy() {
       <h2>8. Cookies</h2>
       <p>
         We use only what is needed to keep you signed in and to keep the site
-        working. We use anonymized Vercel Web Analytics to understand page usage;
-        it does not use advertising cookies or profile you across other websites.
+        working. We use anonymized Vercel Web Analytics and our own first-party
+        session analytics to understand page usage. We do not use advertising
+        cookies or profile you across other websites, and detailed session data
+        is automatically deleted after 90 days.
       </p>
 
       <h2>9. Children</h2>

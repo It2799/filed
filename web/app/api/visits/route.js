@@ -1,5 +1,8 @@
 export const dynamic = "force-dynamic";
 
+import { recordEngagement } from "../../../lib/engagement";
+import { currentUser } from "../../../lib/session";
+
 /**
  * Visitor counts, kept in the same KV store as everything else.
  *
@@ -41,24 +44,35 @@ async function redis(command) {
 /** Several commands in one round trip. */
 async function pipeline(commands) {
   if (!URL_ || !TOKEN) return [];
-  const r = await fetch(`${URL_}/pipeline`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${TOKEN}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(commands),
-    cache: "no-store",
-  });
-  if (!r.ok) return [];
-  const out = await r.json();
-  return Array.isArray(out) ? out.map((x) => x.result) : [];
+  try {
+    const r = await fetch(`${URL_}/pipeline`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${TOKEN}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(commands),
+      cache: "no-store",
+    });
+    if (!r.ok) return [];
+    const out = await r.json();
+    return Array.isArray(out) ? out.map((x) => x.result) : [];
+  } catch {
+    // Detailed session analytics can still be recorded in MongoDB when the
+    // lightweight public counters are temporarily unavailable.
+    return [];
+  }
 }
 
 function cleanId(v) {
   // Only what the browser is supposed to send, and never more of it than the
   // store should be asked to hold.
   return String(v || "").replace(/[^A-Za-z0-9_-]/g, "").slice(0, 64);
+}
+
+function cleanPath(value) {
+  const path = String(value || "").slice(0, 160);
+  return path.startsWith("/") && !path.includes("?") ? path : "/";
 }
 
 async function totals(now) {
@@ -86,14 +100,23 @@ export async function POST(request) {
   if (!URL_ || !TOKEN) return Response.json({ total: 0, unique: 0, live: 0 });
 
   let id = "";
+  let sessionId = "";
+  let path = "/";
+  let event = "pageview";
   try {
-    id = cleanId((await request.json()).id);
+    const body = await request.json();
+    id = cleanId(body.id);
+    sessionId = cleanId(body.sessionId);
+    path = cleanPath(body.path);
+    event = ["pageview", "heartbeat", "resume", "end"].includes(body.event)
+      ? body.event
+      : "pageview";
   } catch {
     /* a body we cannot read is still a visit */
   }
 
   const now = Math.floor(Date.now() / 1000);
-  const writes = [["INCR", "mt:visits:total"]];
+  const writes = event === "pageview" ? [["INCR", "mt:visits:total"]] : [];
   if (id) {
     writes.push(["PFADD", "mt:visits:uniq", id]);
     writes.push(["ZADD", "mt:visits:live", now, id]);
@@ -103,6 +126,16 @@ export async function POST(request) {
                  now - LIVE_WINDOW_SECONDS]);
   }
   await pipeline(writes);
+
+  if (id && sessionId) {
+    const user = currentUser(request);
+    const email = user?.channel === "email"
+      ? String(user.id || "").slice(String(user.id || "").indexOf(":") + 1).toLowerCase()
+      : null;
+    await recordEngagement({ visitorId: id, sessionId, email, path, event }).catch((error) => {
+      console.error("[visits] engagement save failed:", error.message || error);
+    });
+  }
 
   return Response.json(await totals(now), {
     headers: { "Cache-Control": "no-store" },

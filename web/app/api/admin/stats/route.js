@@ -1,6 +1,7 @@
 import { isAdmin } from "../../../../lib/admin-auth";
 import { listEmails } from "../../../../lib/store";
 import { listUsersForAdmin } from "../../../../lib/users";
+import { dailyEngagement } from "../../../../lib/engagement";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -63,10 +64,12 @@ export async function GET(request) {
   if (!isAdmin(request)) return privateJson({ error: "Unauthorized." }, 401);
 
   try {
-    const [mongoRows, waitlistRows, visitTotals] = await Promise.all([
+    const selectedDate = request.nextUrl.searchParams.get("date");
+    const [mongoRows, waitlistRows, visitTotals, engagement] = await Promise.all([
       listUsersForAdmin(),
       listEmails(),
       traffic(),
+      dailyEngagement(selectedDate),
     ]);
 
     const members = new Map();
@@ -144,6 +147,7 @@ export async function GET(request) {
         withPhone: rows.filter((row) => row.phone).length,
       },
       sourceCounts,
+      engagement,
       members: rows,
     });
   } catch (error) {

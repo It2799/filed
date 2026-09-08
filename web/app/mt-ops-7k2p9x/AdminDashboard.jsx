@@ -11,6 +11,29 @@ function when(value) {
   });
 }
 
+function clock(value) {
+  if (!value) return "—";
+  return new Date(value).toLocaleTimeString("en-IN", {
+    hour: "2-digit", minute: "2-digit", timeZone: "Asia/Kolkata",
+  });
+}
+
+function duration(value) {
+  const seconds = Math.max(0, Number(value || 0));
+  if (seconds < 60) return seconds ? `${seconds}s` : "<1m";
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.round((seconds % 3600) / 60);
+  return hours ? `${hours}h ${minutes}m` : `${minutes}m`;
+}
+
+function todayIndia() {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Asia/Kolkata", year: "numeric", month: "2-digit", day: "2-digit",
+  }).formatToParts(new Date());
+  const get = (type) => parts.find((part) => part.type === type)?.value;
+  return `${get("year")}-${get("month")}-${get("day")}`;
+}
+
 export default function AdminDashboard() {
   const [status, setStatus] = useState("checking");
   const [configured, setConfigured] = useState(true);
@@ -19,10 +42,11 @@ export default function AdminDashboard() {
   const [data, setData] = useState(null);
   const [query, setQuery] = useState("");
   const [visibleLimit, setVisibleLimit] = useState(100);
+  const [selectedDate, setSelectedDate] = useState(todayIndia);
 
-  async function load() {
+  async function load(date = selectedDate) {
     setStatus("loading");
-    const response = await fetch("/api/admin/stats", { cache: "no-store" });
+    const response = await fetch(`/api/admin/stats?date=${encodeURIComponent(date)}`, { cache: "no-store" });
     if (response.status === 401) {
       setStatus("locked");
       return;
@@ -128,6 +152,10 @@ export default function AdminDashboard() {
     ["Live now", data.traffic.live],
     ["Unique visitors", data.traffic.unique],
     ["Total visits", data.traffic.total],
+    ["Visitors on date", data.engagement.totals.visitors],
+    ["Sessions on date", data.engagement.totals.sessions],
+    ["Page views on date", data.engagement.totals.pageViews],
+    ["Time on site", duration(data.engagement.totals.durationSeconds)],
   ];
 
   return (
@@ -139,15 +167,76 @@ export default function AdminDashboard() {
           <p>Members, acquisition sources and website traffic in one place.</p>
         </div>
         <div className="admin-top-actions">
-          <button onClick={load}>Refresh</button>
+          <button onClick={() => load(selectedDate)}>Refresh</button>
           <button className="admin-quiet" onClick={logout}>Log out</button>
         </div>
       </header>
 
       <section className="admin-cards">
         {cards.map(([label, value]) => (
-          <article key={label}><span>{label}</span><b>{number(value)}</b></article>
+          <article key={label}><span>{label}</span><b>{typeof value === "number" ? number(value) : value}</b></article>
         ))}
+      </section>
+
+      <section className="admin-panel">
+        <div className="admin-panel-head admin-engagement-head">
+          <div>
+            <p className="admin-kicker">Engagement</p>
+            <h2>Daily visitor sessions</h2>
+          </div>
+          <label className="admin-date">
+            <span>Choose date</span>
+            <input
+              type="date"
+              value={selectedDate}
+              max={todayIndia()}
+              onChange={(event) => {
+                const next = event.target.value;
+                setSelectedDate(next);
+                if (next) load(next);
+              }}
+            />
+          </label>
+        </div>
+        <p className="admin-engagement-summary">
+          {number(data.engagement.totals.identifiedVisitors)} signed-in visitors · average session {duration(data.engagement.totals.averageSessionSeconds)}
+        </p>
+        <div className="admin-top-pages">
+          {data.engagement.topPages.map((page) => (
+            <span key={page.path}><b>{page.path}</b> {number(page.sessions)} sessions</span>
+          ))}
+        </div>
+        <div className="admin-table-wrap">
+          <table className="admin-table admin-engagement-table">
+            <thead>
+              <tr><th>Visitor</th><th>Visits</th><th>Each session</th><th>Page views</th><th>Whole-day time</th><th>Average</th><th>Longest</th><th>First / last seen</th><th>Pages</th></tr>
+            </thead>
+            <tbody>
+              {data.engagement.visitors.map((visitor) => (
+                <tr key={visitor.key}>
+                  <td><b>{visitor.email || `Anonymous · ${visitor.visitorId.slice(0, 8)}`}</b></td>
+                  <td>{number(visitor.sessions)}</td>
+                  <td>
+                    <div className="admin-session-times">
+                      {visitor.sessionDetails.map((session, index) => (
+                        <span key={`${session.startedAt}:${index}`}>{index + 1}. {duration(session.durationSeconds)}</span>
+                      ))}
+                    </div>
+                  </td>
+                  <td>{number(visitor.pageViews)}</td>
+                  <td>{duration(visitor.durationSeconds)}</td>
+                  <td>{duration(visitor.averageSessionSeconds)}</td>
+                  <td>{duration(visitor.longestSessionSeconds)}</td>
+                  <td>{clock(visitor.firstSeenAt)} / {clock(visitor.lastSeenAt)}</td>
+                  <td><div className="admin-tags">{visitor.pages.map((page) => <span key={page}>{page}</span>)}</div></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {!data.engagement.visitors.length && (
+            <p className="admin-empty">No tracked sessions for this date.</p>
+          )}
+        </div>
       </section>
 
       <section className="admin-panel">

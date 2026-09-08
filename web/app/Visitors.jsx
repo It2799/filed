@@ -2,32 +2,7 @@
 
 import { useEffect, useState } from "react";
 
-/**
- * Visitor counts at the foot of the page.
- *
- * The browser keeps a random id in localStorage so the same person is not
- * counted twice. If localStorage is unavailable - a private window, or a
- * browser set to block site data - the visit still counts towards the total,
- * it simply cannot be told apart from any other, and the strip renders the
- * same either way.
- */
-
-const KEY = "mt_visitor_id";
-
-function visitorId() {
-  try {
-    let id = localStorage.getItem(KEY);
-    if (!id) {
-      id = (crypto.randomUUID?.() || String(Math.random()).slice(2))
-        .replace(/-/g, "")
-        .slice(0, 32);
-      localStorage.setItem(KEY, id);
-    }
-    return id;
-  } catch {
-    return "";
-  }
-}
+/** Read-only traffic counters shown at the foot of the page. */
 
 export default function Visitors() {
   const [n, setN] = useState(null);
@@ -35,13 +10,10 @@ export default function Visitors() {
   useEffect(() => {
     let dead = false;
 
+    // Page views and active time are recorded globally by EngagementTracker.
+    // This footer only reads the counters, so its refresh cannot inflate them.
     const send = () =>
-      fetch("/api/visits", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: visitorId() }),
-        cache: "no-store",
-      })
+      fetch("/api/visits", { cache: "no-store" })
         .then((r) => r.json())
         .then((d) => !dead && setN(d))
         .catch(() => {});
