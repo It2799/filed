@@ -55,9 +55,17 @@ jobs:
       - name: Check Chrome is here
         run: google-chrome --version
 
-      # Already out? Then stop. Five scheduled slots and a watchdog in
-      # scrape.yml all aim at the same issue, and only the first should build
-      # it. A manual dispatch always builds, so a bad issue can be replaced.
+      # Dead code, kept deliberately and marked as such.
+      #
+      # This guarded against five scheduled slots aiming at the same issue.
+      # Those slots are gone - Vercel Cron owns the clock now and this workflow
+      # is only the PDF worker - so github.event_name is always
+      # workflow_dispatch and this step can never run.
+      #
+      # It stays because a dispatch cannot be told apart from a manual one, so
+      # if duplicate builds ever become a problem the guard is here to switch
+      # on. Rebuilding is harmless in the meantime: newsletter.py replaces the
+      # day rather than adding to it.
       - name: Is today's issue already out?
         id: check
         if: github.event_name == 'schedule'
