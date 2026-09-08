@@ -31,7 +31,13 @@ const BANDS = [
   ["micro", "Below Rs 1,000 cr"],
 ];
 
-export default function Dashboard() {
+// One component, two dashboards.
+//
+// `board` is "Main" or "SME". Everything else about the two is identical -
+// same categories, same filters, same cards - and copying 580 lines to change
+// one query parameter is how two pages drift apart until only one of them gets
+// the next fix.
+export default function Dashboard({ board = "Main", title, blurb }) {
   const [data, setData] = useState(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
@@ -57,7 +63,7 @@ export default function Dashboard() {
   useEffect(() => {
     let dead = false;
     setLoading(true);
-    const p = new URLSearchParams({ scope });
+    const p = new URLSearchParams({ scope, board });
     if (tag) p.set("tag", tag);
     if (day) p.set("day", day);
     if (band) p.set("band", band);
@@ -76,7 +82,7 @@ export default function Dashboard() {
       .catch(() => !dead && setError("Couldn't load the filings. Please refresh."))
       .finally(() => !dead && setLoading(false));
     return () => { dead = true; };
-  }, [scope, tag, day, band, debouncedQ]);
+  }, [scope, tag, day, band, debouncedQ, board]);
 
   // `band` too: without it, paging deep and then changing size rendered the
   // whole result set at once and the "Show more" button vanished.
@@ -118,7 +124,7 @@ export default function Dashboard() {
   const [dayCounts, setDayCounts] = useState({});
   useEffect(() => {
     let dead = false;
-    fetch(`/api/announcements?scope=${scope}`, { cache: "no-store" })
+    fetch(`/api/announcements?scope=${scope}&board=${board}`, { cache: "no-store" })
       .then((r) => r.json())
       .then((d) => {
         if (dead) return;
@@ -126,7 +132,10 @@ export default function Dashboard() {
       })
       .catch(() => {});
     return () => { dead = true; };
-  }, [scope]);
+    // board included: without it the day strip keeps the other board's counts
+    // after switching, so the SME dashboard shows main-board numbers above an
+    // SME feed.
+  }, [scope, board]);
 
   const shown = items;
 
@@ -165,7 +174,28 @@ export default function Dashboard() {
       <AuthGate>
         <div className="dash-shell">
         <header className="dash-top">
-          <h1>Corporate announcements</h1>
+          <h1>{title || "Corporate announcements"}</h1>
+
+          {/* Two boards, two tabs. Plain links rather than client state: each
+              dashboard is its own page, so a reader can bookmark the SME one
+              and land back on it. */}
+          <nav className="board-tabs" aria-label="Listing board">
+            <a
+              href="/dashboard"
+              className={board === "SME" ? "" : "on"}
+              aria-current={board === "SME" ? undefined : "page"}
+            >
+              Main board
+            </a>
+            <a
+              href="/sme"
+              className={board === "SME" ? "on" : ""}
+              aria-current={board === "SME" ? "page" : undefined}
+            >
+              SME
+            </a>
+          </nav>
+          {blurb ? <p className="dash-blurb">{blurb}</p> : null}
           <p className="dash-meta">
             {data?.meta?.updated
               ? `Last 7 days · updated ${new Date(data.meta.updated).toLocaleString(

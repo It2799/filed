@@ -41,6 +41,21 @@ export async function GET(request) {
     const q = (url.searchParams.get("q") || "").toLowerCase().trim();
     const band = url.searchParams.get("band");
 
+    // SME or Main. The two boards are different products - an SME company is a
+    // Rs 40 crore business with three analysts following it, and a reader
+    // looking for one is not looking for the other - so each gets its own
+    // dashboard rather than a filter buried in a sidebar.
+    //
+    // Filtered before the "universe" is built below, so the category counts,
+    // the day counts and the market-cap bands all describe the board being
+    // looked at. Filter it afterwards and the SME dashboard would show
+    // Reliance's categories in its sidebar.
+    //
+    // Anything without a board reads as Main: filings stored before
+    // sources.tag_boards existed carry no such field, and the main dashboard
+    // is where they were until now.
+    const board = url.searchParams.get("board");
+
     const sort = url.searchParams.get("sort") === "important" ? "important" : "latest";
     let { days, items, meta } = await recent({ scope, sort });
 
@@ -50,6 +65,9 @@ export async function GET(request) {
     // the product look like it gave up halfway. Anything without a summary is
     // not offered as a headline item, whatever the stored data says.
     if (scope === "important") items = items.filter(isImportantRow);
+
+    if (board === "SME") items = items.filter((r) => r.board === "SME");
+    else if (board === "Main") items = items.filter((r) => r.board !== "SME");
 
     // Narrow by day and text first. Whatever survives is the universe the
     // category counts describe, so the sidebar keeps showing every category
@@ -104,6 +122,7 @@ export async function GET(request) {
         days,
         meta,
         scope,
+        board: board || "all",
         sort,
         total,
         tagCounts,

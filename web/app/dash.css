@@ -417,3 +417,39 @@ body.sheet-open { overflow: hidden; }
   .fstep span { font-size: 11px; }
   .rescued { font-size: 12px; }
 }
+
+/* Two boards, two tabs. Main board and SME are separate dashboards rather
+   than a filter, because a reader looking for one is not looking for the
+   other - and because an SME dashboard whose sidebar lists Reliance's
+   categories is not an SME dashboard. */
+.board-tabs {
+  display: flex;
+  gap: 2px;
+  margin: 10px 0 4px;
+  background: var(--card, #f4f5f7);
+  border: 1px solid var(--line, #e3e5e9);
+  border-radius: 8px;
+  padding: 3px;
+  width: fit-content;
+}
+.board-tabs a {
+  padding: 6px 16px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted, #6b7280);
+  text-decoration: none;
+  line-height: 1.4;
+}
+.board-tabs a:hover { color: var(--ink, #111827); }
+.board-tabs a.on {
+  background: var(--bg, #fff);
+  color: var(--ink, #111827);
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.06);
+}
+.dash-blurb {
+  margin: 6px 0 0;
+  font-size: 13px;
+  color: var(--muted, #6b7280);
+  max-width: 62ch;
+}
