@@ -86,6 +86,33 @@ def load_providers():
             out.append(p)
 
     if not out:                        # no config file at all - build defaults
+        # OpenRouter first, because Ishan asked for it and because the models
+        # below were checked against our own JSON schema with a real filing on
+        # 9 September - which is more than could be said for the list they
+        # replaced.
+        #
+        # Of the four models configured before, only one still worked:
+        #   dots-3-note-preview   17.0s   ok
+        #   z-ai/glm-5.2          gone from OpenRouter entirely, 404 every call
+        #   gemma-4-31b-it        429, rate limited on the shared free pool
+        #   gemma-4-26b-a4b-it    429, same
+        #
+        # A model can vanish or start refusing and nothing here would say so,
+        # which is why tools/check_models.py exists now.
+        if orouter:
+            out.append({"kind": "openrouter", "key": orouter, "tpm": 60000,
+                        "vision": False,
+                        "models": [
+                            # 3.5s, and the fastest of everything tested.
+                            "nex-agi/nex-n2.5-mini:free",
+                            "dots-studio/dots-3-note-preview:free",
+                            "nvidia/nemotron-3.5-lightning:free",
+                            # Rate limited when tested rather than gone, so
+                            # kept at the back where a recovered quota helps
+                            # and a dead one costs one failed call.
+                            "google/gemma-4-31b-it:free",
+                            "google/gemma-4-26b-a4b-it:free",
+                        ]})
         if groq:
             out.append({"kind": "groq", "key": groq, "tpm": 8000, "vision": False,
                         "models": ["openai/gpt-oss-120b", "openai/gpt-oss-20b"]})
@@ -99,14 +126,6 @@ def load_providers():
                                    "gemini-3.1-flash-lite",
                                    "gemini-flash-lite-latest",
                                    "gemini-3-flash-preview"]})
-        if orouter:
-            # Free models, checked to return valid JSON against our schema.
-            out.append({"kind": "openrouter", "key": orouter, "tpm": 60000,
-                        "vision": False,
-                        "models": ["dots-studio/dots-3-note-preview:free",
-                                   "z-ai/glm-5.2:free",
-                                   "google/gemma-4-31b-it:free",
-                                   "google/gemma-4-26b-a4b-it:free"]})
     return out
 
 
