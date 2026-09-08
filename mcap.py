@@ -113,22 +113,42 @@ def load_master(log=print):
     except Exception:
         pass
 
-    try:
-        r = requests.get(MASTER_URL,
-                         params={"Group": "", "Scripcode": "", "industry": "",
-                                 "segment": "Equity", "status": "Active"},
-                         headers=HEADERS, timeout=120)
-        rows = r.json() if r.status_code == 200 else []
-    except Exception as e:
-        log(f"  (could not fetch the BSE scrip list: {e})")
-        rows = []
-
+    # Two passes, main board first.
+    #
+    # "segment=Equity" returns 5,012 scrips - the main board only - so every
+    # company on the BSE SME board was absent and showed no market cap. That
+    # was invisible while SME filings sat on the main dashboard; giving them
+    # their own page made it obvious, since nearly half had a blank where the
+    # size should be.
+    #
+    # Any other value for segment returns the full 12,750, which is 6,950
+    # distinct names once normalised. Bondada Engineering and Zinema Media are
+    # in that set and not in the first, and both are SME.
+    #
+    # Main board is loaded FIRST and wins on a name collision, because the full
+    # list also carries debt instruments and fund units, and "Tata Steel" the
+    # company should not resolve to a Tata Steel debenture.
     idx = {}
-    for row in rows:
-        code = str(row.get("SCRIP_CD") or "").strip()
-        name = row.get("Scrip_Name") or ""
-        if code.isdigit() and name:
-            idx.setdefault(norm(name), code)
+    for segment in ("Equity", "SMEandOthers"):
+        try:
+            r = requests.get(MASTER_URL,
+                             params={"Group": "", "Scripcode": "",
+                                     "industry": "", "segment": segment,
+                                     "status": "Active"},
+                             headers=HEADERS, timeout=120)
+            rows = r.json() if r.status_code == 200 else []
+        except Exception as e:
+            log(f"  (could not fetch the BSE scrip list [{segment}]: {e})")
+            continue
+
+        before = len(idx)
+        for row in rows:
+            code = str(row.get("SCRIP_CD") or "").strip()
+            name = row.get("Scrip_Name") or ""
+            if code.isdigit() and name:
+                idx.setdefault(norm(name), code)
+        log(f"  BSE scrips [{segment}]: {len(rows)} rows, "
+            f"{len(idx) - before} new names")
     if idx:
         try:
             with open(MASTER, "w", encoding="utf-8") as f:
