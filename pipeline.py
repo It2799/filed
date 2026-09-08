@@ -252,6 +252,19 @@ def category_from_summary(category, headline, blob, current=None):
             and not _DEAL_EVIDENCE.search(blob)):
         return from_summary or "Other"
 
+    # Paying a debt is not raising one, and this has to be an explicit return.
+    #
+    # score_text already answers "Routine" for these, correctly - but Routine
+    # is on the refuse list below, so the answer was thrown away and the wrong
+    # tag survived. All ten of the debt-servicing filings under Fund Raising on
+    # 8 September stayed there for exactly that reason.
+    #
+    # The same shape as the AGM notices: a correct low-confidence answer
+    # refused for being low-confidence, leaving a confident wrong one in place.
+    # A refuse list needs an exception for every rule that deliberately demotes.
+    if rules.debt_servicing(blob):
+        return "Routine"
+
     if rules.board_meeting_notice(blob):
         return "Board Meeting"
 

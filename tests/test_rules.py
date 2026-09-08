@@ -1741,6 +1741,146 @@ for text in SOMETHING_HAPPENED:
 
 
 # ---------------------------------------------------------------------------
+# 25. A record date for interest is debt servicing, not a fund raise
+#
+# Summit Digitel's "record date for interest payments on its listed
+# non-convertible debentures" was published as Fund Raising. Two reasons, and
+# the second is the one that bites:
+#
+#   - The block on interest payments read "payment OF interest on". The filing
+#     says "interest PAYMENTS ON", which is the same thing the other way round
+#     and matched nothing.
+#   - So it was not blocked, triage read the attachment, and an NCD interest
+#     notice recites the debenture issue itself - face value, coupon, tenor.
+#     "Issue of debentures" is a fund raise.
+#
+# A record date for a DIVIDEND, bonus or split is a real corporate action and
+# is deliberately not caught by any of this.
+# ---------------------------------------------------------------------------
+
+# Read from the DOCUMENT, because these headlines say nothing: Summit Digitel's
+# is "Record Date Updates" and Hero FinCorp's is "Intimation under Regulation
+# 50(1)". Only the attachment says what the filing is about, and the attachment
+# for an interest notice recites the debenture issue itself - face value,
+# coupon, tenor - so reading it finds "issue of debentures" and scores a fund
+# raise at 58.
+DOCUMENT_LEVEL_DEBT = [
+    "Summit Digitel has announced the record date for interest payments on its "
+    "listed non-convertible debentures. The company has set September 16, "
+    "2026 as the record date.",
+    "Sammaan Capital has successfully made timely interest payments on its "
+    "non-convertible debentures. All interest obligations due on September 8 "
+    "were settled by September 7.",
+    "The company confirms payment of interest on its NCDs due 1 October 2026. "
+    "The debentures were issued at a face value of Rs 10 lakh each carrying a "
+    "coupon of 8.5%.",
+]
+for text in DOCUMENT_LEVEL_DEBT:
+    check(rules.debt_servicing(text),
+          "debt servicing is not being recognised from the document",
+          f"{text[:60]!r}")
+    got = pipeline.category_from_summary("Record Date Updates",
+                                         "Record Date Updates", text,
+                                         "Fund Raising")
+    check(got == "Routine",
+          "a debt payment is staying under a money category",
+          f"got {got!r} <- {text[:52]!r}")
+
+# Genuinely new money, in the same words. What separates them is a DECISION to
+# raise: approved, resolved, allotted. Every interest notice mentions the
+# debentures it is paying interest on, so matching "debenture" would cancel the
+# rule on every filing it exists to catch.
+NEW_MONEY = [
+    ("The borrowing committee approved raising up to INR 1,000 crore by "
+     "issuing listed, rated, secured, redeemable non-convertible debentures.",
+     "Fund Raising"),
+    ("Canara Bank's board has approved raising up to USD 2,000 million "
+     "through foreign currency bonds under its Medium Term Note programme.",
+     "Fund Raising"),
+    ("Allotment of 30,000 non-convertible debentures aggregating Rs 300 crore",
+     "Fund Raising"),
+    ("Issue of commercial paper of Rs 200 crore", "Fund Raising"),
+]
+for text, want in NEW_MONEY:
+    check(not rules.debt_servicing(text),
+          "a real fund raise is being read as debt servicing",
+          f"{text[:60]!r}")
+    pts, tag = rules.score_text(text, floor=0)
+    check(tag == want, f"this should be {want}", f"{(pts, tag)}")
+
+# A notice that a board or a COMMITTEE of it will meet. Hero FinCorp "is
+# holding a board committee meeting on September 15 to discuss raising funds
+# through the issuance of non-convertible debentures" was published as a Fund
+# Raising: the pattern wanted "board meeting" adjacent and the verb "will hold".
+for text in [
+    "Hero FinCorp is holding a board committee meeting on September 15, 2026. "
+    "The purpose is to discuss raising funds through the issuance of "
+    "non-convertible debentures.",
+    "A meeting of the Board of Directors is scheduled to be held on "
+    "12 September to consider the results",
+]:
+    check(rules.board_meeting_notice(text),
+          "a notice that a board or committee will meet is not recognised",
+          f"{text[:60]!r}")
+
+# ...and a board that has already decided keeps its decision.
+for text in [
+    "The borrowing committee approved raising up to INR 1,000 crore by issuing "
+    "non-convertible debentures.",
+    "Canara Bank's board has approved raising up to USD 2,000 million through "
+    "foreign currency bonds.",
+]:
+    check(not rules.board_meeting_notice(text),
+          "a completed decision is being read as a meeting notice",
+          f"{text[:60]!r}")
+
+
+DEBT_SERVICING = [
+    ("Corp. Action / Record Date",
+     "Summit Digitel Infrastructure Limited has announced the record date for "
+     "interest payments on its listed non-convertible debentures"),
+    ("Corp. Action / Record Date", "Record date for payment of interest on NCDs"),
+    ("Company Update",
+     "Intimation of record date for redemption of debentures"),
+    ("Company Update", "Interest payment on listed bonds - record date"),
+    ("Company Update", "Record date fixed for the coupon payment on Series II"),
+]
+for cat, head in DEBT_SERVICING:
+    pts, tag = rules.score(cat, head)
+    check(pts < 55,
+          "debt servicing is above the important line",
+          f"{(pts, tag)} <- {head[:56]!r}")
+    check(triage._blocked({"category": cat, "headline": head}),
+          "its attachment can still promote it - an NCD interest notice "
+          "recites the debenture issue",
+          f"{head[:56]!r} is not blocked")
+
+# The corporate actions that must survive all of that.
+for cat, head, want in [
+    ("Corp. Action / Bonus", "Recommended the issuance of Bonus Issue", "Bonus"),
+    ("General Updates",
+     "Allotment of 30,000 non-convertible debentures aggregating Rs 300 crore",
+     "Fund Raising"),
+    ("General Updates", "Board approved raising of funds up to Rs 500 crore",
+     "Fund Raising"),
+    ("General Updates", "Issue of commercial paper of Rs 200 crore",
+     "Fund Raising"),
+]:
+    pts, tag = rules.score(cat, head)
+    check(tag == want, f"a real {want} was caught by the debt-servicing rule",
+          f"{(pts, tag)} <- {head[:56]!r}")
+
+# A dividend record date still reaches Dividend through its summary, which is
+# the path that has always settled it - the headline alone says Corp Action.
+check(pipeline.category_from_summary(
+        "Corp. Action / Record Date",
+        "Record date for the purpose of Dividend is 17-Sep-2026",
+        "Sunteck Realty has announced that the record date for its upcoming "
+        "dividend is September 17, 2026.", "Corp Action") == "Dividend",
+      "a dividend record date stopped reaching Dividend")
+
+
+# ---------------------------------------------------------------------------
 
 print(f"{CHECKS[0]} checks")
 if FAILURES:

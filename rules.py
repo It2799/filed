@@ -91,6 +91,18 @@ JUNK = [
     r"payment of interest on[^.]{0,40}(non-?convertible|debenture|\bncds?\b)|"
     r"certificate[^.]{0,40}payment of interest|"
     r"interest payment[^.]{0,20}(certificate|intimation)|"
+    # "interest PAYMENTS ON its listed non-convertible debentures" - the same
+    # thing said the other way round, which the line above does not reach
+    # because it wants "payment OF interest on". Summit Digitel's record date
+    # for NCD interest was published as Fund Raising: the attachment recites
+    # the debenture issue, and "issue of debentures" is a fund raise.
+    r"interest payments? on[^.]{0,50}"
+    r"(non-?convertible|debenture|\bncds?\b|\bbond)|"
+    # A record date for interest, or for redeeming an instrument, is debt
+    # servicing. A record date for a dividend, bonus or split is not, and is
+    # deliberately not matched here.
+    r"record date[^.]{0,80}(interest|coupon|redemption|redeem)|"
+    r"(interest|coupon)[^.]{0,60}record date|"
     # ...and every other way a company says "we paid the interest and repaid
     # the principal on the due date". Sixteen of the twenty-nine filings under
     # Buyback were these: REC, Power Finance, Exim Bank, L&T Finance, National
@@ -270,7 +282,34 @@ TOPICS = [
     ("Fund Raising",         58, r"fund ?rais|capital raising|further public offer|\bfpo\b|"
                                  r"rais(e|es|ed|ing) (of )?(funds|capital)|"
                                  r"raising of (funds|capital)|"
-                                 r"issue of[^.]{0,30}(ncd|debenture|bond|commercial paper)|"
+                                 # "raising up to INR 1,000 crore", which
+                                 # names an amount instead of the word "funds"
+                                 # - the only wording accepted before. A
+                                 # borrowing committee's Rs 1,000 crore NCD
+                                 # approval and Canara Bank's USD 2,000 million
+                                 # bond programme both scored zero, and reached
+                                 # the site only because the exchange category
+                                 # happened to say Fund Raising. Described in a
+                                 # PDF under a vague category, they were lost.
+                                 # An amount alone is not enough. "Revenue
+                                 # guidance raised to Rs 500 crore" is a
+                                 # business update, and the first version of
+                                 # this made it a fund raise at 58 - a figure
+                                 # being revised upwards read as money being
+                                 # brought in. So the sentence has to name what
+                                 # is being raised as well.
+                                 r"rais(e|es|ed|ing)[^.]{0,60}"
+                                 r"(funds|capital|equity|\bdebt\b|\bncds?\b|"
+                                 r"debenture|\bbonds?\b|commercial paper|"
+                                 r"private placement|borrowing)|"
+                                 # "by ISSUING listed, rated, secured,
+                                 # redeemable non-convertible debentures" -
+                                 # every adjective in that list was inside a
+                                 # 30-character window that had to reach the
+                                 # word "debenture".
+                                 r"issu(e|es|ed|ing|ance)( of)?[^.]{0,60}"
+                                 r"(\bncds?\b|debenture|\bbonds?\b|"
+                                 r"commercial paper)|"
                                  # The quantity sits between the verb and the
                                  # instrument - "allotment of 30,000 non-
                                  # convertible debentures" - and the pattern
@@ -1027,13 +1066,20 @@ def meeting_notice(category, headline, body=""):
 #   Commercial Syn Bags  "will hold a board meeting on 5 September"  -> Warrants
 #
 # None of them has decided anything. The board has not met.
+# "board meeting" is written a dozen ways and two of them mattered here. Hero
+# FinCorp "is holding a board COMMITTEE meeting on September 15 to discuss
+# raising funds through the issuance of non-convertible debentures" - a notice
+# that a committee will meet, published as a Fund Raising. The pattern wanted
+# the words "board meeting" adjacent and the verb "will hold".
+_BOARD = r"board(?:\s+\w+){0,2}\s+meeting|meeting of the board|board of directors"
+
 _BOARD_FUTURE = re.compile(
-    r"(board (meeting|of directors)[^.]{0,90}"
+    r"(?:" + _BOARD + r")[^.]{0,90}"
     r"(will be held|is scheduled|to be held|will meet|shall be held|"
     r"is proposed to be held)|"
-    r"(will hold|has scheduled|is convening|to convene)[^.]{0,40}"
-    r"board meeting|"
-    r"board (of directors )?will (meet|consider))", re.I)
+    r"(will hold|is holding|holds|has scheduled|is convening|to convene|"
+    r"has convened|scheduled)[^.]{0,40}(?:" + _BOARD + r")|"
+    r"board (of directors )?will (meet|consider)", re.I)
 
 _BOARD_PURPOSE = re.compile(
     r"to consider|to discuss|to approve|to evaluate|inter[- ]alia|"
@@ -1178,6 +1224,52 @@ def meeting_only(category, headline, body=""):
     if not meeting_notice(category or "", headline or "", body or ""):
         return False
     return not _MONEY_HAPPENED.search(text)
+
+
+# Paying a debt is not raising one.
+#
+# The JUNK list catches this when the headline says so. These headlines do not:
+# Summit Digitel's is "Record Date Updates" and Hero FinCorp's is "Intimation
+# under Regulation 50(1)". Only the attachment says what it is about, and the
+# attachment for an interest notice recites the debenture issue itself - face
+# value, coupon, tenor - so reading it finds "issue of debentures" and calls it
+# a fund raise. Ten filings on 8 September.
+#
+# So the test has to run where the document is read, not only on the headline.
+_DEBT_SERVICE = re.compile(
+    r"interest payments? on[^.]{0,50}"
+    r"(non-?convertible|debenture|\bncds?\b|\bbond)|"
+    r"payment of interest on[^.]{0,40}(non-?convertible|debenture|\bncds?\b)|"
+    r"record date[^.]{0,80}(interest|coupon|redemption|redeem)|"
+    r"(interest|coupon)[^.]{0,60}record date|"
+    r"confirmation of (redemption|payment|interest)|"
+    r"redemption of[^.]{0,50}(\bncds?\b|debenture|commercial paper|\bbond)|"
+    r"repayment of[^.]{0,40}(commercial paper|\bncds?\b|debenture|\bbond)|"
+    r"coupon payment|interest and princip|payment towards interest", re.I)
+
+# ...unless the filing is ALSO announcing new money. Deliberately narrow: it
+# looks for a decision to raise, not for the word "debenture", because every
+# interest notice mentions the debentures it is paying interest on. Matching
+# "issue of debentures" here would cancel the rule on every filing it is meant
+# to catch.
+_NEW_MONEY = re.compile(
+    r"(approved|approves|proposes? to|board has|resolved to|decided to)"
+    r"[^.]{0,70}(issue|issuance|rais|allot|placement|borrow)|"
+    r"allotment of[^.]{0,40}"
+    r"(\bncds?\b|debenture|\bbond|equity|shares|warrant)|"
+    r"fund ?rais|private placement of|preferential (issue|allotment)|"
+    r"\bqip\b|rights issue|further public offer", re.I)
+
+DEBT_SERVICE_SCORE = 20
+
+
+def debt_servicing(text):
+    """Is this a payment on money already borrowed, rather than new money?"""
+    if not text:
+        return False
+    if _NEW_MONEY.search(text):
+        return False
+    return bool(_DEBT_SERVICE.search(text))
 
 
 BOARD_NOTICE_SCORE = 41
@@ -1367,6 +1459,13 @@ def score_text(text, floor=0):
         return 0, None
 
     body = text[:4000]
+
+    # Paying a debt is not raising one, and this is the only place that can
+    # tell - the headline on these says "Record Date Updates". Checked before
+    # the topics, because the attachment recites the debenture issue and
+    # "issue of debentures" scores as a fund raise at 58.
+    if debt_servicing(body):
+        return (DEBT_SERVICE_SCORE, "Routine") if DEBT_SERVICE_SCORE >= floor             else (0, None)
 
     hits = [(pts, tag) for tag, pts, rx in _TOPIC_RE if rx.search(body)]
     if not hits:

@@ -87,6 +87,14 @@ NEVER_PROMOTE = [
     r"\bbrsr\b|business responsibility and sustainability report|"
     r"payment of interest on[^.]{0,40}(non-?convertible|debenture|\bncds?\b)|"
     r"certificate[^.]{0,40}payment of interest|"
+    # The same thing worded the other way, and the record date for it. The
+    # attachment for an NCD interest record date recites the debenture issue
+    # itself - face value, coupon, tenor - and "issue of debentures" is a fund
+    # raise, so reading it promoted Summit Digitel's routine interest notice
+    # into Fund Raising.
+    r"interest payments? on[^.]{0,50}"
+    r"(non-?convertible|debenture|\bncds?\b|\bbond)|"
+    r"record date[^.]{0,80}(interest|coupon|redemption|redeem)|"
     # Debt servicing in all its wordings. The attachment is a bank confirmation
     # quoting the instrument, its coupon and its face value, which is enough to
     # read as a buyback or a fund raise. Sixteen of twenty-nine filings under
