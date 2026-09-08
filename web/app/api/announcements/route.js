@@ -120,7 +120,27 @@ export async function GET(request) {
     return Response.json(
       {
         days,
-        meta,
+        // The funnel's first number has to belong to the board being shown.
+        // meta.scanned is the whole run, both boards, so the SME dashboard was
+        // reading "19,139 filed on NSE & BSE" above 42 SME filings.
+        //
+        // scanned_sme and scanned_main are written per day by publish.py, but
+        // only from 8 September onwards, so days stored before that have
+        // neither. Then this is null and the dashboard leaves the step out.
+        //
+        // It used to fall back to counting the board's rows in hand, which was
+        // worse than nothing: under scope=important those ARE the important
+        // rows, so the funnel read "93 filed, 93 worth reading, 93 summarised"
+        // - three identical numbers that describe nothing and look broken.
+        meta: board
+          ? {
+              ...meta,
+              scanned:
+                Number(
+                  board === "SME" ? meta?.scanned_sme : meta?.scanned_main
+                ) || null,
+            }
+          : meta,
         scope,
         board: board || "all",
         sort,

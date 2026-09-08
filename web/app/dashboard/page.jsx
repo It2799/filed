@@ -207,9 +207,19 @@ export default function Dashboard({ board = "Main", title, blurb }) {
 
           {data?.meta ? (
             <div className="funnel">
-              <div className="fstep">
+              {/* Left out entirely when the board's own filed-count is not
+                  known yet, rather than shown as a zero or as a copy of the
+                  next number along. */}
+              <div className="fstep" hidden={!data.meta.scanned}>
                 <b>{Number(data.meta.scanned || 0).toLocaleString("en-IN")}</b>
-                <span>filed on NSE &amp; BSE</span>
+                {/* Which board, so the number and the label agree. "filed on
+                    NSE & BSE" over an SME count reads as though the whole
+                    market produced 42 filings. */}
+                <span>
+                  {board === "SME"
+                    ? "filed by SME companies"
+                    : "filed on NSE & BSE"}
+                </span>
               </div>
               <div className="fstep hi">
                 <b>{Number(data.total || 0).toLocaleString("en-IN")}</b>

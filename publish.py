@@ -170,7 +170,8 @@ def publish_index(url, token, today, run_stats):
     marks = redis(url, token, ["MGET", *[f"mt:count:{d}" for d in window]]) or []
 
     live_days, totals = [], {"important": 0, "other": 0, "summarised": 0,
-                            "scanned": 0, "read": 0}
+                            "scanned": 0, "read": 0,
+                            "scanned_sme": 0, "scanned_main": 0}
     for d, mark in zip(window, marks):
         if not mark:
             continue
@@ -411,6 +412,11 @@ def main():
             # top-up scrapes one day; without this it would report that day's
             # filing count as the week's.
             "scanned": len(raw), "read": tri.get("read", 0),
+            # Split by board as well, because the SME dashboard has its own
+            # funnel and "19,139 filed on NSE & BSE" above 42 SME filings is
+            # not a funnel, it is two unrelated numbers stacked.
+            "scanned_sme": sum(1 for a in raw if a.get("board") == "SME"),
+            "scanned_main": sum(1 for a in raw if a.get("board") != "SME"),
             # Which rules produced these numbers, so the guard above can tell a
             # deliberate drop from a starved one.
             "rules": triage.rules_fingerprint(),
