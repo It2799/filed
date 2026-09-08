@@ -622,11 +622,33 @@ TOPICS = [
     # below the bar for Important - so a reader could not filter for them at
     # all. They are what an investor actually plans a week around, so each is
     # now its own category and each clears the bar on its own.
-    ("Investor Presentation", 57, r"investor presentation|analyst presentation|"
-                                  r"earnings presentation|corporate presentation"),
+    # 57 against Investor Meet's 55, so a passing MENTION of a
+    # presentation beat the meeting a filing was actually about, by two
+    # points. Home First Finance announced "its schedule for upcoming
+    # analyst and institutional investor meetings, including non-deal
+    # roadshows in the UK", and added that officials "will use ALREADY
+    # PUBLIC investor presentations during these discussions" - so a
+    # meeting schedule was published as a presentation, as were Ashok
+    # Leyland's and Tips Music's.
+    #
+    # A presentation filing attaches a presentation. That is what tells
+    # the two apart, and it was never a question of points.
+    ("Investor Presentation", 57,
+                                  r"(attach\w+|enclos\w+|submit\w+|upload\w+|shar\w+|"
+                                  r"releas\w+|publish\w+|post(ed|ing)?|herewith|copy of|"
+                                  r"made available)[^.]{0,50}"
+                                  r"(investor|analyst|earnings|corporate) presentation|"
+                                  r"(investor|analyst|earnings|corporate) presentation[^.]{0,50}"
+                                  r"(attached|enclosed|submitted|uploaded|herewith|"
+                                  r"is (being )?shared|available on the|on the website)"),
     ("Concall",              56, r"con\.? ?call|conference call|earnings call|"
                                  r"audio recording|video recording|transcript"),
     ("Investor Meet",        55, r"analysts?.{0,14}meet|institutional investor meet|"
+                                 # The same words the other way round:
+                                 # "a one-on-one meeting WITH analysts
+                                 # and institutional investors".
+                                 r"meet(ing)?s?\s+(with|of)\s+(the\s+)?"
+                                 r"(analyst|investor|institutional|fund manager)|"
                                  r"investor meet|"
                                  # "meet" has to be in it - without that,
                                  # "Intimation of Investor Presentation" was
@@ -857,13 +879,36 @@ MEETING_KINDS = [
     # then fell through to Investor Meet - eClerx's slide deck was published as
     # a meeting. This pattern only runs once a filing is already known to be
     # one of the three meeting kinds, so the loose word is safe here.
-    ("Investor Presentation", r"investor presentation|analyst presentation|"
-                              r"earnings presentation|corporate presentation|"
-                              r"\bpresentations?\b"),
+    # A presentation filing ATTACHES a presentation, and this list is
+    # first-match-wins, so the qualified form has to come before the meet.
+    # Home First Finance announced its "schedule for upcoming analyst and
+    # institutional investor meetings, including non-deal roadshows in the
+    # UK" and mentioned only that officials "will use already public investor
+    # presentations" - which was enough to publish a meeting schedule as a
+    # presentation while this entry led the list unqualified.
+    ("Investor Presentation", r"(attach\w+|enclos\w+|submit\w+|upload\w+|"
+                              r"shar\w+|releas\w+|publish\w+|herewith|"
+                              r"copy of|made available)[^.]{0,50}"
+                              r"(investor|analyst|earnings|corporate) "
+                              r"presentation|"
+                              r"(investor|analyst|earnings|corporate) "
+                              r"presentation[^.]{0,50}"
+                              r"(attached|enclosed|submitted|uploaded|"
+                              r"herewith|is (being )?shared|"
+                              r"available on the|on the website)"),
     ("Concall",               r"con\.? ?call|conference call|earnings call|"
                               r"audio recording|video recording|transcript"),
     ("Investor Meet",         r"analysts?.{0,14}meet|institutional investor meet|"
-                              r"investor meet|road ?show|non-?deal roadshow"),
+                              r"investor meet|road ?show|non-?deal roadshow|"
+                              # "a one-on-one meeting WITH analysts and
+                              # institutional investors" - Tips Music, and the
+                              # same words in the other order.
+                              r"meet(ing)?s?\s+(with|of)\s+"
+                              r"(the\s+)?(analyst|investor|institutional|"
+                              r"fund manager)"),
+    # Last, and only for the filings nothing above explains: BSE's bare
+    # "Presentation" category, where eClerx's slide deck came from.
+    ("Investor Presentation", r"\bpresentations?\b"),
 ]
 _MEETING_RE = [(tag, re.compile(p, re.I)) for tag, p in MEETING_KINDS]
 _MEETING_TAGS = {tag for tag, _ in MEETING_KINDS}
@@ -1267,8 +1312,17 @@ def meeting_is_the_subject(text):
     first = text.split(".", 1)[0]
     m = _MEETING_SCHEDULED.search(first)
     if m:
-        money = re.search(r"dividend|bonus|split|buy-?back", first[:m.start()],
-                          re.I)
+        # _MONEY_HAPPENED rather than a shorter list of its own. The
+        # shorter list knew dividend, bonus, split and buyback, so a board
+        # approving a preferential issue of 2.5 million convertible warrants
+        # counted as nothing at all - and KCK Industries became a Meeting
+        # because the same sentence went on to schedule the AGM that would
+        # approve it. Two definitions of "something happened" is one too
+        # many.
+        before = first[:m.start()]
+        money = (_MONEY_HAPPENED.search(before)
+                 or re.search(r"dividend|bonus|split|buy-?back", before,
+                              re.I))
         if not money:
             return True
 
@@ -1611,10 +1665,37 @@ def stake_category(category):
     return any(rx.search(category or "") for rx in _STAKE_CATEGORY_RE)
 
 
+# A sentence that says nothing happened should count for nothing.
+#
+# Four filings under Investor Meet were relabelled Results by their own
+# disclaimer: "No specific financial results or business developments were
+# disclosed in this filing" scores 64 as Results, because "financial results"
+# is in it. Action Construction Equipment, SEDEMAC Mechatronics and Axis
+# Solutions were all notices of an analyst meeting that had nothing to
+# report, and said so.
+#
+# Only sentences with no number in them. "not less than Rs 100 crore was
+# approved" is a real event that happens to contain the word not, and a
+# sentence carrying a figure is almost never a denial.
+_NOTHING_HAPPENED = re.compile(
+    r"[^.]*\b(no|not|nothing|none|neither)\b[^.\d]{0,120}"
+    r"\b(disclos\w+|declar\w+|announc\w+|approv\w+|shared|discuss\w+|"
+    r"decided|provided|made|taken)\b[^.\d]*\.",
+    re.I)
+
+
+def drop_denials(text):
+    """Remove sentences whose whole content is that nothing happened."""
+    if not text:
+        return text
+    return _NOTHING_HAPPENED.sub(" ", text)
+
+
 def soften_stops(text):
     """Drop the full stops that are not ends of sentences."""
     if not text:
         return text
+    text = drop_denials(text)
     text = _HONORIFIC.sub(r"\1", text)
     text = _INITIAL.sub(r"\1", text)
     return _DECIMAL.sub(r"\1\2", text)
@@ -1928,7 +2009,11 @@ TAG_EVIDENCE = {
     "Dividend": r"dividend",
     "Fund Raising": r"fund ?rais|rais\w+|\bncds?\b|debenture|\bbond|"
                     r"commercial paper|private placement|borrow|\bfpo\b",
+    # BCPL Railway "emerged as the lowest bidder for a railway
+    # electrification project in the Asansol division", which is how a
+    # public contract is won, and none of the words below appear in it.
     "Order": r"order|contract|letter of (award|intent|acceptance)|tender|"
+             r"bidder|lowest bid|\bl-?1\b|"
              r"bagg|\bwon\b|\bwins\b|secured|award|mandate|\bloa\b|\bloi\b",
     "Clinical Trial": r"clinical|trial|phase|patient|endpoint|topline|enrol|"
                       r"dosing|pivotal|molecule|therap|efficacy",

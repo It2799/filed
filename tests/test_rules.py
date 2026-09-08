@@ -2486,6 +2486,121 @@ check(pipeline.category_from_summary(
 
 
 # ---------------------------------------------------------------------------
+# 37. One vocabulary for "something happened".
+#
+# meeting_is_the_subject knew four events - dividend, bonus, split, buyback -
+# while meeting_only used _MONEY_HAPPENED, which knows fifteen. So a board
+# that approved a preferential issue of 2.5 million convertible warrants
+# counted as having done nothing, and KCK Industries was published as a
+# Meeting because the same sentence went on to schedule the AGM that would
+# approve it.
+check(pipeline.category_from_summary(
+          "Outcome of Board Meeting",
+          "Kck Industries Limited has informed the Exchange regarding "
+          "Outcome of Board Meeting held on September 5",
+          "The board approved the FY 2025-26 Director's Report, planned a "
+          "preferential issue of up to 2.5 million convertible warrants "
+          "(worth Rs 50 cr) at Rs 20 each, moved its registered offices "
+          "within Chandigarh, scheduled an AGM to seek shareholder approval, "
+          "and appointed a scrutinizer for e-voting.",
+          "Warrants") in (None, "Warrants"),
+      "a board that approved a warrant issue is being called a meeting")
+
+
+# ---------------------------------------------------------------------------
+# 38. A sentence saying nothing happened counts for nothing.
+#
+# Four filings under Investor Meet were relabelled Results by their own
+# disclaimer: "No specific financial results or business developments were
+# disclosed in this filing" scores 64 as Results, because the words
+# "financial results" are in it.
+check(rules.drop_denials(
+          "The company met analysts. No specific financial results or "
+          "business developments were disclosed in this filing.").strip()
+      == "The company met analysts.",
+      "a sentence stating that nothing happened is still being scored")
+
+# But only sentences with no number in them. "not less than Rs 100 crore was
+# approved" is a real event that happens to contain the word not.
+check("100 crore" in rules.drop_denials(
+          "The board approved not less than Rs 100 crore of capital "
+          "expenditure."),
+      "a real event is being dropped for containing a negative word")
+
+pts, tag = rules.score_text(
+    "Action Construction Equipment has announced a schedule for upcoming "
+    "meetings with analysts and institutional investors. No specific "
+    "financial results or business developments were disclosed.", floor=0)
+check(tag != "Results", "a disclaimer is still being read as the results",
+      f"{(pts, tag)}")
+
+
+# ---------------------------------------------------------------------------
+# 39. A presentation filing attaches a presentation.
+#
+# Investor Presentation scores 57 and Investor Meet 55, and MEETING_KINDS is
+# first-match-wins with the presentation leading it - so a passing MENTION
+# beat the meeting a filing was actually about. Home First Finance announced
+# its "schedule for upcoming analyst and institutional investor meetings,
+# including non-deal roadshows in the UK" and mentioned only that officials
+# "will use already public investor presentations".
+MEETING_KIND_CASES = [
+    ("Investor Meet",
+     "Home First Finance has announced its schedule for upcoming analyst and "
+     "institutional investor meetings, including non-deal roadshows in the "
+     "UK. Company officials will use already public investor presentations "
+     "during these discussions."),
+    ("Investor Meet",
+     "Ashok Leyland announced an investor meeting scheduled for 11 September "
+     "2026 at Trident Nariman Point"),
+    # The same words in the other order, which no pattern could see:
+    # "a one-on-one meeting WITH analysts and institutional investors".
+    ("Investor Meet",
+     "Tips Music has scheduled a one-on-one meeting with analysts and "
+     "institutional investors on September 12"),
+    ("Investor Presentation",
+     "Borosil Renewables shared its corporate presentation outlining current "
+     "and planned solar glass capacity"),
+    ("Investor Presentation",
+     "Please find enclosed the investor presentation for the quarter ended "
+     "June 30, 2026"),
+    ("Concall",
+     "Behari Lal Engineering Ltd has uploaded the audio recording of its "
+     "Q1 FY 2026-27 earnings conference call"),
+]
+for want, text in MEETING_KIND_CASES:
+    pts, tag = rules.score_text(text, floor=0)
+    check(tag == want, "the wrong kind of investor event",
+          f"{(pts, tag)} want {want} <- {text[:52]!r}")
+
+
+# ---------------------------------------------------------------------------
+# 40. The exchange's own category is a source in its own right.
+#
+# The corroboration rule asks whether a tag could ONLY have come from the
+# attachment, and it was asking the headline alone. A headline can drown out
+# the category: Zinema Media's "Approval for Preferential Issue pursuant to
+# NCLT order" scores 64/Legal-Reg, while the category says plainly "Company
+# Update / Preferential Issue".
+check(pipeline.category_from_summary(
+          "Company Update / Preferential Issue",
+          "Approval for Preferential Issue pursuant to NCLT order, subject "
+          "to approval of shareholders",
+          "Zinema Media is issuing 24.99 lakh equity shares to settle debts "
+          "with creditors of Premier Futsal Management. The company is also "
+          "increasing its authorized share capital.",
+          "Pref") in (None, "Pref"),
+      "a tag the exchange's own category names is being demoted")
+
+# An L1 bidder has won the work, which is how a public contract is awarded.
+check(rules.tag_supported(
+          "Order",
+          "BCPL Railway Infrastructure has emerged as the lowest bidder for "
+          "a railway electrification project in the Asansol division"),
+      "an order win cannot corroborate its own category")
+
+
+# ---------------------------------------------------------------------------
 
 print(f"{CHECKS[0]} checks")
 if FAILURES:

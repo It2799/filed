@@ -339,6 +339,21 @@ def category_from_summary(category, headline, blob, current=None):
                           blob, re.I)):
         return "Results"
 
+    # Going to a conference to talk about results already published is the
+    # conference, not the results.
+    #
+    # Motilal Oswal "will participate in upcoming investor conferences in
+    # September 2026. The company will discuss previously released financial
+    # results for the quarter ended June 30" scores 64 as Results against
+    # Investor Meet's 55, so the subject of the trip became the filing.
+    if (re.search(r"(will |to )?(participat\w+|attend\w*|present\w*)"
+                  r"[^.]{0,60}(investor|analyst|institutional)"
+                  r"[^.]{0,30}(conference|meet|call|roadshow|summit)",
+                  blob, re.I)
+            and re.search(r"previously|already|earlier (released|published|"
+                          r"announced)|released financial", blob, re.I)):
+        return "Investor Meet"
+
     if rules.board_meeting_notice(blob):
         return "Board Meeting"
 
@@ -419,6 +434,14 @@ def category_from_summary(category, headline, blob, current=None):
             and current not in DEAL_TAGS
             and current != from_summary
             and rules.score(category or "", headline or "")[1] != current
+            # The exchange's own category is a source in its own right, and
+            # a headline can drown it out: Zinema Media's "Approval for
+            # Preferential Issue pursuant to NCLT order" scores 64/Legal-Reg
+            # on the headline while the category says, plainly, "Company
+            # Update / Preferential Issue". Asking the category on its own
+            # is what keeps a filing the exchange has already classified
+            # from being demoted for a summary that words it differently.
+            and rules.score(category or "", "")[1] != current
             and not rules.tag_supported(current, blob)):
         return from_summary or "Other"
 
