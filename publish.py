@@ -115,7 +115,9 @@ def load_providers():
 # The "All" tab doesn't need summaries or the long headline, and trimming keeps
 # a busy day's payload well under Upstash's request size limit.
 SLIM_FIELDS = ("id", "exchange", "company", "ticker", "category", "headline",
-               "time", "date", "score", "tag", "pdf_url", "mcap")
+               # "board" belongs in the slim list too: the SME dashboard has to
+               # be able to show the long tail, and that is what this list is.
+               "time", "date", "score", "tag", "pdf_url", "mcap", "board")
 
 MAX_BYTES = 700_000        # stay comfortably inside the REST request limit
 

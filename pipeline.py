@@ -74,6 +74,12 @@ def fetch_and_score(start, end, min_score, log=print):
 
     raw = bse + nse
 
+    # Which board each company is listed on - SME or main - so the two can be
+    # shown separately. NSE said so in fetch_nse, from its own SME list; BSE
+    # does not say at all, and gets it from the list of scrips published on
+    # bsesme.com. See sources.tag_boards.
+    sources.tag_boards(raw, log=log)
+
     # The RSS feeds are NOT read here, deliberately.
     #
     # They were, for a few hours on 3 September, as a safety net for anything
@@ -452,7 +458,11 @@ def summarise(kept, provider_list, max_summaries, workers=4, log=print):
 
 FIELDS = ("id", "exchange", "company", "ticker", "category", "headline", "time",
           "date", "score", "tag", "pdf_url", "page_url", "summary", "impact",
-          "key_numbers", "why_it_matters", "mcap", "also_filed", "also_tags")
+          "key_numbers", "why_it_matters", "mcap", "also_filed", "also_tags",
+          # SME or Main. Without it here the board is worked out on every run
+          # and then dropped on the way to the site, which is exactly what
+          # happened to NSE's SME list for the first week it was fetched.
+          "board")
 
 
 def to_rows(kept):

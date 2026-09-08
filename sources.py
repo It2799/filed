@@ -230,6 +230,13 @@ def fetch_nse(from_date, to_date, log=print):
             got = _nse_index(s, index, from_date, to_date, log)
         if got:
             log(f"  NSE {index}: {len(got)} rows")
+            # Which list it came from, kept on the row. NSE has always known
+            # whether a company is on the SME board - it keeps them in a
+            # separate list - and the answer was simply being thrown away at
+            # this line, which is why the SME dashboard needed BSE's scrip list
+            # for one exchange and nothing at all for the other.
+            for a in got:
+                a["_nse_index"] = index
             data.extend(got)
 
     if not data:
@@ -242,6 +249,8 @@ def fetch_nse(from_date, to_date, log=print):
         out.append({
             "id": "NSE-" + str(a.get("seq_id") or (sym + str(a.get("sort_date")))),
             "exchange": "NSE",
+            # "sme" is one of NSE's five lists, so this is not a guess.
+            "board": "SME" if a.get("_nse_index") == "sme" else "Main",
             "company": _clean(a.get("sm_name")) or sym,
             "ticker": sym,
             "category": _clean(a.get("desc")),
@@ -315,3 +324,106 @@ def merge(items):
 #
 # tools/reconcile_feeds.py still reads them, to report anything the APIs did
 # not return. Nothing it sees reaches the site.
+
+
+# ---------------------------------------------------------------- SME or main
+
+# Which board a company is listed on, which is not something either
+# announcement API says.
+#
+# The two boards are different products. An SME company files under the same
+# regulations and lands in the same feed, but it is a Rs 40 crore business with
+# three analysts following it, sitting next to Reliance. A reader looking for
+# one is not looking for the other, so they get their own dashboard.
+#
+# NSE is easy: it keeps SME in its own list, and fetch_nse already asks for it -
+# the answer just was not being written down. BSE is harder. Its SME companies
+# file into the same corpfiling system as everyone else and carry ordinary
+# scrip codes in the same 54xxxx range as new main-board listings, so nothing
+# in a filing distinguishes them.
+#
+# What does distinguish them is the list of who is on the board, and bsesme.com
+# publishes it - not through an API, but as the options of the scrip dropdown on
+# its announcements page. 581 companies, in the HTML. Every JSON endpoint
+# guessed at returned the site's 404 page; the dropdown was there all along.
+BSE_SME_PAGE = "https://www.bsesme.com/corpoaratefilings/Announcements.aspx"
+
+_SME_CACHE = None
+_SME_OPTION = re.compile(
+    r"<option[^>]*value=\"(\d{6})\"[^>]*>([^<]{1,60})</option>", re.I)
+
+
+def _sme_cache_path():
+    import os
+    return os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                        "sme_scrips.json")
+
+
+def bse_sme_scrips(log=print, max_age_days=7):
+    """{scrip code: symbol} for every company on the BSE SME board.
+
+    Cached on disk, because the list changes when a company lists or migrates
+    to the main board - a few times a month, not a few times an hour. A stale
+    list is far better than none: the worst it does is put a newly listed SME
+    on the main dashboard for a week.
+    """
+    global _SME_CACHE
+    if _SME_CACHE is not None:
+        return _SME_CACHE
+
+    import json
+    import os
+    import time as _time
+
+    path = _sme_cache_path()
+    try:
+        age = (_time.time() - os.path.getmtime(path)) / 86400
+        if age < max_age_days:
+            with open(path, encoding="utf-8") as f:
+                _SME_CACHE = json.load(f)
+            log(f"  SME list: {len(_SME_CACHE)} companies (cached, "
+                f"{age:.1f} days old)")
+            return _SME_CACHE
+    except Exception:
+        pass
+
+    try:
+        r = requests.get(BSE_SME_PAGE, headers={"User-Agent": UA}, timeout=60)
+        found = {code: name.strip()
+                 for code, name in _SME_OPTION.findall(r.text)}
+        # A handful would mean the page changed shape. Keep whatever is on disk
+        # rather than replacing a good list with a broken one.
+        if len(found) < 100:
+            raise ValueError(f"only {len(found)} scrips found; page changed?")
+        _SME_CACHE = found
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(found, f, indent=0, sort_keys=True)
+        log(f"  SME list: {len(found)} companies (refreshed)")
+        return found
+    except Exception as e:
+        log(f"  SME list: could not refresh ({type(e).__name__}: {e})")
+        try:
+            with open(path, encoding="utf-8") as f:
+                _SME_CACHE = json.load(f)
+            log(f"  SME list: using the stale copy, {len(_SME_CACHE)} companies")
+        except Exception:
+            _SME_CACHE = {}
+            log("  SME list: none available, everything will read as main board")
+        return _SME_CACHE
+
+
+def tag_boards(rows, log=print):
+    """Write board = "SME" or "Main" onto every row. Mutates and returns rows."""
+    sme = bse_sme_scrips(log=log)
+    n = 0
+    for r in rows:
+        if r.get("board"):
+            continue                      # fetch_nse already knew, from its index
+        code = str(r.get("ticker") or "")
+        r["board"] = "SME" if code in sme else "Main"
+        if r["board"] == "SME":
+            n += 1
+    total_sme = sum(1 for r in rows if r.get("board") == "SME")
+    log(f"  boards: {total_sme} SME, {len(rows) - total_sme} main "
+        f"({n} matched by BSE scrip code)")
+    return rows
