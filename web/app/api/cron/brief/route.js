@@ -31,7 +31,12 @@ async function newestBrief() {
 
 export async function GET(request) {
   const cronSecret = process.env.CRON_SECRET;
-  if (!cronSecret || request.headers.get("authorization") !== `Bearer ${cronSecret}`) {
+  const requestUrl = new URL(request.url);
+  const authorized =
+    request.headers.get("authorization") === `Bearer ${cronSecret}`
+    || request.headers.get("x-cron-key") === cronSecret
+    || requestUrl.searchParams.get("key") === cronSecret;
+  if (!cronSecret || !authorized) {
     return new Response("Not found.", { status: 404 });
   }
 
@@ -72,3 +77,5 @@ export async function GET(request) {
     return Response.json({ error: "Could not start the morning brief." }, { status: 502 });
   }
 }
+
+export const POST = GET;
