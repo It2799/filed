@@ -1881,6 +1881,151 @@ check(pipeline.category_from_summary(
 
 
 # ---------------------------------------------------------------------------
+# 26. Pref, Fund Raising, Open Offer and Order, read filing by filing
+#
+# All four categories Ishan named, on the live data of 8 September. Four
+# distinct faults, none of which the evidence audit can see, because every one
+# of these filings does contain the word its category looks for.
+# ---------------------------------------------------------------------------
+
+# (a) The paperwork AFTER an issue, not the issue. Six of the twenty filings
+#     under Pref were an exchange approving shares already allotted - a
+#     formality that arrives days later and recites the issue it relates to.
+LISTING_APPROVALS = [
+    "Pakka Ltd. has received trading approvals for 27.20 lakh new equity "
+    "shares allotted to non-promoters on a preferential basis",
+    "Fonebox Retail Limited has received in-principle approval from the "
+    "National Stock Exchange for its preferential issue",
+    "Tejassvi Aaharam Ltd got BSE listing approval for 5,11,62,204 equity "
+    "shares of Rs 10 each",
+    "Vaishali Pharma has received listing approval from NSE for 45,37,865 "
+    "equity shares",
+    "Scan Steels Ltd got BSE trading approval for 2,144,239 equity shares "
+    "issued by converting OCRPS",
+    "Porwal Auto Components has received trading approval from the BSE for "
+    "17,54,384 new equity shares",
+]
+for text in LISTING_APPROVALS:
+    pts, tag = rules.score_text(text, floor=0)
+    check(tag == "Listing Approval",
+          "a listing formality is being published as the issue it describes",
+          f"{(pts, tag)} <- {text[:56]!r}")
+
+# ...and the issue itself is untouched. A board deciding today outranks a
+# formality, which is what separates the two.
+for text in [
+    "The board approved a preferential allotment of up to 7.2 lakh equity "
+    "shares at Rs 190.37 each",
+    "Iris Clothings has approved a preferential issue of 77,08,183 equity "
+    "shares at Rs 41.67 each",
+    "MIC Electronics board approved the issue of 5,68,73,418 new equity "
+    "shares on a preferential basis",
+]:
+    pts, tag = rules.score_text(text, floor=0)
+    check(tag == "Pref", "a real preferential issue was lost to the formality",
+          f"{(pts, tag)} <- {text[:56]!r}")
+
+# (b) Debt servicing in the wordings that were still slipping through.
+for text in [
+    "Star Health is exercising its call option to fully redeem 4,000 "
+    "non-convertible debentures",
+    "IIFL Finance has announced the redemption schedule for its Series D32 "
+    "non-convertible debentures",
+    "TVS Infrastructure Trust has set the record date for coupon and part "
+    "redemption of its NCDs",
+]:
+    check(rules.debt_servicing(text),
+          "paying money back is still reading as taking it in",
+          f"{text[:60]!r}")
+
+# (c) Every verb a company uses for "a meeting is coming", and a committee of
+#     the board counts as the board.
+for text in [
+    "Niks Technology Ltd has postponed its Board of Directors meeting to "
+    "September 8, 2026 to consider issuing NCDs",
+    "Axentra Corp Ltd has announced a board meeting on 7 September 2026. "
+    "The meeting will consider raising funds",
+    "Unifinz Capital India Ltd will hold a committee meeting on September 8 "
+    "to consider a debenture issue",
+    "Trust Investment Advisors will hold a board meeting on 10 September to "
+    "propose issuing NCDs",
+    "Alliance Integrated Metaliks has rescheduled its board meeting to "
+    "September 12 to consider fund raising",
+]:
+    check(rules.board_meeting_notice(text),
+          "a notice that a board or committee will meet is not recognised",
+          f"{text[:60]!r}")
+
+# (d) An Open Offer has to BE one. Shah Foods' preferential issue of warrants
+#     says a director "resigned following a change in management post an open
+#     offer" - context, and it won at 70.
+check(not rules.open_offer_real(
+        "Executive Director Manan Rajesh Patel has resigned following a "
+        "change in management post an open offer"),
+      "a passing mention of an open offer still counts as one")
+
+for text in [
+    "Detailed Public Statement in respect of the open offer to public "
+    "shareholders",
+    "Three individuals are launching an open offer to acquire up to 26% of "
+    "the equity shares",
+    "Axis Capital, the offer manager, filed a detailed public statement",
+    "Devinsu Trading has released the post-offer advertisement for its open "
+    "offer",
+    "Public announcement for the acquisition of 26% of the equity share "
+    "capital",
+]:
+    check(rules.open_offer_real(text),
+          "a real open offer is no longer recognised as one",
+          f"{text[:60]!r}")
+
+# An issue CREATES shares; an inter-se transfer MOVES them. Both mention the
+# open-offer exemption, which is what that rule keys on.
+pts, tag = rules.score_text(
+    "Shah Foods has approved a preferential issue of up to 18.9 lakh "
+    "convertible warrants to its promoters to raise up to Rs 28.92 crore.",
+    floor=0)
+check(tag in ("Warrants", "Pref"),
+      "a preferential issue of warrants is not landing on the instrument",
+      f"{(pts, tag)}")
+
+for text in [
+    "Siddharrth Mehta acquired 40.94 lakh shares from Shrreyans Mehta via a "
+    "gift deed. The transfer is exempt from an open offer.",
+    "Inter-se transfer of equity shares among members of the promoter group",
+]:
+    pts, tag = rules.score_text(text, floor=0)
+    check(tag == "Inter-se Transfer",
+          "a genuine inter-se transfer stopped being recognised",
+          f"{(pts, tag)} <- {text[:52]!r}")
+
+# (e) A magistrate does not place orders with caterers.
+for text in [
+    "Restaurant Brands Asia Ltd received an order from the Additional "
+    "District Magistrate in Agra under the Food Safety and Standards Act, "
+    "imposing a fine of Rs 1,60,000",
+    "The company received an order from the Collector imposing a fine of "
+    "Rs 50,000",
+]:
+    pts, tag = rules.score_text(text, floor=0)
+    check(tag == "Legal/Reg",
+          "a court or regulator's order is being published as a customer win",
+          f"{(pts, tag)} <- {text[:56]!r}")
+
+for text in [
+    "Goldiam International and its subsidiaries have secured purchase orders "
+    "worth Rs 6 crore",
+    "Solex Energy has secured work orders worth Rs 74.77 crore for solar PV "
+    "modules",
+    "Sathlokhar Synergys secured a new civil and PEB work contract from Godrej",
+    "Jhaveri Credits received a Letter of Award from New and Renewable Energy",
+]:
+    pts, tag = rules.score_text(text, floor=0)
+    check(tag == "Order", "a real order win stopped being recognised",
+          f"{(pts, tag)} <- {text[:56]!r}")
+
+
+# ---------------------------------------------------------------------------
 
 print(f"{CHECKS[0]} checks")
 if FAILURES:

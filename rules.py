@@ -275,6 +275,25 @@ TOPICS = [
                                  r"(issu|allot|convert|subscrib)\w*"
                                  r".{0,30}\bwarrants?\b|"
                                  r"\bwarrants? (issue\b|price|per warrant)"),
+    # The paperwork AFTER an issue, not the issue.
+    #
+    # An exchange approving the listing or trading of shares already allotted
+    # is a formality that arrives days later, and it recites the issue it
+    # relates to - so six of the twenty filings under Pref were one of these:
+    # Pakka, Fonebox, Tejassvi Aaharam, Vaishali Pharma, Scan Steels and
+    # Porwal Auto. The issue itself was announced separately and is found on
+    # its own.
+    #
+    # Above Pref at 61 so it wins the filing it describes, and below the
+    # important line at 55 would hide it entirely - a reader watching a
+    # preferential issue does want to know when the shares start trading, just
+    # not filed as the issue. So it sits just under the deal categories.
+    ("Listing Approval",     52, r"(listing|trading) approval|"
+                                 r"approval for (listing|trading)|"
+                                 r"in-?principle approval[^.]{0,70}"
+                                 r"(listing|issue|allot)|"
+                                 r"listed and admitted to dealings|"
+                                 r"(admitted to|permitted for) (dealings|trading)"),
     ("Pref",                 60, r"preferential (issue|allotment|basis)|on a preferential"),
     # "fund raising" written forwards only. Half the filings say it backwards -
     # "raising of funds", "raise funds up to Rs 500 crore" - and those scored
@@ -685,6 +704,10 @@ RETAG = [
                   r"demand.{0,60}(unpaid|outstanding|arrears|dues)|"
                   r"adjudicat|show cause|order-?in-?appeal|"
                   r"penalt.{0,40}(imposed|levied|order)|(imposed|levied).{0,40}penalt|"
+                  # A fine is a penalty by another name, and "imposing a fine
+                  # of Rs 1,60,000" said neither of the words above.
+                  r"(imposing|imposed|levying|levied)[^.]{0,40}fine|"
+                  r"fine of (rs|inr|₹)\.? ?\d|"
                   r"input tax credit|"
                   r"(recovery|garnishee|attachment) (notice|order)"),
 
@@ -699,7 +722,16 @@ RETAG = [
                   r"(the )?(government|ministry|registrar|regional director|"
                   r"central government|state government|reserve bank|\brbi\b|"
                   r"\bsebi\b|\bnclt\b|tribunal|court|commissioner|"
-                  r"income tax|customs|excise|municipal)|"
+                  r"income tax|customs|excise|municipal|"
+                  # Restaurant Brands Asia "received an order from the
+                  # Additional District Magistrate in Agra under the Food
+                  # Safety and Standards Act, imposing a fine of Rs 1,60,000"
+                  # was published as an order win. A magistrate does not place
+                  # orders with caterers.
+                  r"magistrate|collector|district (authority|administration)|"
+                  r"police|labour|pollution control|\bfssai\b|food safety|"
+                  r"drug controller|\bcdsco\b|enforcement directorate|"
+                  r"\bnclat\b|high court|supreme court|arbitral)|"
                   r"(government|ministry|registrar|tribunal|court) "
                   r"(approval|order|sanction|direction)|"
                   r"legal dispute|litigation|recovery suit|"
@@ -883,9 +915,24 @@ INTERSE_SCORE = 45
 SCORE_FOR_TAG["Inter-se Transfer"] = INTERSE_SCORE
 
 
+# An issue CREATES shares; an inter-se transfer MOVES them. Both mention the
+# open-offer exemption, which is what this rule keys on, so Shah Foods'
+# preferential issue of warrants to its promoters came out as an inter-se
+# transfer once the open-offer reading was taken away from it.
+_FRESH_ISSUE = re.compile(
+    r"preferential (issue|allotment)|"
+    r"(issue|issuing|issuance|allot\w+) of[^.]{0,40}"
+    r"(warrant|equity share|new share|convertible)|"
+    r"rights issue|\bqip\b|private placement of|"
+    r"increase[^.]{0,30}(authorised|authorized) share capital", re.I)
+
+
 def interse_transfer(text):
     """Shares moving within the promoter family - a gift, not a transaction."""
     if not text:
+        return False
+    # New securities being created is not existing ones changing hands.
+    if _FRESH_ISSUE.search(text):
         return False
     # A formal open offer names its own machinery. "Exempt from an open offer"
     # does not, and that is the whole difference.
@@ -1071,19 +1118,31 @@ def meeting_notice(category, headline, body=""):
 # raising funds through the issuance of non-convertible debentures" - a notice
 # that a committee will meet, published as a Fund Raising. The pattern wanted
 # the words "board meeting" adjacent and the verb "will hold".
-_BOARD = r"board(?:\s+\w+){0,2}\s+meeting|meeting of the board|board of directors"
+# "Committee meeting" on its own counts too. Unifinz Capital "will hold a
+# committee meeting on September 8 to consider a debenture issue" had no word
+# "board" in it anywhere, and a committee of the board meeting to approve an
+# issue is the same kind of notice.
+_BOARD = (r"board(?:\s+\w+){0,2}\s+meeting|meeting of the board|"
+          r"board of directors|committee meeting|"
+          r"meeting of the (\w+ ){0,2}committee")
 
 _BOARD_FUTURE = re.compile(
     r"(?:" + _BOARD + r")[^.]{0,90}"
     r"(will be held|is scheduled|to be held|will meet|shall be held|"
     r"is proposed to be held)|"
+    # Every verb a company uses for "a meeting is coming". "postponed its
+    # Board of Directors meeting to September 8" and "announced a board meeting
+    # on 7 September" were both missed, and both are notices of a future
+    # meeting - a postponed meeting has still not happened.
     r"(will hold|is holding|holds|has scheduled|is convening|to convene|"
-    r"has convened|scheduled)[^.]{0,40}(?:" + _BOARD + r")|"
+    r"has convened|scheduled|postponed|deferred|rescheduled|announced|"
+    r"intimation of|notice of)[^.]{0,40}(?:" + _BOARD + r")|"
     r"board (of directors )?will (meet|consider)", re.I)
 
 _BOARD_PURPOSE = re.compile(
     r"to consider|to discuss|to approve|to evaluate|inter[- ]alia|"
-    r"for considering|to transact|"
+    r"for considering|to transact|to propose|to take up|to fix|"
+    r"to determine|to authorise|to authorize|to seek|"
     # The purpose is often a sentence later, in the future tense: "...will hold
     # a board meeting on September 5. The board will discuss a preferential
     # issue." Commercial Syn Bags, filed as Warrants.
@@ -1245,7 +1304,14 @@ _DEBT_SERVICE = re.compile(
     r"confirmation of (redemption|payment|interest)|"
     r"redemption of[^.]{0,50}(\bncds?\b|debenture|commercial paper|\bbond)|"
     r"repayment of[^.]{0,40}(commercial paper|\bncds?\b|debenture|\bbond)|"
-    r"coupon payment|interest and princip|payment towards interest", re.I)
+    r"coupon payment|interest and princip|payment towards interest|"
+    # Redeeming an instrument, however it is announced. Star Health
+    # "exercising its call option to fully redeem 4,000 non-convertible
+    # debentures" and IIFL's "redemption schedule for its Series D32" were
+    # both Fund Raising - paying money back read as taking it in.
+    r"redemption schedule|call option[^.]{0,60}redeem|"
+    r"redeem[^.]{0,50}(\bncds?\b|debenture|\bbonds?\b|commercial paper)|"
+    r"part(ial)? redemption|principal (repayment|payment)", re.I)
 
 # ...unless the filing is ALSO announcing new money. Deliberately narrow: it
 # looks for a decision to raise, not for the word "debenture", because every
@@ -1259,6 +1325,85 @@ _NEW_MONEY = re.compile(
     r"(\bncds?\b|debenture|\bbond|equity|shares|warrant)|"
     r"fund ?rais|private placement of|preferential (issue|allotment)|"
     r"\bqip\b|rights issue|further public offer", re.I)
+
+# The exchange approving a listing wins over the issue it recites.
+#
+# Points cannot settle this. A trading approval for shares "allotted to
+# non-promoters on a preferential basis" carries the word preferential, and
+# Pref scores 60 against Listing Approval's 52, so the formality always lost
+# to the event it was reporting on. Pakka Ltd and Fonebox Retail stayed under
+# Pref for exactly that reason after the category was added.
+_LISTING_APPROVAL = re.compile(
+    r"(listing|trading) approval|approval for (listing|trading)|"
+    r"in-?principle approval[^.]{0,70}(listing|issue|allot)|"
+    r"listed and admitted to dealings|"
+    r"(admitted to|permitted for) (dealings|trading)", re.I)
+
+# ...unless a board decided something today, in which case the decision is the
+# news and the approval is a line in it.
+_DECIDED_TODAY = re.compile(
+    r"board (has )?approved|board approved|resolved to issue|"
+    r"approved the (issue|allotment|raising) of|"
+    r"approved a (preferential|rights|further) ", re.I)
+
+LISTING_APPROVAL_SCORE = 52
+
+
+# "Exempt from an open offer" is not an open offer.
+#
+# The third time this shape has bitten. An inter-se transfer says it, and so
+# does a preferential issue to promoters - Shah Foods' warrant issue carried
+# the exemption and was published as an Open Offer at 70, which is the literal
+# opposite of what the filing says.
+#
+# A real open offer names its machinery: a detailed public statement, a letter
+# of offer, a manager to the offer, a post-offer advertisement, or an offer to
+# acquire a stated percentage. If none of that is present and an exemption is,
+# it is not one.
+_OPEN_OFFER_MACHINERY = re.compile(
+    r"detailed public statement|letter of offer|manager to the offer|"
+    r"(post|pre)-? ?offer advertisement|committee of independent directors|"
+    r"open offer to acquire|"
+    r"open offer[^.]{0,60}\d[\d.]*\s?(%|per cent)|"
+    # A public announcement IS the machinery, whether or not the words "open
+    # offer" follow it - "Public announcement for the acquisition of 26% of
+    # the equity share capital" is the opening move of one, and requiring the
+    # phrase turned it into a plain Acquisition.
+    r"public announcement|regulation 3\(1\)", re.I)
+
+# Announcing one, as opposed to referring to one.
+_OPEN_OFFER_ANNOUNCED = re.compile(
+    r"(launch\w*|announc\w*|mak\w*|made|propos\w*|filed|submitt\w*)"
+    r"[^.]{0,50}open offer|"
+    r"open offer[^.]{0,40}(to acquire|for the acquisition|has (opened|closed))|"
+    r"(opening|closing) date[^.]{0,30}open offer|"
+    r"open offer (period|price|size)", re.I)
+
+
+def open_offer_real(text):
+    """Is the filing ABOUT an open offer, or does it merely mention one?
+
+    A real open offer names its machinery - a detailed public statement, a
+    letter of offer, a manager to the offer, a post-offer advertisement - or
+    announces itself. Anything else is context, and context was enough to win:
+    Shah Foods' preferential issue of warrants to its promoters says an
+    executive director "resigned following a change in management post an open
+    offer", and was published as an Open Offer at 70.
+    """
+    if not text:
+        return False
+    return bool(_OPEN_OFFER_MACHINERY.search(text)
+                or _OPEN_OFFER_ANNOUNCED.search(text))
+
+
+def listing_approval(text):
+    """Is this the exchange clearing shares to trade, rather than the issue?"""
+    if not text:
+        return False
+    if not _LISTING_APPROVAL.search(text):
+        return False
+    return not _DECIDED_TODAY.search(text)
+
 
 DEBT_SERVICE_SCORE = 20
 
@@ -1467,7 +1612,21 @@ def score_text(text, floor=0):
     if debt_servicing(body):
         return (DEBT_SERVICE_SCORE, "Routine") if DEBT_SERVICE_SCORE >= floor             else (0, None)
 
+    # An exchange clearing shares to trade is not the issue that created them.
+    # Checked here rather than left to points, because the approval always
+    # recites the issue and Pref outscores it.
+    if listing_approval(body):
+        return (LISTING_APPROVAL_SCORE, "Listing Approval")             if LISTING_APPROVAL_SCORE >= floor else (0, None)
+
     hits = [(pts, tag) for tag, pts, rx in _TOPIC_RE if rx.search(body)]
+
+    # An Open Offer has to BE one, not merely mention one. Dropped from the
+    # hits rather than handled afterwards, so whatever the filing IS about -
+    # a preferential issue of warrants, in Shah Foods' case - wins on its own
+    # merits instead of losing to Open Offer at 66.
+    if hits and not open_offer_real(body):
+        hits = [h for h in hits if h[1] != "Open Offer"]
+
     if not hits:
         # A meeting notice matches no topic at all - it is not an event, it is
         # an invitation to one - so it left here as nothing and whatever tag the

@@ -265,6 +265,12 @@ def category_from_summary(category, headline, blob, current=None):
     if rules.debt_servicing(blob):
         return "Routine"
 
+    # And an exchange clearing shares to trade is not the issue that created
+    # them. Same reason this needs an explicit return: "Listing Approval" is
+    # not on the refuse list, but the tag it must beat scores higher.
+    if rules.listing_approval(blob):
+        return "Listing Approval"
+
     if rules.board_meeting_notice(blob):
         return "Board Meeting"
 

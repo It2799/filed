@@ -44,6 +44,10 @@ EVIDENCE = {
              r"bagg|bags\b|\bwon\b|\bwins\b|secured|award|work order|"
              r"purchase order|mandate",
     "Dividend": r"dividend",
+    # The formality after an issue, not the issue. Its own category since
+    # 9 September - six of the twenty filings under Pref were one of these.
+    "Listing Approval": r"listing|trading approval|in-?principle|"
+                        r"admitted|dealings|approval",
     "New Subsidiary": r"subsidiar|incorporat|\bllp\b|formed|set up|"
                       r"joint venture company",
     "Partnership": r"partner|alliance|collaborat|\bmou\b|memorandum of "
