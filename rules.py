@@ -41,7 +41,8 @@ JUNK = [
     # ledger. They were scoring 70 apiece and crowding out the announcement
     # they were reporting on - Advanced Enzyme and SIS between them filed four
     # of the nineteen filings under Buyback.
-    r"regulation 18\(i\)|daily report.{0,50}buy-?\s?back|"
+    r"regulation 18\(i\)|daily report.{0,50}(buy-?\s?back|bought back)|"
+    r"daily buy-?\s?back|buy-?\s?back.{0,20}on a daily basis|"
     r"daily disclosure.{0,100}(buy-?\s?back|bought back|shares bought back)|"
     r"buy-?\s?back.{0,30}daily (report|disclosure)|"
     r"closure of (the )?buy-?\s?back offer",
@@ -584,7 +585,8 @@ TOPICS = [
                                  r"(appointment|re-?appointment|resignation|"
                                  r"cessation|change|transition)|"
                                  r"(appointment|re-?appointment|appointed|"
-                                 r"re-?appointed|elevat\w+|designat\w+)"
+                                 r"re-?appointed|appoint(s|ing)?|re-?appoint(s|ing)?|"
+                                 r"elevat\w+|designat\w+)"
                                  r"[^.]{0,70}(managing director|"
                                  r"chief executive|\bceo\b|chief financial|\bcfo\b|chairman|"
                                  r"whole[- ]time director|statutory auditor|"
@@ -603,11 +605,17 @@ TOPICS = [
                                  # mention of a board of directors.
                                  r"\bdirectors?\b|"
                                  r"cost accountant|internal auditor|"
+                                 r"manager of the (company|firm)|"
                                  r"key managerial|"
                                  r"\bpresident\b|vice[- ]president|"
                                  r"head of|chief [a-z]+ officer)"),
     ("Resignation",          40, r"resignation|cessation|removal|retirement of|"
-                                 r"stepped down|relinquish"),
+                                 r"stepped down|relinquish|"
+                                 # Maxvolt Energy's chairman was "due to retire by
+                                 # rotation", which names the role BEFORE the verb, so
+                                 # the windowed appointment pattern could not see it
+                                 # and the filing scored nothing at all.
+                                 r"retire(s|ment|ing)? by rotation"),
 
     # ---- meetings and talk ---------------------------------------------------
     # These three used to share one "Concall" tag scored at 45, which put them
@@ -1333,6 +1341,7 @@ _DEBT_SERVICE = re.compile(
     # debentures" and IIFL's "redemption schedule for its Series D32" were
     # both Fund Raising - paying money back read as taking it in.
     r"redemption schedule|call option[^.]{0,60}redeem|"
+    r"call option[^.]{0,80}(bond|debenture|\bncds?\b|\bat-?1\b|tier i\b|perpetual)|"
     r"redeem[^.]{0,50}(\bncds?\b|debenture|\bbonds?\b|commercial paper)|"
     r"part(ial)? redemption|principal (repayment|payment)", re.I)
 
@@ -1463,6 +1472,24 @@ def meeting_kind(category, headline):
     return "Investor Meet" if hits else None
 
 
+# A regulator acting AGAINST the company is a legal matter. A regulator
+# granting what the company asked for is the thing it asked for.
+#
+# The retag rule for "an order FROM a regulator is not a customer order" also
+# covers approvals, and retag has the last word - so an appointment needing
+# the Reserve Bank's consent came out as Legal/Reg. Navi Finserv's nominee
+# director and Real Touch Finance's managing director both did. An NCLT
+# SANCTIONING a scheme of arrangement would have gone the same way, and that
+# is the scheme itself, not litigation.
+_CONSENT = re.compile(
+    r"approval|permission|sanction|no objection|\bnoc\b", re.I)
+_CONSENT_FOR = re.compile(
+    r"appoint|scheme of (arrangement|amalgamation|merger)|"
+    r"licen[cs]e|registration|renewal|merger|amalgamat|fund rais|"
+    r"preferential|allotment|listing|in-?principle|open offer|"
+    r"increase in authorised|change of name", re.I)
+
+
 def retag(text):
     """
     Re-label a filing once the PDF has actually been read.
@@ -1475,9 +1502,77 @@ def retag(text):
     Returns a corrected tag, or None to leave it alone.
     """
     for r_tag, rx in _RETAG_RE:
-        if rx.search(text or ""):
-            return r_tag
+        m = rx.search(text or "")
+        if not m:
+            continue
+        # A consent, plus a named event for the consent to be about: leave
+        # the event's own tag alone.
+        if (r_tag == "Legal/Reg"
+                and _CONSENT.search(m.group(0))
+                and _CONSENT_FOR.search(text or "")):
+            continue
+        return r_tag
     return None
+
+
+# A person's honorific ends in a full stop, and the rules read a full stop as
+# the end of the sentence.
+#
+# Almost every pattern here is windowed - "(appointment|appointed)[^.]{0,70}
+# (director|chief financial|...)" - and the window exists for a good reason: it
+# keeps a match inside one sentence, so "the board approved the results" and a
+# later mention of an acquisition cannot combine into a deal. But [^.] stops
+# dead at the dot in "Mr.", and an appointment is exactly the kind of filing
+# that names a person:
+#
+#   "re-appointed Ms. Neha Kailash Bhageria as an Independent Director"
+#        no match - the window ends two characters in, at "Ms."
+#   "re-appointed Neha Kailash Bhageria as an Independent Director"
+#        matches, at 51, correctly
+#
+# Six filings on 8 September were mis-tagged by this alone: five under
+# Legal/Reg and one under Investor Meet, all of them appointments or
+# re-appointments, all of them scoring nothing at all so that whatever word
+# triage found in the attachment decided the category. It is worth fixing here
+# rather than in one pattern, because it silently weakens every windowed
+# pattern in the file against any filing that names a person - which is most
+# of the ones about people.
+#
+# Only titles and initials. "Ltd." and "etc." are left alone deliberately:
+# those DO end sentences, and merging two sentences would let a window cross
+# from one event into the next, which is the fault the windows prevent.
+_HONORIFIC = re.compile(
+    r"\b(mr|mrs|ms|dr|shri|smt|sri|kum|prof|messrs|m/s)\.", re.I)
+_INITIAL = re.compile(r"\b([A-Za-z])\.(?=\s*[A-Z])")
+
+
+# The exchange categories that mean "this filing is a stake disclosure".
+#
+# It matters WHERE a Promoter Buy/Sell tag came from. Filed under SAST or
+# Regulation 29, the form's whole purpose is to record who moved the shares,
+# and no summary can overrule it. Arrived from a regex in the attachment, it
+# has no such standing - every SAST form prints the words "promoter and
+# promoter group" in its table headings whether or not the acquirer is one.
+#
+# Lived in triage as STAKE_CATEGORY, where only triage could ask it.
+STAKE_CATEGORY = [
+    r"\bsast\b|insider trading|substantial acquisition of shares",
+    r"reg\.? ?29|regulation 29|reg\.? ?10\(|regulation 10\(",
+    r"disclosure under sebi takeover",
+]
+_STAKE_CATEGORY_RE = [re.compile(p, re.I) for p in STAKE_CATEGORY]
+
+
+def stake_category(category):
+    """Is this the exchange category a stake disclosure is filed under?"""
+    return any(rx.search(category or "") for rx in _STAKE_CATEGORY_RE)
+
+
+def soften_stops(text):
+    """Drop the full stops that are not ends of sentences."""
+    if not text:
+        return text
+    return _INITIAL.sub(r"\1", _HONORIFIC.sub(r"\1", text))
 
 
 def _best(text):
@@ -1513,7 +1608,7 @@ SPECIFIC_CATEGORY = re.compile(
 def score(category, headline, critical=False):
     """Return (score 0-100, tag)."""
     category = (category or "").strip()
-    headline = (headline or "").strip()
+    headline = soften_stops((headline or "").strip())
 
     if any(rx.search(category) or rx.search(headline) for rx in _JUNK_RE):
         return 3, "Routine"
@@ -1626,7 +1721,7 @@ def score_text(text, floor=0):
     if not text:
         return 0, None
 
-    body = text[:4000]
+    body = soften_stops(text[:4000])
 
     # Paying a debt is not raising one, and this is the only place that can
     # tell - the headline on these says "Record Date Updates". Checked before
@@ -1705,10 +1800,16 @@ def score_text(text, floor=0):
     elif tag in _DEALING_TAGS and promoter_deal(body):
         tag, pts = "Promoter Buy/Sell", PROMOTER_SCORE
 
-    for r_tag, rx in _RETAG_RE:
-        if rx.search(body):
-            tag = r_tag
-            break
+    # retag() rather than a second copy of its loop. There WERE two copies,
+    # and they had drifted: the guard that stops a regulator's CONSENT from
+    # reading as a legal matter was added to the function, so retag() left
+    # Navi Finserv's RBI-approved nominee director alone while this loop went
+    # on calling it Legal/Reg. Every fix to one of two copies is a fix to
+    # half the pipeline, and the half that reads the PDF is the half that
+    # matters here.
+    r_tag = retag(body)
+    if r_tag:
+        tag = r_tag
 
     # A general meeting notice is a Meeting here too. This override was added
     # to score() and not to this function, which is the one that reads the PDF
@@ -1809,6 +1910,23 @@ TAG_EVIDENCE = {
             r"\bcirp\b|liquidat|moratorium|\bibc\b",
     "Listing Approval": r"listing|trading|in-?principle|admitted|dealings",
     "Esop": r"esop|employee stock|stock option|\bsar\b|share-?based",
+    # PTC Industries' sustainability report was published as Legal/Reg
+    # and Datamatics winning a US pet-care customer as a Concall. Both
+    # tags came from the attachment and neither summary contained a
+    # single word that argued for them.
+    "Legal/Reg": r"order|penalt|\bsebi\b|court|tribunal|notice|demand|litigat|"
+                 r"\bfine\b|show cause|adjudicat|appeal|writ|prosecut|compound|"
+                 r"search|survey|raid|\bgst\b|income tax|arbitrat|settle|"
+                 r"regulat|complian|violation|non-?compliance|disqualif",
+    "Concall": r"conference call|earnings call|con-?call|analyst|transcript|"
+               r"audio recording|recording of|investor call|earnings conference",
+    "Investor Meet": r"investor|analyst|institutional|meet|conference|roadshow|"
+                     r"webinar|schedul",
+    "Ratings Update": r"rating|\bicra\b|crisil|india ratings|brickwork|"
+                      r"acuite|infomerics|outlook|\bcare\b",
+    "Results": r"result|earning|profit|revenue|turnover|quarter|half.year|"
+               r"financial statement|ebitda|\bpat\b|standalone|consolidated",
+    "Annual Report": r"annual report|annual accounts",
 }
 
 _TAG_EVIDENCE_RE = {t: re.compile(p, re.I) for t, p in TAG_EVIDENCE.items()}

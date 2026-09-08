@@ -197,17 +197,13 @@ NEVER_PROMOTE_CATEGORY = [
 # is real news and has its own category. So the topic patterns are skipped and
 # the text is used for the only thing it can settle - promoter, or somebody
 # else.
-STAKE_CATEGORY = [
-    r"\bsast\b|insider trading|substantial acquisition of shares",
-    r"reg\.? ?29|regulation 29|reg\.? ?10\(|regulation 10\(",
-    r"disclosure under sebi takeover",
-]
+# Moved to rules, so pipeline can ask the same question. Kept as a name here
+# because the tests and the tools refer to it.
+STAKE_CATEGORY = rules.STAKE_CATEGORY
 
 
 def _is_stake(rec):
-    import re
-    cat = rec.get("category", "") or ""
-    return any(re.search(p, cat, re.I) for p in STAKE_CATEGORY)
+    return rules.stake_category(rec.get("category", "") or "")
 
 
 def stake_verdict(text):

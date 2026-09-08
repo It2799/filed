@@ -222,7 +222,19 @@ def category_from_summary(category, headline, blob, current=None):
     # at 65. Twelve promoter dealings were being relabelled acquisitions on
     # exactly that: a sentence that does not contradict the category, it just
     # does not repeat it.
+    #
+    # But only when the tag came from the FORM. Filed under SAST or
+    # Regulation 29, the disclosure is authoritative about who moved the
+    # shares. Arrived from a regex in some attachment, it is not - every SAST
+    # form prints "promoter and promoter group" in its table headings whether
+    # or not the acquirer is a promoter, and that is enough for triage to
+    # promote. Without this condition the guard protected the wrong tag:
+    # Systematic Industries, acquiring 100% of Wire Brigade Industries and
+    # filed under "Corp. Action / Record Date", was held at Promoter Buy/Sell
+    # while its summary said Acquisition, and so was Avanti Feeds
+    # incorporating a subsidiary in Ecuador.
     if (current in ("Promoter Buy/Sell", "Inter-se Transfer")
+            and rules.stake_category(category or "")
             and from_summary in ("Acquisition", "Stake Change")):
         from_summary = None
 

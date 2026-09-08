@@ -37,9 +37,16 @@ API = "https://filed-omega.vercel.app/api/announcements?days=7"
 # point is to catch a filing that has NOTHING to do with its category, not to
 # police wording.
 EVIDENCE = {
+    # Ten of the ninety-three flagged on 8 September and seven were
+    # right: Swiggy selling Lynks Logistics, B&B selling 27% of
+    # Sharvesh, EFC selling Sanvritti, AKG Exim selling 23.1%, Nazara
+    # buying more of Funky Monkeys, NLC transferring 709 MW. A sale is
+    # a deal and the pattern only knew about buying.
     "Acquisition": r"acquisition|acquir|merger|amalgamat|slump sale|divest|"
                    r"stake sale|joint venture|takeover|buy.{0,15}stake|"
-                   r"sale of (the )?(subsidiary|business|undertaking|division)",
+                   r"sale of (the )?(subsidiary|business|undertaking|division)|"
+                   r"sell|sold|sale or disposal|share.swap|share purchase|"
+                   r"stake|shareholding|step.down|controlling interest",
     "Order": r"order|contract|letter of award|letter of intent|\bloi\b|tender|"
              r"bagg|bags\b|\bwon\b|\bwins\b|secured|award|work order|"
              r"purchase order|mandate",
@@ -76,7 +83,14 @@ EVIDENCE = {
                   r"manager to the offer|offer advertisement|letter of offer|"
                   r"regulation 3\(1\)|takeover",
     "Delisting": r"delist",
-    "Promoter Buy/Sell": r"promoter|encumbr|pledg",
+    # Ten flagged and eight were right. These are Regulation 29 forms,
+    # and a summary written from one says who bought and how much - it
+    # has no reason to repeat the word "promoter", which is why the
+    # scoring rules do not ask it to either.
+    "Promoter Buy/Sell": r"promoter|encumbr|pledg|"
+                         r"regulation 29|reg\.? ?29|\bsast\b|acquir|"
+                         r"bought|sold|sale|purchase|stake|shareholding|"
+                         r"\bshares\b|disclosure under",
     # Shares moving inside the promoter family. Its own category since
     # 3 September - a gift between relatives is not a promoter buying or
     # selling, and is exempt from the open offer rules for the same reason.

@@ -2176,6 +2176,166 @@ check(tag != "Acquisition", "a property sale is being published as a deal",
 
 
 # ---------------------------------------------------------------------------
+# 29. A person's honorific ends in a full stop.
+#
+# Nearly every pattern here is windowed - "(appointed)[^.]{0,70}(director)" -
+# and the window keeps a match inside one sentence, which is what stops two
+# unrelated events from combining. But [^.] stops dead at the dot in "Mr.",
+# and the filings that name a person are exactly the ones about people.
+#
+# Six filings on 8 September were mis-tagged by this alone. Every one scored
+# NOTHING, so whatever word triage found in the attachment decided the
+# category: five went to Legal/Reg and one to Investor Meet.
+check(rules.soften_stops("re-appointed Ms. Neha B. Chaudhari as Director")
+      == "re-appointed Ms Neha B Chaudhari as Director",
+      "honorifics and initials are not being softened")
+
+# And "Ltd." is left alone on purpose. It DOES end a sentence, and merging
+# two sentences would let a window cross from one event into the next, which
+# is the fault the windows exist to prevent.
+check("Ltd." in rules.soften_stops(
+          "as Director of ABC Ltd. The board declared a dividend."),
+      "a full stop that really does end a sentence is being removed")
+
+APPOINTMENTS = [
+    ("Change In Management",
+     "DJS Stock & Shares Ltd has re-appointed Ms. Neha Kailash Bhageria as "
+     "an Independent Non-Executive Woman Director for a second term"),
+    # The bare verb. Only the noun and the past participle were listed, so
+    # this scored nothing at all.
+    ("Change In Management",
+     "Real Touch Finance received approval from the Reserve Bank of India to "
+     "appoint Mr. Chinnian Mani as Managing Director"),
+    # The role. Manager is a statutory position under section 196.
+    ("Change In Management",
+     "Varun Mercantile announced the re-appointment of Ms. Kirti B. "
+     "Chaudhari as the Manager of the company"),
+    ("Change In Management",
+     "Navi Finserv has appointed Mr. Apoorve Goyal as a Nominee Director, "
+     "subject to approval from the Reserve Bank of India"),
+    # Role BEFORE the verb, which no windowed pattern could see.
+    ("Resignation",
+     "Maxvolt Energy said its whole-time director and chairman Vishal Gupta, "
+     "who is due to retire by rotation, will be re-appointed"),
+]
+for want, text in APPOINTMENTS:
+    pts, tag = rules.score_text(text, floor=0)
+    check(tag == want, "an appointment is not being recognised as one",
+          f"{(pts, tag)} want {want} <- {text[:52]!r}")
+
+
+# ---------------------------------------------------------------------------
+# 30. A regulator granting what the company asked for is not a legal matter.
+#
+# retag() has the last word, and its rule for "an order FROM a regulator is
+# not a customer order" also covered approvals. Two appointments needing the
+# Reserve Bank's consent came out as Legal/Reg - and so would an NCLT
+# SANCTIONING a scheme of arrangement, which is the scheme itself.
+check(rules.retag("received approval from the Reserve Bank of India to "
+                  "appoint Mr Mani as Managing Director") is None,
+      "a regulator's consent is being read as a legal matter")
+
+pts, tag = rules.score_text(
+    "The NCLT has sanctioned the composite scheme of amalgamation between "
+    "the company and its wholly owned subsidiary", floor=0)
+check(tag == "Scheme Of Arrangement",
+      "an NCLT sanction of a scheme is being read as litigation", f"{(pts, tag)}")
+
+# A regulator acting AGAINST the company still is one.
+for text in [
+    "The company received a GST demand order from the Commissioner of "
+    "Central Tax imposing a penalty of Rs 2 crore",
+    "Restaurant Brands Asia received an order from the Additional District "
+    "Magistrate in Agra imposing a fine of Rs 1,60,000",
+]:
+    pts, tag = rules.score_text(text, floor=0)
+    check(tag == "Legal/Reg", "an adverse regulatory order stopped being one",
+          f"{(pts, tag)} <- {text[:52]!r}")
+
+# There must be ONE retag. There were two copies of its loop, and they had
+# drifted: the consent guard was added to the function while score_text kept
+# its own inline copy, so the half of the pipeline that reads the PDF went on
+# calling an RBI-approved appointment a legal matter.
+import inspect                                          # noqa: E402
+_body = inspect.getsource(rules.score_text)
+check("_RETAG_RE" not in _body,
+      "score_text has its own copy of the retag loop again")
+
+
+# ---------------------------------------------------------------------------
+# 31. Where a Promoter Buy/Sell tag came from decides whether it may be
+#     overruled.
+#
+# Filed under SAST or Regulation 29, the form's whole purpose is to record
+# who moved the shares, and no summary can overrule it. Arrived from a regex
+# in an attachment, it has no such standing: every SAST form prints
+# "promoter and promoter group" in its table headings whether or not the
+# acquirer is one.
+check(rules.stake_category("Insider Trading / SAST / Disclosures under "
+                           "Reg. 29(1) of SEBI (SAST) Regulations, 2011"),
+      "a real stake disclosure is not being recognised")
+check(not rules.stake_category("Corp. Action / Record Date"),
+      "a record date is being treated as a stake disclosure")
+
+# Filed under Record Date, tagged Promoter Buy/Sell by the attachment, and
+# its summary says outright that it is an acquisition.
+check(pipeline.category_from_summary(
+          "Corp. Action / Record Date",
+          "The Board of Directors fixed September 25, 2026 as the cut-off date",
+          "Systematic Industries is acquiring 100% of Wire Brigade Industries "
+          "to make it a wholly-owned subsidiary.",
+          "Promoter Buy/Sell") == "Acquisition",
+      "a promoter tag from the PDF is blocking a stated acquisition")
+
+# And the genuine article is still untouchable, exactly as before.
+check(pipeline.category_from_summary(
+          "Insider Trading / SAST / Disclosures under Reg. 29(2) of SEBI "
+          "(SAST) Regulations, 2011",
+          "The Exchange has received the disclosure under Regulation 29(2)",
+          "Innovative Money Matters Pvt Ltd acquired 55,000 shares of "
+          "Avonmore Capital, raising its stake to 12.4%.",
+          "Promoter Buy/Sell") in (None, "Promoter Buy/Sell"),
+      "a real Regulation 29 disclosure is being relabelled an acquisition")
+
+# There must be one copy of the stake-category list, too.
+check(triage.STAKE_CATEGORY is rules.STAKE_CATEGORY,
+      "triage has its own copy of the stake-category list again")
+
+
+# ---------------------------------------------------------------------------
+# 32. Paperwork that arrives once a day, and a bond being called.
+#
+# Great Eastern Shipping's "daily report for the equity shares bought back"
+# was published as a Buyback: the pattern knew "buy back" and not "bought
+# back", and the exchange had already said "Daily Buy Back" in the category
+# field, which nothing was reading.
+for cat, head in [
+    ("Corp Action / Daily Buy Back of equity shares",
+     "We enclose herewith the daily report for the equity shares bought back"),
+    ("Corp Action", "Daily buy-back disclosure for September 7 2026"),
+]:
+    pts, tag = rules.score(cat, head)
+    check(pts < 55 and tag != "Buyback",
+          "a daily buyback report is crowding out the buyback",
+          f"{(pts, tag)} <- {head[:52]!r}")
+
+pts, tag = rules.score("Corp Action",
+                       "Board approved a buy-back of equity shares up to "
+                       "Rs 400 crore")
+check(tag == "Buyback", "a real buyback stopped being recognised", f"{(pts, tag)}")
+
+# Canara Bank filed twice about "exercising the call option" on its Basel III
+# Additional Tier I bonds. Neither said "redeem", so neither read as debt
+# servicing, and both were published as Ratings Updates because the exchange
+# had filed them under Credit Rating.
+pts, tag = rules.score_text(
+    "Canara Bank has decided to exercise the call option on specific "
+    "Basel III Compliant Additional Tier I Bonds", floor=0)
+check(tag == "Routine", "calling a bond is not being read as repaying one",
+      f"{(pts, tag)}")
+
+
+# ---------------------------------------------------------------------------
 
 print(f"{CHECKS[0]} checks")
 if FAILURES:
