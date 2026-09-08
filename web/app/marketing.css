@@ -786,6 +786,21 @@
   border-radius: 12px;
   background: var(--panel);
 }
+.substack-auth-gate {
+  min-height: 150px;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 8px;
+  padding: 22px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  text-align: center;
+  background: var(--panel);
+}
+.substack-auth-gate b { font-size: 17px; }
+.substack-auth-gate p { margin: 0; color: var(--muted); font-size: 14px; line-height: 1.45; }
+.substack-auth-gate .btn-lg { margin-top: 6px; padding: 12px 22px; }
 
 /* "Then", not "or" - both steps are wanted, so the divider says so */
 .sub-and {

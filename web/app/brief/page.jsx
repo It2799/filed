@@ -20,7 +20,7 @@ import { useSiteAuth } from "../SiteAuth";
  * which is where anything older belongs.
  */
 export default function Brief() {
-  const { ready, user, openAuth } = useSiteAuth();
+  const { checking, ready, user, openAuth } = useSiteAuth();
   const [latest, setLatest] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -135,7 +135,11 @@ export default function Brief() {
           {/* ---- subscribe, on the same page ---- */}
           <div className="sub-card" id="subscribe">
             {usesSubstack ? (
-              <SubstackSignup />
+              <SubstackSignup
+                checking={checking}
+                locked={ready && !user}
+                onRequireAuth={() => openAuth({ clear: true })}
+              />
             ) : state === "done" ? (
               <div className="sub-done">
                 <b>You&apos;re in.</b>
