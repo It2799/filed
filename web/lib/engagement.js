@@ -68,6 +68,8 @@ export async function recordEngagement({ visitorId, sessionId, email, path, even
         ...(email ? { email } : {}),
         date,
         lastSeenAt: now,
+        active: event !== "end",
+        ...(path ? { currentPath: path } : {}),
       },
       $setOnInsert: { sessionKey, sessionId, startedAt: now },
       $inc: { durationSeconds: elapsed, pageViews: pageView },
@@ -173,6 +175,111 @@ export async function dailyEngagement(requestedDate) {
       .sort((a, b) => b.sessions - a.sessions)
       .slice(0, 10),
     visitors: rows,
+  };
+}
+
+export async function liveEngagement(windowSeconds = 300) {
+  const sessions = await collection();
+  if (!sessions) return [];
+
+  const now = new Date();
+  const cutoff = new Date(now.getTime() - Math.max(60, windowSeconds) * 1000);
+  const records = await sessions.find(
+    { lastSeenAt: { $gte: cutoff }, active: { $ne: false } },
+    {
+      projection: {
+        _id: 0,
+        sessionKey: 1,
+        email: 1,
+        visitorId: 1,
+        startedAt: 1,
+        lastSeenAt: 1,
+        durationSeconds: 1,
+        pageViews: 1,
+        currentPath: 1,
+        pages: 1,
+      },
+    }
+  ).sort({ lastSeenAt: -1 }).limit(1000).toArray();
+
+  return records.map((record) => {
+    const lastSeenAt = record.lastSeenAt ? new Date(record.lastSeenAt) : now;
+    const uncountedSeconds = Math.max(0, Math.min(90, Math.round((now - lastSeenAt) / 1000)));
+    return {
+      key: record.sessionKey,
+      email: record.email || null,
+      visitorId: record.visitorId,
+      startedAt: record.startedAt ? new Date(record.startedAt).toISOString() : null,
+      lastSeenAt: lastSeenAt.toISOString(),
+      readingSeconds: Math.max(0, Number(record.durationSeconds || 0)) + uncountedSeconds,
+      pageViews: Math.max(0, Number(record.pageViews || 0)),
+      currentPath: record.currentPath || (record.pages || []).at(-1) || "/",
+    };
+  });
+}
+
+export async function engagementTrend(days = 30) {
+  const sessions = await collection();
+  const safeDays = Math.max(7, Math.min(Number(days) || 30, 90));
+  const dates = Array.from({ length: safeDays }, (_, index) => {
+    const value = new Date(Date.now() - (safeDays - 1 - index) * 86400000);
+    return dateInIndia(value);
+  });
+  if (!sessions) return dates.map(emptyTrendDay);
+
+  const records = await sessions.find(
+    { date: { $gte: dates[0], $lte: dates.at(-1) } },
+    { projection: { _id: 0, date: 1, email: 1, visitorId: 1, durationSeconds: 1, pageViews: 1 } }
+  ).limit(100000).toArray();
+  const daysByDate = new Map(dates.map((date) => [date, { ...emptyTrendDay(date), visitorKeys: new Set() }]));
+
+  for (const record of records) {
+    const day = daysByDate.get(record.date);
+    if (!day) continue;
+    day.sessions += 1;
+    day.pageViews += Math.max(0, Number(record.pageViews || 0));
+    day.durationSeconds += Math.max(0, Number(record.durationSeconds || 0));
+    day.visitorKeys.add(record.email || `browser:${record.visitorId}`);
+    if (record.email) day.identifiedSessionCount += 1;
+  }
+
+  return dates.map((date) => {
+    const day = daysByDate.get(date);
+    const { visitorKeys, identifiedSessionCount, ...result } = day;
+    return {
+      ...result,
+      visitors: visitorKeys.size,
+      identifiedSessionCount,
+      averageSessionSeconds: day.sessions ? Math.round(day.durationSeconds / day.sessions) : 0,
+    };
+  });
+}
+
+export async function engagementSessionHistory(days = 90) {
+  const sessions = await collection();
+  if (!sessions) return [];
+  const safeDays = Math.max(1, Math.min(Number(days) || 90, 90));
+  const firstDate = dateInIndia(new Date(Date.now() - (safeDays - 1) * 86400000));
+  return sessions.find(
+    { date: { $gte: firstDate } },
+    {
+      projection: {
+        _id: 0, date: 1, sessionKey: 1, email: 1, visitorId: 1, startedAt: 1,
+        lastSeenAt: 1, durationSeconds: 1, pageViews: 1, currentPath: 1, pages: 1,
+      },
+    }
+  ).sort({ date: -1, startedAt: -1 }).limit(100000).toArray();
+}
+
+function emptyTrendDay(date) {
+  return {
+    date,
+    visitors: 0,
+    sessions: 0,
+    pageViews: 0,
+    durationSeconds: 0,
+    averageSessionSeconds: 0,
+    identifiedSessionCount: 0,
   };
 }
 

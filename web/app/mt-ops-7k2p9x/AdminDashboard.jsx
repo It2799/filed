@@ -34,6 +34,29 @@ function todayIndia() {
   return `${get("year")}-${get("month")}-${get("day")}`;
 }
 
+function MiniTrend({ title, rows, field, format = number, color = "#4f9cff" }) {
+  const values = rows.map((row) => Math.max(0, Number(row[field] || 0)));
+  const max = Math.max(1, ...values);
+  const width = 520;
+  const height = 130;
+  const points = values.map((value, index) => {
+    const x = values.length > 1 ? (index / (values.length - 1)) * width : width / 2;
+    const y = height - (value / max) * (height - 12) - 6;
+    return `${x},${y}`;
+  }).join(" ");
+  const latest = values.at(-1) || 0;
+  return (
+    <article className="admin-chart-card">
+      <div><span>{title}</span><b>{format(latest)}</b></div>
+      <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label={`${title} over the last ${rows.length} days`}>
+        <line x1="0" y1={height - 1} x2={width} y2={height - 1} className="admin-chart-base" />
+        <polyline points={points} fill="none" stroke={color} strokeWidth="4" strokeLinejoin="round" strokeLinecap="round" />
+      </svg>
+      <footer><span>{rows[0]?.date || ""}</span><span>{rows.at(-1)?.date || ""}</span></footer>
+    </article>
+  );
+}
+
 export default function AdminDashboard() {
   const [status, setStatus] = useState("checking");
   const [configured, setConfigured] = useState(true);
@@ -44,8 +67,8 @@ export default function AdminDashboard() {
   const [visibleLimit, setVisibleLimit] = useState(100);
   const [selectedDate, setSelectedDate] = useState(todayIndia);
 
-  async function load(date = selectedDate) {
-    setStatus("loading");
+  async function load(date = selectedDate, silent = false) {
+    if (!silent) setStatus("loading");
     const response = await fetch(`/api/admin/stats?date=${encodeURIComponent(date)}`, { cache: "no-store" });
     if (response.status === 401) {
       setStatus("locked");
@@ -74,6 +97,12 @@ export default function AdminDashboard() {
         setStatus("error");
       });
   }, []);
+
+  useEffect(() => {
+    if (status !== "ready") return undefined;
+    const timer = window.setInterval(() => load(selectedDate, true), 30000);
+    return () => window.clearInterval(timer);
+  }, [status, selectedDate]);
 
   async function login(event) {
     event.preventDefault();
@@ -149,7 +178,7 @@ export default function AdminDashboard() {
     ["Newsletter", data.totals.subscribed],
     ["Phone numbers", data.totals.withPhone],
     ["Unverified", data.totals.members - data.totals.verified],
-    ["Live now", data.traffic.live],
+    ["Reading now", data.liveReaders.length],
     ["Unique visitors", data.traffic.unique],
     ["Total visits", data.traffic.total],
     ["Visitors on date", data.engagement.totals.visitors],
@@ -167,6 +196,7 @@ export default function AdminDashboard() {
           <p>Members, acquisition sources and website traffic in one place.</p>
         </div>
         <div className="admin-top-actions">
+          <a className="admin-export" href={`/api/admin/export?date=${encodeURIComponent(selectedDate)}`}>Download Excel</a>
           <button onClick={() => load(selectedDate)}>Refresh</button>
           <button className="admin-quiet" onClick={logout}>Log out</button>
         </div>
@@ -176,6 +206,46 @@ export default function AdminDashboard() {
         {cards.map(([label, value]) => (
           <article key={label}><span>{label}</span><b>{typeof value === "number" ? number(value) : value}</b></article>
         ))}
+      </section>
+
+      <section className="admin-panel admin-live-panel">
+        <div className="admin-panel-head">
+          <div><p className="admin-kicker">Live</p><h2>Reading now</h2></div>
+          <span>Active tab seen in the last 5 minutes · refreshes every 30 seconds</span>
+        </div>
+        <div className="admin-table-wrap">
+          <table className="admin-table admin-live-table">
+            <thead><tr><th>Reader</th><th>Email</th><th>Phone</th><th>Page</th><th>Reading for</th><th>Started</th><th>Last heartbeat</th></tr></thead>
+            <tbody>
+              {data.liveReaders.map((reader) => (
+                <tr key={reader.key}>
+                  <td><b>{reader.email || `Anonymous · ${reader.visitorId.slice(0, 8)}`}</b></td>
+                  <td>{reader.email || "—"}</td>
+                  <td>{reader.phone || "—"}</td>
+                  <td><span className="admin-page-pill">{reader.currentPath}</span></td>
+                  <td>{duration(reader.readingSeconds)}</td>
+                  <td>{clock(reader.startedAt)}</td>
+                  <td>{clock(reader.lastSeenAt)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {!data.liveReaders.length && <p className="admin-empty">Nobody is actively reading right now.</p>}
+        </div>
+        <p className="admin-live-note">Anonymous means the browser has not signed in, the login cookie expired, or private browsing cleared it. Market Tide cannot safely infer that visitor’s email or phone.</p>
+      </section>
+
+      <section className="admin-panel">
+        <div className="admin-panel-head">
+          <div><p className="admin-kicker">Trends</p><h2>Day-wise traffic</h2></div>
+          <span>Last 30 days · Asia/Kolkata dates</span>
+        </div>
+        <div className="admin-chart-grid">
+          <MiniTrend title="Visitors" rows={data.trend} field="visitors" />
+          <MiniTrend title="Sessions" rows={data.trend} field="sessions" color="#7c5cff" />
+          <MiniTrend title="Page views" rows={data.trend} field="pageViews" color="#17b26a" />
+          <MiniTrend title="Reading time" rows={data.trend.map((row) => ({ ...row, minutes: row.durationSeconds / 60 }))} field="minutes" format={(value) => duration(value * 60)} color="#f59e0b" />
+        </div>
       </section>
 
       <section className="admin-panel">
@@ -206,15 +276,28 @@ export default function AdminDashboard() {
             <span key={page.path}><b>{page.path}</b> {number(page.sessions)} sessions</span>
           ))}
         </div>
+        <div className="admin-page-bars">
+          {data.engagement.topPages.map((page) => {
+            const max = Math.max(1, ...data.engagement.topPages.map((item) => item.sessions));
+            return (
+              <div key={page.path}>
+                <span>{page.path}</span>
+                <i><b style={{ width: `${(page.sessions / max) * 100}%` }} /></i>
+                <strong>{number(page.sessions)}</strong>
+              </div>
+            );
+          })}
+        </div>
         <div className="admin-table-wrap">
           <table className="admin-table admin-engagement-table">
             <thead>
-              <tr><th>Visitor</th><th>Visits</th><th>Each session</th><th>Page views</th><th>Whole-day time</th><th>Average</th><th>Longest</th><th>First / last seen</th><th>Pages</th></tr>
+              <tr><th>Visitor</th><th>Phone</th><th>Visits</th><th>Each session</th><th>Page views</th><th>Whole-day time</th><th>Average</th><th>Longest</th><th>First / last seen</th><th>Pages</th></tr>
             </thead>
             <tbody>
               {data.engagement.visitors.map((visitor) => (
                 <tr key={visitor.key}>
                   <td><b>{visitor.email || `Anonymous · ${visitor.visitorId.slice(0, 8)}`}</b></td>
+                  <td>{visitor.phone || "—"}</td>
                   <td>{number(visitor.sessions)}</td>
                   <td>
                     <div className="admin-session-times">

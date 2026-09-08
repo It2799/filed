@@ -1,0 +1,133 @@
+import { listEmails } from "./store";
+import { listUsersForAdmin } from "./users";
+import { dailyEngagement, engagementTrend, liveEngagement } from "./engagement";
+
+const NEWSLETTER_SOURCES = new Set(["brief", "landing", "newsletter", "legacy-waitlist"]);
+
+function iso(value) {
+  if (!value) return null;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date.toISOString();
+}
+
+function newest(...values) {
+  return values.filter(Boolean).sort().at(-1) || null;
+}
+
+function sourceLabel(source) {
+  if (!source || /^\d+$/.test(source)) return null;
+  if (source === "club") return "Join page";
+  if (NEWSLETTER_SOURCES.has(source)) return "Newsletter";
+  if (source.includes("login")) return "Login";
+  return source;
+}
+
+async function traffic() {
+  const url = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL;
+  const token = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN;
+  if (!url || !token) return { total: 0, unique: 0, live: 0 };
+  const now = Math.floor(Date.now() / 1000);
+  try {
+    const response = await fetch(`${url}/pipeline`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify([
+        ["GET", "mt:visits:total"],
+        ["PFCOUNT", "mt:visits:uniq"],
+        ["ZCOUNT", "mt:visits:live", now - 300, "+inf"],
+      ]),
+      cache: "no-store",
+    });
+    const result = await response.json();
+    const values = Array.isArray(result) ? result.map((item) => item.result) : [];
+    return { total: Number(values[0] || 0), unique: Number(values[1] || 0), live: Number(values[2] || 0) };
+  } catch {
+    return { total: 0, unique: 0, live: 0 };
+  }
+}
+
+export async function adminData(selectedDate, trendDays = 30) {
+  const [mongoRows, waitlistRows, visitTotals, engagement, liveReaders, trend] = await Promise.all([
+    listUsersForAdmin(),
+    listEmails(),
+    traffic(),
+    dailyEngagement(selectedDate),
+    liveEngagement(),
+    engagementTrend(trendDays),
+  ]);
+
+  const members = new Map();
+  const ensure = (email) => {
+    const clean = String(email || "").trim().toLowerCase();
+    if (!clean) return null;
+    if (!members.has(clean)) {
+      members.set(clean, {
+        email: clean, phone: null, sources: new Set(), verified: false, subscribed: false,
+        createdAt: null, lastLoginAt: null, lastActivityAt: null,
+      });
+    }
+    return members.get(clean);
+  };
+
+  for (const row of mongoRows) {
+    const member = ensure(row.email);
+    if (!member) continue;
+    member.phone = row.phone || member.phone;
+    member.verified = Boolean(row.emailVerifiedAt);
+    const subscriptionSource = String(row.briefSubscriptionSource || "").toLowerCase();
+    member.subscribed = Boolean(row.briefSubscribed && NEWSLETTER_SOURCES.has(subscriptionSource));
+    member.createdAt = iso(row.createdAt);
+    member.lastLoginAt = iso(row.lastLoginAt);
+    if (member.verified) member.sources.add("Login");
+    const subscriptionLabel = sourceLabel(subscriptionSource);
+    if (subscriptionLabel) member.sources.add(subscriptionLabel);
+    for (const source of row.acquisitionSources || []) {
+      const label = sourceLabel(String(source).toLowerCase());
+      if (label) member.sources.add(label);
+    }
+    member.lastActivityAt = newest(
+      member.createdAt, member.lastLoginAt, iso(row.emailVerifiedAt), iso(row.updatedAt),
+      iso(row.briefSubscribedAt), iso(row.briefSubscriptionUpdatedAt), iso(row.leadUpdatedAt)
+    );
+  }
+
+  for (const row of waitlistRows) {
+    const member = ensure(row.email);
+    if (!member) continue;
+    member.phone = member.phone || row.phone || null;
+    const source = String(row.source || "waitlist").toLowerCase();
+    member.subscribed = member.subscribed || NEWSLETTER_SOURCES.has(source);
+    const label = sourceLabel(source);
+    if (label) member.sources.add(label);
+    member.createdAt = member.createdAt || iso(row.at);
+    member.lastActivityAt = newest(member.lastActivityAt, iso(row.at));
+  }
+
+  const rows = [...members.values()].map((member) => ({ ...member, sources: [...member.sources] }))
+    .sort((a, b) => String(b.lastActivityAt || b.createdAt || "").localeCompare(String(a.lastActivityAt || a.createdAt || "")));
+  const contacts = new Map(rows.map((member) => [member.email, member]));
+  const withContact = (visitor) => ({
+    ...visitor,
+    phone: visitor.email ? contacts.get(visitor.email)?.phone || null : null,
+  });
+  engagement.visitors = engagement.visitors.map(withContact);
+  const identifiedLiveReaders = liveReaders.map(withContact);
+  const sourceCounts = {};
+  for (const member of rows) for (const source of member.sources) sourceCounts[source] = (sourceCounts[source] || 0) + 1;
+
+  return {
+    generatedAt: new Date().toISOString(),
+    traffic: { ...visitTotals, live: identifiedLiveReaders.length },
+    totals: {
+      members: rows.length,
+      verified: rows.filter((row) => row.verified).length,
+      subscribed: rows.filter((row) => row.subscribed).length,
+      withPhone: rows.filter((row) => row.phone).length,
+    },
+    sourceCounts,
+    engagement,
+    liveReaders: identifiedLiveReaders,
+    trend,
+    members: rows,
+  };
+}
