@@ -5,7 +5,7 @@ import Nav from "../Nav";
 import AuthGate from "../AuthGate";
 import { mcapLabel, mcapTier } from "../fmt";
 
-const PAGE = 40;
+const PAGE = 80;
 
 const impactClass = (i) =>
   i === "Positive" ? "pos" : i === "Negative" ? "neg" : "neu";
@@ -41,6 +41,7 @@ export default function Dashboard({ board = "Main", title, blurb }) {
   const [data, setData] = useState(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
 
   const [scope, setScope] = useState("important");
   const [tag, setTag] = useState(null);
@@ -48,7 +49,6 @@ export default function Dashboard({ board = "Main", title, blurb }) {
   const [band, setBand] = useState(null);
   const [q, setQ] = useState("");
   const [catQ, setCatQ] = useState("");
-  const [limit, setLimit] = useState(PAGE);
   const [railOpen, setRailOpen] = useState(false);
 
   // Filtering happens on the server. Doing it in the browser meant a small
@@ -63,19 +63,16 @@ export default function Dashboard({ board = "Main", title, blurb }) {
   useEffect(() => {
     let dead = false;
     setLoading(true);
-    const p = new URLSearchParams({ scope, board });
-    if (tag) p.set("tag", tag);
-    if (day) p.set("day", day);
-    if (band) p.set("band", band);
-    if (debouncedQ) p.set("q", debouncedQ);
+    const p = announcementParams({ scope, board, tag, day, band, q: debouncedQ });
+    const queryKey = p.toString();
 
-    fetch(`/api/announcements?${p}`, { cache: "no-store" })
+    fetch(`/api/announcements?${p}`)
       .then((r) => r.json())
       .then((d) => {
         if (dead) return;
         if (d.error) setError(d.error);
         else {
-          setData(d);
+          setData({ ...d, _queryKey: queryKey });
           setError("");
         }
       })
@@ -83,10 +80,6 @@ export default function Dashboard({ board = "Main", title, blurb }) {
       .finally(() => !dead && setLoading(false));
     return () => { dead = true; };
   }, [scope, tag, day, band, debouncedQ, board]);
-
-  // `band` too: without it, paging deep and then changing size rendered the
-  // whole result set at once and the "Show more" button vanished.
-  useEffect(() => { setLimit(PAGE); }, [scope, tag, day, band, debouncedQ]);
 
   const items = data?.items || [];
 
@@ -108,36 +101,45 @@ export default function Dashboard({ board = "Main", title, blurb }) {
     return n ? tags.filter(([t]) => t.toLowerCase().includes(n)) : tags;
   }, [tags, catQ]);
 
-  // Day counts come from a separate unfiltered read, so selecting a category
-  // doesn't make every other day look empty.
-  // Counted by the server, not from the rows it sent back.
-  //
-  // This used to tally `d.items`, which the API caps - 1,500 under Worth
-  // reading, 600 under Everything - and sorts newest first. So on a busy week
-  // the older days had no rows left to count and the sidebar showed them as 0,
-  // while clicking one filled the feed: the API applies the day filter BEFORE
-  // the cap. The sidebar contradicted the page.
-  //
-  // The guard matters too. Without it a slow response for a scope you have
-  // since navigated away from lands last and overwrites the right answer - the
-  // feed's own fetch has always had one.
-  const [dayCounts, setDayCounts] = useState({});
-  useEffect(() => {
-    let dead = false;
-    fetch(`/api/announcements?scope=${scope}&board=${board}`, { cache: "no-store" })
-      .then((r) => r.json())
-      .then((d) => {
-        if (dead) return;
-        setDayCounts(d.dayCounts || {});
-      })
-      .catch(() => {});
-    return () => { dead = true; };
-    // board included: without it the day strip keeps the other board's counts
-    // after switching, so the SME dashboard shows main-board numbers above an
-    // SME feed.
-  }, [scope, board]);
+  // Counts are computed before pagination on the server, so the sidebar stays
+  // accurate without downloading a second announcement response.
+  const dayCounts = data?.dayCounts || {};
 
   const shown = items;
+
+  async function loadMore() {
+    if (!data?.hasMore || loadingMore) return;
+    const queryKey = data._queryKey;
+    const p = announcementParams({
+      scope,
+      board,
+      tag,
+      day,
+      band,
+      q: debouncedQ,
+      page: Number(data.page || 1) + 1,
+    });
+
+    setLoadingMore(true);
+    try {
+      const response = await fetch(`/api/announcements?${p}`);
+      const next = await response.json();
+      if (next.error) throw new Error(next.error);
+      setData((current) => {
+        if (!current || current._queryKey !== queryKey) return current;
+        return {
+          ...next,
+          items: [...current.items, ...next.items],
+          _queryKey: queryKey,
+        };
+      });
+      setError("");
+    } catch {
+      setError("Couldn't load more filings. Please retry.");
+    } finally {
+      setLoadingMore(false);
+    }
+  }
 
   // Everything the screen is filtered by, so the file matches what you can see.
   // Band and search used to be left out.
@@ -482,7 +484,7 @@ export default function Dashboard({ board = "Main", title, blurb }) {
               </div>
             ) : (
               <>
-                {shown.slice(0, limit).map((it) => {
+                {shown.map((it) => {
                   const nums = Array.isArray(it.key_numbers) ? it.key_numbers : [];
                   return (
                     <article
@@ -575,10 +577,14 @@ export default function Dashboard({ board = "Main", title, blurb }) {
                   );
                 })}
 
-                {shown.length > limit && (
-                  <button className="more" onClick={() => setLimit(limit + PAGE)}>
-                    Show {Math.min(PAGE, shown.length - limit)} more{" "}
-                    <span className="meta">({shown.length - limit} left)</span>
+                {data?.hasMore && (
+                  <button className="more" onClick={loadMore} disabled={loadingMore}>
+                    {loadingMore
+                      ? "Loading…"
+                      : `Show ${Math.min(PAGE, data.total - shown.length)} more`}{" "}
+                    {!loadingMore && (
+                      <span className="meta">({data.total - shown.length} left)</span>
+                    )}
                   </button>
                 )}
               </>
@@ -606,6 +612,20 @@ export default function Dashboard({ board = "Main", title, blurb }) {
       </AuthGate>
     </>
   );
+}
+
+function announcementParams({ scope, board, tag, day, band, q, page = 1 }) {
+  const params = new URLSearchParams({
+    scope,
+    board,
+    page: String(page),
+    limit: String(PAGE),
+  });
+  if (tag) params.set("tag", tag);
+  if (day) params.set("day", day);
+  if (band) params.set("band", band);
+  if (q) params.set("q", q);
+  return params;
 }
 
 function XlsIcon() {

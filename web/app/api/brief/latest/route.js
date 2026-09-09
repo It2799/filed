@@ -7,6 +7,10 @@ export async function GET() {
   const days = await briefDays();
   return Response.json(
     { day: days[0] || null },
-    { headers: { "Cache-Control": "no-store" } }
+    {
+      headers: {
+        "Cache-Control": "public, max-age=0, s-maxage=60, stale-while-revalidate=300",
+      },
+    }
   );
 }

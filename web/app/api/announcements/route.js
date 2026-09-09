@@ -3,10 +3,20 @@ import { recent, configured, isImportantRow } from "../../../lib/announcements";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-// "Worth reading" is a few hundred filings, so we can send effectively all of
-// them. "Everything" runs to five figures on a results week, so that one stays
-// capped and relies on the filters below.
-const LIMIT = { important: 1500, all: 600 };
+const DEFAULT_PAGE_SIZE = 80;
+const MAX_PAGE_SIZE = 100;
+
+// Only send fields rendered by the public pages. Stored rows can contain raw
+// scraper/PDF metadata which is useful to the pipeline but expensive to move
+// through Vercel on every dashboard request.
+function publicRow(row) {
+  const fields = [
+    "id", "day", "company", "ticker", "mcap", "exchange", "time",
+    "category", "tag", "impact", "headline", "summary", "key_numbers",
+    "why_it_matters", "also_filed", "also_tags", "pdf_url", "page_url",
+  ];
+  return Object.fromEntries(fields.map((key) => [key, row[key]]));
+}
 
 // Market cap bands, in crore. A Rs 400 crore order means something entirely
 // different at a Rs 900 crore company than at a Rs 2 lakh crore one, so the
@@ -40,6 +50,16 @@ export async function GET(request) {
     const day = url.searchParams.get("day");
     const q = (url.searchParams.get("q") || "").toLowerCase().trim();
     const band = url.searchParams.get("band");
+    const requestedPage = Number.parseInt(url.searchParams.get("page") || "1", 10);
+    const requestedSize = Number.parseInt(
+      url.searchParams.get("limit") || String(DEFAULT_PAGE_SIZE),
+      10
+    );
+    const page = Number.isFinite(requestedPage) && requestedPage > 0 ? requestedPage : 1;
+    const pageSize = Math.min(
+      MAX_PAGE_SIZE,
+      Number.isFinite(requestedSize) && requestedSize > 0 ? requestedSize : DEFAULT_PAGE_SIZE
+    );
 
     // SME or Main. The two boards are different products - an SME company is a
     // Rs 40 crore business with three analysts following it, and a reader
@@ -111,11 +131,11 @@ export async function GET(request) {
 
     const total = rows.length;
     const summarised = rows.filter((r) => r.summary).length;   // == total when scope is important
-    const cap = LIMIT[scope];
+    const offset = (page - 1) * pageSize;
 
     // The order above is the order we keep. Promoting summarised rows here
     // would silently undo a "latest first" sort.
-    if (rows.length > cap) rows = rows.slice(0, cap);
+    rows = rows.slice(offset, offset + pageSize).map(publicRow);
 
     return Response.json(
       {
@@ -150,13 +170,20 @@ export async function GET(request) {
         dayCounts,
         band: band || null,
         summarised,
-        truncated: total > rows.length,
+        page,
+        pageSize,
+        hasMore: offset + rows.length < total,
+        truncated: offset + rows.length < total,
         count: rows.length,
         items: rows,
       },
-      // Without this the CDN happily serves yesterday's filings from its edge
-      // cache after a fresh scrape has landed.
-      { headers: { "Cache-Control": "no-store, max-age=0" } });
+      {
+        headers: {
+          // Browsers revalidate, while Vercel's CDN can reuse the same response
+          // for two minutes instead of running the function for every visitor.
+          "Cache-Control": "public, max-age=0, s-maxage=120, stale-while-revalidate=600",
+        },
+      });
   } catch (err) {
     console.error("[announcements]", err);
     return Response.json({ error: "Couldn't load announcements." }, { status: 500 });

@@ -31,7 +31,7 @@ export default function Brief() {
 
   useEffect(() => {
     let dead = false;
-    fetch("/api/brief/latest", { cache: "no-store" })
+    fetch("/api/brief/latest")
       .then((r) => r.json())
       .then((d) => !dead && setLatest(d.day || null))
       .catch(() => {})

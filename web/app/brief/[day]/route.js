@@ -32,6 +32,14 @@ export async function GET(request, { params }) {
   // Both are wanted: reading it in a tab is the common case, but people share
   // this in WhatsApp groups and need the file itself to do that.
   const wantsFile = requestUrl.searchParams.has("download");
+  // Kit links contain a signed access token and are safe to cache by their
+  // complete URL. This lets hundreds of recipients reuse one PDF response
+  // instead of pulling the same base64 chunks through Vercel Compute each
+  // time. A member who opens the route with a login cookie still receives a
+  // private, uncached response.
+  const cacheControl = emailAccess
+    ? "public, max-age=300, s-maxage=3600, stale-while-revalidate=86400"
+    : "private, no-store";
 
   return new Response(pdf, {
     headers: {
@@ -39,7 +47,7 @@ export async function GET(request, { params }) {
       "Content-Disposition":
         `${wantsFile ? "attachment" : "inline"}; ` +
         `filename="market-tide-brief-${iso}.pdf"`,
-      "Cache-Control": "private, no-store",
+      "Cache-Control": cacheControl,
     },
   });
 }
