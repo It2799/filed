@@ -72,7 +72,7 @@ export async function GET(request) {
   try {
     const selectedDate = request.nextUrl.searchParams.get("date");
     const [data, sessionHistory] = await Promise.all([
-      adminData(selectedDate, 90),
+      adminData(selectedDate, 90, { all: true }),
       engagementSessionHistory(90),
     ]);
     const workbook = new ExcelJS.Workbook();

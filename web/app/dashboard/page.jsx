@@ -5,7 +5,7 @@ import Nav from "../Nav";
 import AuthGate from "../AuthGate";
 import { mcapLabel, mcapTier } from "../fmt";
 
-const PAGE = 80;
+const PAGE = 10;
 
 const impactClass = (i) =>
   i === "Positive" ? "pos" : i === "Negative" ? "neg" : "neu";
@@ -107,8 +107,8 @@ export default function Dashboard({ board = "Main", title, blurb }) {
 
   const shown = items;
 
-  async function loadMore() {
-    if (!data?.hasMore || loadingMore) return;
+  async function loadPage(targetPage) {
+    if (loadingMore || targetPage < 1 || targetPage > data?.totalPages) return;
     const queryKey = data._queryKey;
     const p = announcementParams({
       scope,
@@ -117,7 +117,7 @@ export default function Dashboard({ board = "Main", title, blurb }) {
       day,
       band,
       q: debouncedQ,
-      page: Number(data.page || 1) + 1,
+      page: targetPage,
     });
 
     setLoadingMore(true);
@@ -129,13 +129,12 @@ export default function Dashboard({ board = "Main", title, blurb }) {
         if (!current || current._queryKey !== queryKey) return current;
         return {
           ...next,
-          items: [...current.items, ...next.items],
           _queryKey: queryKey,
         };
       });
       setError("");
     } catch {
-      setError("Couldn't load more filings. Please retry.");
+      setError("Couldn't load that page. Please retry.");
     } finally {
       setLoadingMore(false);
     }
@@ -577,15 +576,26 @@ export default function Dashboard({ board = "Main", title, blurb }) {
                   );
                 })}
 
-                {data?.hasMore && (
-                  <button className="more" onClick={loadMore} disabled={loadingMore}>
-                    {loadingMore
-                      ? "Loading…"
-                      : `Show ${Math.min(PAGE, data.total - shown.length)} more`}{" "}
-                    {!loadingMore && (
-                      <span className="meta">({data.total - shown.length} left)</span>
-                    )}
-                  </button>
+                {(data?.page > 1 || data?.hasMore) && (
+                  <div className="feed-pagination" aria-label="Announcement pages">
+                    <button
+                      className="more"
+                      onClick={() => loadPage(data.page - 1)}
+                      disabled={loadingMore || data.page <= 1}
+                    >
+                      Previous
+                    </button>
+                    <span className="meta">
+                      Page {data.page} of {data.totalPages}
+                    </span>
+                    <button
+                      className="more"
+                      onClick={() => loadPage(data.page + 1)}
+                      disabled={loadingMore || !data.hasMore}
+                    >
+                      {loadingMore ? "Loading…" : "Next 10"}
+                    </button>
+                  </div>
                 )}
               </>
             )}

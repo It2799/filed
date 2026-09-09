@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 const number = (value) => Number(value || 0).toLocaleString("en-IN");
 
@@ -57,6 +57,29 @@ function MiniTrend({ title, rows, field, format = number, color = "#4f9cff" }) {
   );
 }
 
+function Pager({ pagination, onPage }) {
+  if (!pagination || pagination.totalPages <= 1) return null;
+  return (
+    <nav className="admin-pagination" aria-label="Table pages">
+      <button
+        onClick={() => onPage(pagination.page - 1)}
+        disabled={!pagination.hasPrevious}
+      >
+        Previous
+      </button>
+      <span>
+        Page {pagination.page} of {pagination.totalPages} · {number(pagination.total)} records
+      </span>
+      <button
+        onClick={() => onPage(pagination.page + 1)}
+        disabled={!pagination.hasNext}
+      >
+        Next 10
+      </button>
+    </nav>
+  );
+}
+
 export default function AdminDashboard() {
   const [status, setStatus] = useState("checking");
   const [configured, setConfigured] = useState(true);
@@ -64,12 +87,25 @@ export default function AdminDashboard() {
   const [error, setError] = useState("");
   const [data, setData] = useState(null);
   const [query, setQuery] = useState("");
-  const [visibleLimit, setVisibleLimit] = useState(100);
+  const [memberPage, setMemberPage] = useState(1);
+  const [visitorPage, setVisitorPage] = useState(1);
+  const [livePage, setLivePage] = useState(1);
   const [selectedDate, setSelectedDate] = useState(todayIndia);
+  const requestSequence = useRef(0);
 
-  async function load(date = selectedDate, silent = false) {
+  async function load(date = selectedDate, silent = false, overrides = {}) {
+    const sequence = ++requestSequence.current;
     if (!silent) setStatus("loading");
-    const response = await fetch(`/api/admin/stats?date=${encodeURIComponent(date)}`, { cache: "no-store" });
+    const params = new URLSearchParams({
+      date,
+      memberPage: String(overrides.memberPage ?? memberPage),
+      visitorPage: String(overrides.visitorPage ?? visitorPage),
+      livePage: String(overrides.livePage ?? livePage),
+    });
+    const memberQuery = overrides.memberQuery ?? query;
+    if (memberQuery.trim()) params.set("memberQuery", memberQuery.trim());
+    const response = await fetch(`/api/admin/stats?${params}`, { cache: "no-store" });
+    if (sequence !== requestSequence.current) return;
     if (response.status === 401) {
       setStatus("locked");
       return;
@@ -102,7 +138,16 @@ export default function AdminDashboard() {
     if (status !== "ready") return undefined;
     const timer = window.setInterval(() => load(selectedDate, true), 30000);
     return () => window.clearInterval(timer);
-  }, [status, selectedDate]);
+  }, [status, selectedDate, memberPage, visitorPage, livePage, query]);
+
+  useEffect(() => {
+    if (status !== "ready") return undefined;
+    const timer = window.setTimeout(() => {
+      setMemberPage(1);
+      load(selectedDate, true, { memberPage: 1, memberQuery: query });
+    }, 350);
+    return () => window.clearTimeout(timer);
+  }, [query]);
 
   async function login(event) {
     event.preventDefault();
@@ -129,13 +174,7 @@ export default function AdminDashboard() {
     setStatus("locked");
   }
 
-  const shown = useMemo(() => {
-    const needle = query.trim().toLowerCase();
-    if (!needle) return data?.members || [];
-    return (data?.members || []).filter((member) =>
-      [member.email, member.phone, ...(member.sources || [])].join(" ").toLowerCase().includes(needle)
-    );
-  }, [data, query]);
+  const shown = data?.members || [];
 
   if (status !== "ready") {
     return (
@@ -178,7 +217,7 @@ export default function AdminDashboard() {
     ["Newsletter", data.totals.subscribed],
     ["Phone numbers", data.totals.withPhone],
     ["Unverified", data.totals.members - data.totals.verified],
-    ["Reading now", data.liveReaders.length],
+    ["Reading now", data.traffic.live],
     ["Unique visitors", data.traffic.unique],
     ["Total visits", data.traffic.total],
     ["Visitors on date", data.engagement.totals.visitors],
@@ -232,6 +271,13 @@ export default function AdminDashboard() {
           </table>
           {!data.liveReaders.length && <p className="admin-empty">Nobody is actively reading right now.</p>}
         </div>
+        <Pager
+          pagination={data.livePagination}
+          onPage={(page) => {
+            setLivePage(page);
+            load(selectedDate, true, { livePage: page });
+          }}
+        />
         <p className="admin-live-note">Anonymous means the browser has not signed in, the login cookie expired, or private browsing cleared it. Market Tide cannot safely infer that visitor’s email or phone.</p>
       </section>
 
@@ -263,7 +309,8 @@ export default function AdminDashboard() {
               onChange={(event) => {
                 const next = event.target.value;
                 setSelectedDate(next);
-                if (next) load(next);
+                setVisitorPage(1);
+                if (next) load(next, false, { visitorPage: 1 });
               }}
             />
           </label>
@@ -320,6 +367,13 @@ export default function AdminDashboard() {
             <p className="admin-empty">No tracked sessions for this date.</p>
           )}
         </div>
+        <Pager
+          pagination={data.engagement.pagination}
+          onPage={(page) => {
+            setVisitorPage(page);
+            load(selectedDate, true, { visitorPage: page });
+          }}
+        />
       </section>
 
       <section className="admin-panel">
@@ -341,14 +395,14 @@ export default function AdminDashboard() {
             type="search"
             placeholder="Search email, phone or source…"
             value={query}
-            onChange={(event) => { setQuery(event.target.value); setVisibleLimit(100); }}
+            onChange={(event) => setQuery(event.target.value)}
           />
         </div>
         <div className="admin-table-wrap">
           <table className="admin-table">
             <thead><tr><th>Member</th><th>Phone</th><th>Sources</th><th>Status</th><th>Joined</th><th>Last activity</th></tr></thead>
             <tbody>
-              {shown.slice(0, visibleLimit).map((member) => (
+              {shown.map((member) => (
                 <tr key={member.email}>
                   <td><b>{member.email}</b></td>
                   <td>{member.phone || "—"}</td>
@@ -362,11 +416,13 @@ export default function AdminDashboard() {
           </table>
           {!shown.length && <p className="admin-empty">No members match that search.</p>}
         </div>
-        {shown.length > visibleLimit && (
-          <button className="admin-more" onClick={() => setVisibleLimit((value) => value + 100)}>
-            Show 100 more · {number(shown.length - visibleLimit)} remaining
-          </button>
-        )}
+        <Pager
+          pagination={data.memberPagination}
+          onPage={(page) => {
+            setMemberPage(page);
+            load(selectedDate, true, { memberPage: page });
+          }}
+        />
       </section>
       <p className="admin-updated">Updated {when(data.generatedAt)} · Sensitive member data · Do not share this page.</p>
     </main>

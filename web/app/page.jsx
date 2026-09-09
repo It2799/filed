@@ -11,7 +11,7 @@ export default function Landing() {
   const [live, setLive] = useState(null);
 
   useEffect(() => {
-    fetch("/api/announcements?scope=important&limit=20")
+    fetch("/api/announcements?scope=important&limit=10")
       .then((r) => r.json())
       .then((d) => !d.error && setLive(d))
       .catch(() => {});

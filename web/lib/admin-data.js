@@ -3,6 +3,37 @@ import { listUsersForAdmin } from "./users";
 import { dailyEngagement, engagementTrend, liveEngagement } from "./engagement";
 
 const NEWSLETTER_SOURCES = new Set(["brief", "landing", "newsletter", "legacy-waitlist"]);
+const ADMIN_PAGE_SIZE = 10;
+
+function paginate(items, requestedPage, all = false) {
+  if (all) {
+    return {
+      items,
+      pagination: {
+        page: 1, pageSize: items.length, total: items.length,
+        totalPages: 1, hasPrevious: false, hasNext: false,
+      },
+    };
+  }
+  const total = items.length;
+  const totalPages = Math.max(1, Math.ceil(total / ADMIN_PAGE_SIZE));
+  const page = Math.min(
+    totalPages,
+    Math.max(1, Number.parseInt(requestedPage, 10) || 1)
+  );
+  const start = (page - 1) * ADMIN_PAGE_SIZE;
+  return {
+    items: items.slice(start, start + ADMIN_PAGE_SIZE),
+    pagination: {
+      page,
+      pageSize: ADMIN_PAGE_SIZE,
+      total,
+      totalPages,
+      hasPrevious: page > 1,
+      hasNext: page < totalPages,
+    },
+  };
+}
 
 function iso(value) {
   if (!value) return null;
@@ -46,7 +77,7 @@ async function traffic() {
   }
 }
 
-export async function adminData(selectedDate, trendDays = 30) {
+export async function adminData(selectedDate, trendDays = 30, options = {}) {
   const [mongoRows, waitlistRows, visitTotals, engagement, liveReaders, trend] = await Promise.all([
     listUsersForAdmin(),
     listEmails(),
@@ -110,10 +141,24 @@ export async function adminData(selectedDate, trendDays = 30) {
     ...visitor,
     phone: visitor.email ? contacts.get(visitor.email)?.phone || null : null,
   });
-  engagement.visitors = engagement.visitors.map(withContact);
+  const engagementVisitors = engagement.visitors.map(withContact);
   const identifiedLiveReaders = liveReaders.map(withContact);
   const sourceCounts = {};
   for (const member of rows) for (const source of member.sources) sourceCounts[source] = (sourceCounts[source] || 0) + 1;
+
+  const memberNeedle = String(options.memberQuery || "").trim().toLowerCase();
+  const matchingMembers = memberNeedle
+    ? rows.filter((member) =>
+        [member.email, member.phone, ...member.sources]
+          .filter(Boolean)
+          .join(" ")
+          .toLowerCase()
+          .includes(memberNeedle)
+      )
+    : rows;
+  const memberResult = paginate(matchingMembers, options.memberPage, options.all);
+  const visitorResult = paginate(engagementVisitors, options.visitorPage, options.all);
+  const liveResult = paginate(identifiedLiveReaders, options.livePage, options.all);
 
   return {
     generatedAt: new Date().toISOString(),
@@ -125,9 +170,15 @@ export async function adminData(selectedDate, trendDays = 30) {
       withPhone: rows.filter((row) => row.phone).length,
     },
     sourceCounts,
-    engagement,
-    liveReaders: identifiedLiveReaders,
+    engagement: {
+      ...engagement,
+      visitors: visitorResult.items,
+      pagination: visitorResult.pagination,
+    },
+    liveReaders: liveResult.items,
+    livePagination: liveResult.pagination,
     trend,
-    members: rows,
+    members: memberResult.items,
+    memberPagination: memberResult.pagination,
   };
 }

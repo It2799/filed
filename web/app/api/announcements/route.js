@@ -3,8 +3,8 @@ import { recent, configured, isImportantRow } from "../../../lib/announcements";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-const DEFAULT_PAGE_SIZE = 80;
-const MAX_PAGE_SIZE = 100;
+const DEFAULT_PAGE_SIZE = 10;
+const MAX_PAGE_SIZE = 10;
 
 // Only send fields rendered by the public pages. Stored rows can contain raw
 // scraper/PDF metadata which is useful to the pipeline but expensive to move
@@ -172,6 +172,7 @@ export async function GET(request) {
         summarised,
         page,
         pageSize,
+        totalPages: Math.max(1, Math.ceil(total / pageSize)),
         hasMore: offset + rows.length < total,
         truncated: offset + rows.length < total,
         count: rows.length,

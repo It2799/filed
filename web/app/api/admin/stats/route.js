@@ -17,7 +17,13 @@ export async function GET(request) {
   try {
     return privateJson(await adminData(
       request.nextUrl.searchParams.get("date"),
-      request.nextUrl.searchParams.get("days") || 30
+      request.nextUrl.searchParams.get("days") || 30,
+      {
+        memberPage: request.nextUrl.searchParams.get("memberPage"),
+        memberQuery: request.nextUrl.searchParams.get("memberQuery"),
+        visitorPage: request.nextUrl.searchParams.get("visitorPage"),
+        livePage: request.nextUrl.searchParams.get("livePage"),
+      }
     ));
   } catch (error) {
     console.error("[admin] dashboard load failed:", error.message || error);
