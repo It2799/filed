@@ -1,6 +1,7 @@
 import { briefPdf } from "../../../lib/brief";
 import { currentUser } from "../../../lib/session";
 import { authReady } from "../../../lib/auth-ready";
+import { validBriefAccess } from "../../../lib/brief-access.js";
 
 export const dynamic = "force-dynamic";
 
@@ -11,11 +12,13 @@ export const dynamic = "force-dynamic";
  * sign-in modal instead of bypassing the protected Daily Brief page.
  */
 export async function GET(request, { params }) {
-  if (authReady() && !currentUser(request)) {
-    return Response.redirect(new URL("/brief?signin=1", request.url), 307);
-  }
   const { day } = await params;
   const iso = String(day || "").replace(/\.pdf$/, "");
+  const requestUrl = new URL(request.url);
+  const emailAccess = validBriefAccess(iso, requestUrl.searchParams.get("access"));
+  if (authReady() && !emailAccess && !currentUser(request)) {
+    return Response.redirect(new URL("/brief?signin=1", request.url), 307);
+  }
 
   const pdf = await briefPdf(iso);
   if (!pdf) {
@@ -28,7 +31,7 @@ export async function GET(request, { params }) {
   // ?download=1 saves the file instead of opening it in the browser's viewer.
   // Both are wanted: reading it in a tab is the common case, but people share
   // this in WhatsApp groups and need the file itself to do that.
-  const wantsFile = new URL(request.url).searchParams.has("download");
+  const wantsFile = requestUrl.searchParams.has("download");
 
   return new Response(pdf, {
     headers: {
