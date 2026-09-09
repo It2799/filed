@@ -133,6 +133,24 @@ export async function subscribeUser({ email, phone = null, source = "brief" }) {
   return { email, alreadySubscribed };
 }
 
+/** Track whether a newsletter subscriber has reached Kit successfully. */
+export async function markKitSync(email, status, detail = null) {
+  const users = await collection();
+  const now = new Date();
+  await users.updateOne(
+    { email },
+    {
+      $set: {
+        kitSyncStatus: status,
+        kitSyncAttemptedAt: now,
+        ...(status === "synced" ? { kitSyncedAt: now } : {}),
+        ...(detail ? { kitSyncDetail: String(detail).slice(0, 160) } : {}),
+      },
+      ...(detail ? {} : { $unset: { kitSyncDetail: "" } }),
+    }
+  );
+}
+
 /** Private admin view. Callers must enforce admin authentication first. */
 export async function listUsersForAdmin(limit = 5000) {
   const users = await collection();
@@ -155,6 +173,9 @@ export async function listUsersForAdmin(limit = 5000) {
         welcomeEmailVia: 1,
         acquisitionSources: 1,
         leadUpdatedAt: 1,
+        kitSyncStatus: 1,
+        kitSyncAttemptedAt: 1,
+        kitSyncedAt: 1,
       },
     }
   ).sort({ createdAt: -1 }).limit(Math.max(1, Math.min(Number(limit) || 5000, 5000))).toArray();

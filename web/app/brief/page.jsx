@@ -1,9 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Nav from "../Nav";
 import MkFooter from "../MkFooter";
-import SubstackSignup from "../SubstackSignup";
 import { SITE } from "../site";
 import { useSiteAuth } from "../SiteAuth";
 
@@ -20,17 +19,15 @@ import { useSiteAuth } from "../SiteAuth";
  * which is where anything older belongs.
  */
 export default function Brief() {
-  const { checking, ready, user, openAuth } = useSiteAuth();
+  const { ready, user, openAuth } = useSiteAuth();
   const [latest, setLatest] = useState(null);
   const [loading, setLoading] = useState(true);
 
   const [email, setEmail] = useState("");
+  const emailPrefilled = useRef(false);
   const [company, setCompany] = useState("");   // honeypot
   const [state, setState] = useState("idle");
   const [error, setError] = useState("");
-  const usesSubstack = /^https:\/\/[a-z0-9-]+\.substack\.com\/?$/i.test(
-    process.env.NEXT_PUBLIC_SUBSTACK_URL || "https://markettide.substack.com"
-  );
 
   useEffect(() => {
     let dead = false;
@@ -43,8 +40,14 @@ export default function Brief() {
   }, []);
 
   useEffect(() => {
-    if (user?.id && !email) setEmail(user.id);
-  }, [email, user]);
+    // Prefill once when the signed-in user becomes available. After that the
+    // field belongs to the visitor, so clearing it must not restore their
+    // account email on the next render.
+    if (user?.id && !emailPrefilled.current) {
+      emailPrefilled.current = true;
+      setEmail(user.id);
+    }
+  }, [user]);
 
   async function subscribe(address) {
     if (state === "sending") return;
@@ -71,7 +74,8 @@ export default function Brief() {
 
   function submit(e) {
     e.preventDefault();
-    if (!user && ready) {
+    if (!ready) return;
+    if (!user) {
       openAuth({
         clear: true,
         email,
@@ -134,13 +138,7 @@ export default function Brief() {
 
           {/* ---- subscribe, on the same page ---- */}
           <div className="sub-card" id="subscribe">
-            {usesSubstack ? (
-              <SubstackSignup
-                checking={checking}
-                locked={ready && !user}
-                onRequireAuth={() => openAuth({ clear: true })}
-              />
-            ) : state === "done" ? (
+            {state === "done" ? (
               <div className="sub-done">
                 <b>You&apos;re in.</b>
                 <p>
@@ -162,10 +160,13 @@ export default function Brief() {
                     autoComplete="email"
                     placeholder="you@example.com"
                     value={email}
-                    onChange={(ev) => setEmail(ev.target.value)}
+                    onChange={(ev) => {
+                      setEmail(ev.target.value);
+                      if (error) setError("");
+                    }}
                   />
-                  <button className="btn-lg btn-grad" disabled={state === "sending"}>
-                    {state === "sending" ? "Signing you up…" : "Subscribe free"}
+                  <button className="btn-lg btn-grad" disabled={!ready || state === "sending"}>
+                    {!ready ? "Checking…" : state === "sending" ? "Signing you up…" : "Subscribe free"}
                   </button>
                 </div>
 
@@ -181,8 +182,9 @@ export default function Brief() {
 
                 {error && <p className="sub-error">{error}</p>}
                 <p className="sub-note">
-                  Free, one email a day, and we won&apos;t pass your address to
-                  anyone. One more step after this.
+                  Free, one email a day. By subscribing, you agree that Market
+                  Tide may securely add your address to its newsletter audience.
+                  You can unsubscribe at any time.
                 </p>
               </form>
             )}

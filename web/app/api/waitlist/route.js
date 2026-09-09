@@ -1,6 +1,15 @@
 import { addEmail, count } from "../../../lib/store";
 import { normalisePhone } from "../../../lib/phone";
-import { configured as usersConfigured, saveLeadUser, subscribeUser } from "../../../lib/users";
+import {
+  configured as usersConfigured,
+  markKitSync,
+  saveLeadUser,
+  subscribeUser,
+} from "../../../lib/users";
+import {
+  configured as kitConfigured,
+  upsertSubscriber as upsertKitSubscriber,
+} from "../../../lib/kit";
 
 export const dynamic = "force-dynamic";
 
@@ -27,6 +36,15 @@ export async function POST(request) {
   const source = String(body.source || "landing").slice(0, 40).toLowerCase();
   const isNewsletterSignup = source === "brief" || source === "landing";
 
+  // A newsletter signup must have a durable MongoDB record. Do not silently
+  // accept it into a fallback store when the member database is unavailable.
+  if (isNewsletterSignup && !usersConfigured()) {
+    return Response.json(
+      { error: "Newsletter signup is temporarily unavailable. Please try again." },
+      { status: 503 }
+    );
+  }
+
   // WhatsApp number is optional, but if given it has to be a real one.
   const rawPhone = String(body.phone || "").trim();
   let phone = null;
@@ -39,21 +57,69 @@ export async function POST(request) {
     }
   }
 
-  let result;
+  let subscription;
   try {
     if (usersConfigured()) {
-      if (isNewsletterSignup) await subscribeUser({ email, phone, source });
+      if (isNewsletterSignup) subscription = await subscribeUser({ email, phone, source });
       else await saveLeadUser({ email, phone, source });
     }
+  } catch (err) {
+    console.error("[waitlist] MongoDB save failed:", err);
+    return Response.json(
+      { error: "Couldn't save that. Please try again in a moment." }, { status: 500 });
+  }
+
+  let result = {
+    backend: isNewsletterSignup ? "mongodb" : "none-configured",
+    alreadyJoined: Boolean(subscription?.alreadySubscribed),
+  };
+  try {
     result = await addEmail(email, {
       phone,
       wantsWhatsApp: Boolean(phone),
       source,
     });
   } catch (err) {
-    console.error("[waitlist] save failed:", err);
-    return Response.json(
-      { error: "Couldn't save that. Please try again in a moment." }, { status: 500 });
+    // MongoDB is the source of truth for newsletter subscriptions. The legacy
+    // waitlist mirror must not prevent the Kit audience sync.
+    if (!isNewsletterSignup) {
+      console.error("[waitlist] fallback save failed:", err);
+      return Response.json(
+        { error: "Couldn't save that. Please try again in a moment." }, { status: 500 });
+    }
+    console.warn("[waitlist] legacy waitlist mirror failed:", err.message || err);
+  }
+
+  let kitSynced = null;
+  if (isNewsletterSignup) {
+    if (!kitConfigured()) {
+      if (usersConfigured()) {
+        await markKitSync(email, "failed", "not-configured").catch(() => {});
+      }
+      return Response.json({
+        error: "Your email was saved, but email delivery is temporarily unavailable. Please try again.",
+        saved: true,
+        kitSynced: false,
+      }, { status: 503 });
+    }
+
+    try {
+      await upsertKitSubscriber(email);
+      kitSynced = true;
+      await markKitSync(email, "synced").catch((error) => {
+        console.warn("[waitlist] could not record Kit sync state:", error.message || error);
+      });
+    } catch (error) {
+      console.error("[waitlist] Kit sync failed:", error.message || error);
+      if (usersConfigured()) {
+        await markKitSync(email, "pending", error.message || "sync-pending").catch(() => {});
+      }
+      return Response.json({
+        error: "Your email was saved, but we could not add it to email delivery. Please retry.",
+        saved: true,
+        kitSynced: false,
+      }, { status: 502 });
+    }
   }
 
   return Response.json({
@@ -63,6 +129,7 @@ export async function POST(request) {
     backend: result.backend,
     profileSaved: usersConfigured(),
     newsletterSignup: isNewsletterSignup,
+    kitSynced,
     gaveWhatsApp: Boolean(phone),
     emailSent: false,
     whatsappSent: false,

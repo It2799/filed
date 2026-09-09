@@ -31,8 +31,8 @@ private environment variables in Vercel for Production, Preview and Development:
 - `RESEND_API_KEY` — current transactional provider key; this will be replaced by Brevo for OTP
 - `RESEND_FROM` — verified sender; defaults to `Market Tide <brief@markettide.in>`
 - `REPLY_TO_EMAIL` — reply destination; defaults to `market.tide27@gmail.com`
-- `NEXT_PUBLIC_SUBSTACK_URL` — publication URL, for example `https://markettide.substack.com`
-- `NEWSLETTER_DELIVERY` — use `substack` to prevent the worker from sending through Kit
+- `KIT_API_KEY` — Kit V4 API key used to add each explicit newsletter signup to the Kit audience
+- `KIT_FROM_EMAIL` — verified Kit sender address; defaults to `brief@markettide.in`
 - `KV_REST_API_URL` and `KV_REST_API_TOKEN` — Upstash Redis used for short-lived OTPs
 - `CRON_SECRET` — random value of at least 16 characters; Vercel sends it to the cron route
 - `GITHUB_DISPATCH_TOKEN` — GitHub token with Actions write access, used only to start the PDF worker
@@ -45,12 +45,10 @@ code. Their normalized mobile number is stored in MongoDB only after successful
 verification. Returning readers enter only their email, and a signed session
 keeps them logged in for 30 days.
 
-When `NEXT_PUBLIC_SUBSTACK_URL` is set, the Daily Brief page uses Substack's
-official embedded signup form. New newsletter subscribers therefore go directly
-to Substack. Market Tide login and community records remain in MongoDB and are
-not silently treated as newsletter consent. The morning worker generates and
-publishes the PDF, while the final Substack post is reviewed and scheduled for
-08:00 IST in Substack.
+The Daily Brief page uses a Market Tide-owned signup form. After the member signs
+in and explicitly subscribes, the server saves the subscription in MongoDB first
+and upserts the address into the Kit audience. The Kit operation is idempotent,
+so subscribing twice does not create duplicate subscribers.
 
 To create a one-time CSV containing only explicit Daily Brief subscribers, run:
 
