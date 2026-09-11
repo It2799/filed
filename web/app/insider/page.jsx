@@ -176,16 +176,28 @@ export default function InsiderPage() {
                 </span>
                 <span className="when">{dayLabel(t.day)}</span>
               </div>
-              <div className="t-who">
-                <strong>{t.who}</strong>
-                {t.category ? <span className={`role ${role(t)}`}>{t.category}</span> : null}
-              </div>
-              <div className="t-nums">
-                <span>{Number(t.shares || 0).toLocaleString("en-IN")} shares</span>
-                {t.value ? <span className="val">{money(t.value)}</span> : null}
-                {t.mode ? <span className="mode">{t.mode}</span> : null}
-                {t.after_pct ? <span className="held">holds {t.after_pct}%</span> : null}
-              </div>
+              {/* Two shapes of row. The XBRL filing gives fields - who, how
+                  many, at what, by what route. Our own scrape of the same
+                  filing gives a sentence. Rather than draw a field row full of
+                  blanks, a sentence is drawn as a sentence. */}
+              {t.who ? (
+                <>
+                  <div className="t-who">
+                    <strong>{t.who}</strong>
+                    {t.category ? (
+                      <span className={`role ${role(t)}`}>{t.category}</span>
+                    ) : null}
+                  </div>
+                  <div className="t-nums">
+                    <span>{Number(t.shares || 0).toLocaleString("en-IN")} shares</span>
+                    {t.value ? <span className="val">{money(t.value)}</span> : null}
+                    {t.mode ? <span className="mode">{t.mode}</span> : null}
+                    {t.after_pct ? <span className="held">holds {t.after_pct}%</span> : null}
+                  </div>
+                </>
+              ) : (
+                <p className="t-text">{t.headline}</p>
+              )}
             </li>
           ))}
         </ul>
@@ -197,9 +209,10 @@ export default function InsiderPage() {
         ) : null}
 
         <p className="verify">
-          Straight from the disclosures companies file with NSE. BSE-only
-          companies are not covered yet &mdash; BSE&rsquo;s own feed for this is
-          down. Nothing here is advice.
+          From the disclosures companies file under SEBI&rsquo;s Regulation
+          7(2), on both exchanges. Rows with a named person and a share count
+          come from the structured filing; the rest are the same disclosure
+          read from the document. Nothing here is advice.
         </p>
       </main>
 
@@ -258,6 +271,7 @@ export default function InsiderPage() {
           font-size: 0.84rem; color: #555;
         }
         .val { font-weight: 600; color: #222; }
+        .t-text { margin: 5px 0 0; font-size: 0.9rem; line-height: 1.5; color: #333; }
         .mode, .held { color: #888; }
         .more {
           display: block; margin: 12px auto; padding: 8px 16px;
@@ -278,6 +292,7 @@ export default function InsiderPage() {
           .search { background: #161616; color: #ddd; border-color: #333; }
           .more { background: #161616; color: #ddd; border-color: #333; }
           .val { color: #eee; }
+          .t-text { color: #ccc; }
         }
       `}</style>
     </>

@@ -302,7 +302,9 @@ jobs:
         env:
           KV_REST_API_URL: ${{ secrets.KV_REST_API_URL }}
           KV_REST_API_TOKEN: ${{ secrets.KV_REST_API_TOKEN }}
-        run: python -u publish_insider.py
+        run: |
+          python -u publish_insider.py
+          python -u publish_insider.py --from-filings 7
 
       # Make sure today's morning brief exists.
       #
