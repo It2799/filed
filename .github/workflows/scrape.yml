@@ -154,6 +154,7 @@ jobs:
         run: |
           python tests/test_rules.py
           python tests/test_insider.py
+          python tests/test_deals.py
 
       - name: Decide how much to scrape
         id: plan
@@ -303,8 +304,27 @@ jobs:
           KV_REST_API_URL: ${{ secrets.KV_REST_API_URL }}
           KV_REST_API_TOKEN: ${{ secrets.KV_REST_API_TOKEN }}
         run: |
-          python -u publish_insider.py
+          python -u publish_insider.py --backfill 7
           python -u publish_insider.py --from-filings 7
+
+      # The large trades the exchanges publish by name.
+      #
+      # NSE answers for a date range, so seven days come back in one request.
+      # BSE hands over its latest trading day only, whatever dates it is
+      # asked for - so BSE history exists only because every pass keeps what
+      # the last one found, and a pass that finds nothing writes nothing.
+      #
+      # continue-on-error for the same reason as the step above: an exchange
+      # being unreachable is a reason to have no deals this pass, not to
+      # throw away a good scrape.
+      - name: Read the bulk and block deals
+        if: always()
+        continue-on-error: true
+        env:
+          KV_REST_API_URL: ${{ secrets.KV_REST_API_URL }}
+          KV_REST_API_TOKEN: ${{ secrets.KV_REST_API_TOKEN }}
+        run: |
+          python -u publish_deals.py --days 7
 
       # Make sure today's morning brief exists.
       #

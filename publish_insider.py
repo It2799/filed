@@ -332,8 +332,8 @@ def main():
                    help="seed from the insider filings our own scrape already "
                         "holds, both exchanges, for the last DAYS days")
     p.add_argument("--backfill", type=int, metavar="DAYS",
-                   help="fill the last DAYS days from the per-symbol history "
-                        "API instead of today's feed")
+                   help="read the last DAYS days from NSE's own index in one "
+                        "go, rather than just today")
     args = p.parse_args()
 
     ist = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(
@@ -363,10 +363,15 @@ def main():
         return 0
 
     if args.backfill:
+        # One request, whole market, whole range.
+        #
+        # This used to walk two thousand NSE symbols one at a time through the
+        # per-symbol history API, which is months behind and took an hour to
+        # tell you so. The page Ishan linked calls /api/corporates-pit-gg with
+        # a date range, and that is what insider.fetch now reads - so a
+        # backfill is the same call as a daily run with a wider window.
         start = d - datetime.timedelta(days=args.backfill - 1)
-        syms = symbols_from_site()
-        found = insider.fetch_history(syms, start, d)
-        found = with_mcap(found)
+        found = with_mcap(insider.fetch(start, d))
         if args.dry_run:
             print()
             print(f"{len(found)} trades from {start} to {d} (nothing written)")

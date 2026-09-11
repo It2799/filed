@@ -51,6 +51,22 @@ import sources
 
 FEED = "https://nsearchives.nseindia.com/content/RSS/InsiderTrading.xml"
 
+# What the page Ishan linked actually calls.
+#
+# https://www.nseindia.com/companies-listing/corporate-filings-insider-trading
+# is an empty shell until its JavaScript runs; the table is filled from
+# /api/corporates-pit-gg, with a from_date and a to_date. The older
+# /api/corporates-pit is still in the page's source, commented out, and it is
+# the one this file used to reach for - per symbol, and months behind. That is
+# why a week of history looked impossible.
+#
+# It is not. This endpoint answers for the whole market over a date range:
+# 198 filings for the last seven days, 839 for thirty. Every row carries
+# xmlFileName - the same XBRL the reader below already parses.
+API_INDEX = "https://www.nseindia.com/api/corporates-pit-gg"
+PIT_PAGE = ("https://www.nseindia.com/companies-listing/"
+            "corporate-filings-insider-trading")
+
 # How the trade was done. These say nothing about what the person thinks the
 # shares are worth.
 SKIP_MODE = re.compile(r"^\s*(esop|inter[\s-]?se[\s-]?transfer)\s*$", re.I)
@@ -189,11 +205,33 @@ def skip_reason(person):
     return None
 
 
+# What the filing calls the transaction, and what a person would call it.
+#
+# Matched as a substring rather than by exact equality. The old map keyed on
+# "revoke" and "pledge", and the XBRL says "Pledge Revoke" and "Pledge
+# Creation", so nothing matched and the sentence read "pledge revoke
+# 18,176,000 shares". Pledge Revoke is checked before Pledge for the obvious
+# reason.
+_VERBS = [
+    ("pledge revoke", "released a pledge on"),
+    ("pledge release", "released a pledge on"),
+    ("pledge invoke", "had a pledge invoked on"),
+    ("pledge creation", "pledged"),
+    ("revoke", "released a pledge on"),
+    ("invoke", "had a pledge invoked on"),
+    ("encumbrance", "encumbered"),
+    ("pledge", "pledged"),
+    ("buy", "bought"),
+    ("sell", "sold"),
+    ("acquisition", "bought"),
+    ("disposal", "sold"),
+]
+
+
 def headline(row):
     """A sentence a person can read."""
-    verb = {"buy": "bought", "sell": "sold", "pledge": "pledged",
-            "revoke": "released a pledge on", "invoke": "had a pledge invoked on"}.get(
-        (row["side"] or "").strip().lower(), (row["side"] or "traded").lower())
+    side = (row["side"] or "").strip().lower()
+    verb = next((v for k, v in _VERBS if k in side), side or "traded")
 
     bits = [row["who"] or "An insider"]
     if row["category"]:
@@ -209,23 +247,60 @@ def headline(row):
     return " ".join(bits)
 
 
+def index_filings(from_date, to_date, log=print, session=None):
+    """Every insider filing in the window, from the page's own endpoint.
+
+    One request covers the whole market and the whole range, which is the
+    difference between this and everything tried before it. Returns the same
+    shape feed_items() did, so nothing downstream changes.
+    """
+    s = session or _nse_session_or_plain()
+    hdr = {"Accept": "*/*", "Referer": PIT_PAGE,
+           "X-Requested-With": "XMLHttpRequest"}
+    fmt = "%d-%m-%Y"
+    out, seen = [], set()
+
+    for index in ("equities", "sme"):
+        try:
+            r = s.get(API_INDEX, timeout=60, headers=hdr,
+                      params={"index": index,
+                              "from_date": from_date.strftime(fmt),
+                              "to_date": to_date.strftime(fmt)})
+            rows = (r.json() or {}).get("data") or []
+        except Exception as e:
+            log(f"  insider index ({index}): {type(e).__name__}: {e}")
+            continue
+
+        for row in rows:
+            # xmlFileName is the plain XBRL. ixbrl is the same thing wrapped in
+            # HTML with undeclared namespace prefixes, which an XML parser
+            # will not read.
+            url = (row.get("xmlFileName") or "").strip()
+            if not url or url in seen:
+                continue
+            seen.add(url)
+            out.append({
+                "url": url,
+                "symbol": (row.get("symbol") or "").strip(),
+                "company": (row.get("companyName") or "").strip(),
+                "kind": (row.get("typeOfSubmission") or "").strip(),
+            })
+        log(f"  insider index ({index}): {len(rows)} filings")
+
+    return out
+
+
 def fetch(from_date, to_date, log=print, session=None):
     """Insider trades disclosed in the window, one record per person."""
-    s = session or requests.Session()
+    s = session or _nse_session_or_plain()
     hdr = {"User-Agent": sources.UA, "Accept": "*/*",
            "Referer": "https://www.nseindia.com/"}
 
-    try:
-        r = s.get(FEED, timeout=45, headers=hdr)
-        if r.status_code != 200:
-            log(f"  insider feed: HTTP {r.status_code}")
-            return []
-        items = feed_items(r.text, log=log)
-    except Exception as e:
-        log(f"  insider feed: {type(e).__name__}: {e}")
+    items = index_filings(from_date, to_date, log=log, session=s)
+    if not items:
         return []
 
-    log(f"  insider: {len(items)} filings in the feed")
+    log(f"  insider: {len(items)} filings to read")
 
     # A second guard, on the trade rather than the file. A company may file a
     # revision that repeats a trade already disclosed, and the same person's
@@ -237,7 +312,7 @@ def fetch(from_date, to_date, log=print, session=None):
             if fr.status_code != 200:
                 failed += 1
                 continue
-            main, people = parse_xbrl(fr.text)
+            main, people = parse_xbrl(fr.content)
         except Exception:
             failed += 1
             continue
@@ -295,19 +370,6 @@ def fetch(from_date, to_date, log=print, session=None):
     return kept
 
 
-if __name__ == "__main__":
-    import argparse
-    p = argparse.ArgumentParser()
-    p.add_argument("--days", type=int, default=1)
-    p.add_argument("--show", type=int, default=30)
-    a = p.parse_args()
-    today = datetime.date.today()
-    rows = fetch(today - datetime.timedelta(days=a.days), today)
-    rows.sort(key=lambda r: -(r["value"] or 0))
-    print()
-    for r in rows[:a.show]:
-        print(f"  {r['company'][:24]:<26}{r['headline'][:104]}")
-
 
 # ---------------------------------------------------------------- history
 
@@ -316,8 +378,6 @@ if __name__ == "__main__":
 # is only the LIVE end it lags on, which is why the daily reader does not use
 # it - but it answers per symbol, so it needs a list of companies to ask about.
 API_PIT = "https://www.nseindia.com/api/corporates-pit"
-PIT_PAGE = ("https://www.nseindia.com/companies-listing/"
-            "corporate-filings-insider-trading")
 
 
 def _api_row(row, sym):
@@ -411,3 +471,17 @@ def _nse_session_or_plain():
         s = requests.Session()
         s.headers.update({"User-Agent": sources.UA})
         return s
+
+
+if __name__ == "__main__":
+    import argparse
+    p = argparse.ArgumentParser()
+    p.add_argument("--days", type=int, default=1)
+    p.add_argument("--show", type=int, default=30)
+    a = p.parse_args()
+    today = datetime.date.today()
+    rows = fetch(today - datetime.timedelta(days=a.days), today)
+    rows.sort(key=lambda r: -(r["value"] or 0))
+    print()
+    for r in rows[:a.show]:
+        print(f"  {r['company'][:24]:<26}{r['headline'][:104]}")
