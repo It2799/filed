@@ -209,6 +209,15 @@ def refresh_index(url, token, days_seen):
 # XBRL reader applies.
 FILING_TAGS = {"Promoter Buy/Sell", "Stake Change"}
 
+# The summary's own admission that it found nothing.
+_NOTHING_TO_SAY = re.compile(
+    r"\bno (material|specific|significant|further|additional)\b"
+    r"[^.]{0,60}(update|detail|information|development|disclosure)|"
+    r"(provides?|contains?|offers?|discloses?)\s+no\b|"
+    r"does not (provide|contain|disclose|specify)\b|"
+    r"no (trade|transaction|dealing)s? (were |was )?(disclosed|reported)",
+    re.I)
+
 
 def from_filings(days, log=print):
     """Insider activity out of the announcements we already hold."""
@@ -240,6 +249,20 @@ def from_filings(days, log=print):
                 continue
             if re.search(r"\besop\b|employee stock option|inter-?se transfer",
                          text, re.I):
+                continue
+            # A summary that says the filing contains nothing is not a trade.
+            #
+            # Lloyds Metals' Regulation 31 disclosure came out as "The company
+            # disclosed a financing-related arrangement, but the filing
+            # provides no material business or financial update" and sat on
+            # the insider page between two real promoter purchases. Whatever
+            # it was, nobody can tell from it who traded what.
+            #
+            # "No material IMPACT" is deliberately not here: a real promoter
+            # sale often ends by saying the sale changes nothing about the
+            # business, and that sentence is about the company, not about
+            # whether the filing said anything.
+            if _NOTHING_TO_SAY.search(text):
                 continue
 
             key = (r.get("company"), day, text[:80])

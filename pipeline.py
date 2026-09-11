@@ -135,6 +135,15 @@ WEAK_FROM_SUMMARY = {"Meeting", "Routine", "Other", "Outcome", "Press Release",
 # summary.
 DEAL_TAGS = {"Acquisition", "Scheme Of Arrangement", "Open Offer"}
 
+# One company buying another, said in a way a promoter's own dealing never is.
+# A promoter buys "55,000 shares"; a company buys "100%", "the entire
+# shareholding", "control of". See the guard in category_from_summary.
+_COMPANY_BOUGHT_A_COMPANY = re.compile(
+    r"acquir\w+[^.]{0,25}(100 ?%|entire (stake|shareholding|equity|"
+    r"share capital)|majority (stake|shareholding)|control of)|"
+    r"share purchase agreement|slump sale|"
+    r"scheme of (arrangement|amalgamation|merger|demerger)", re.I)
+
 _DEAL_EVIDENCE = re.compile(
     r"acquisi|acquir|merger|amalgamat|de-?merger|slump sale|divest|"
     r"\bstake\b|shareholding|takeover|share purchase|controlling interest|"
@@ -268,9 +277,19 @@ def category_from_summary(category, headline, blob, current=None):
     # filed under "Corp. Action / Record Date", was held at Promoter Buy/Sell
     # while its summary said Acquisition, and so was Avanti Feeds
     # incorporating a subsidiary in Ecuador.
+    # ...unless the summary says the COMPANY bought a company. 7NR Retail
+    # "acquired 100% of Cultureantique Jewellery Private Limited", filed on a
+    # takeover form, was held at Promoter Buy/Sell by this guard and went out
+    # on the insider page as a promoter trade.
+    #
+    # Narrow on purpose. rules.part_of_a_bigger_deal would do it, and cannot
+    # be used here: every SAST headline carries the words "Substantial
+    # Acquisition of Shares & Takeovers", so it would unlock the guard for
+    # the whole category it exists to protect.
     if (current in ("Promoter Buy/Sell", "Inter-se Transfer")
             and rules.stake_category(category or "")
-            and from_summary in ("Acquisition", "Stake Change")):
+            and from_summary in ("Acquisition", "Stake Change")
+            and not _COMPANY_BOUGHT_A_COMPANY.search(blob)):
         from_summary = None
 
     # A notice that the BOARD is going to meet is the same mistake one meeting

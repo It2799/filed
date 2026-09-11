@@ -235,6 +235,43 @@ check(pi.trade_key(STRUCTURED_A) != pi.trade_key(FILING_A),
 
 # ---------------------------------------------------------------------------
 
+# ---------------------------------------------------------------------------
+# 6. A summary that admits it found nothing
+#
+# Lloyds Metals' Regulation 31 disclosure was summarised as "The company
+# disclosed a financing-related arrangement, but the filing provides no
+# material business or financial update", and it sat on the insider page
+# between two real promoter purchases. Nobody can tell from it who traded what.
+#
+# The line this must not cross: a real promoter sale often ends by saying the
+# sale has no material IMPACT on the business. That sentence is about the
+# company, not about whether the filing said anything.
+# ---------------------------------------------------------------------------
+
+import publish_insider                                     # noqa: E402
+
+NOTHING = [
+    "The company disclosed a financing-related arrangement, but the filing "
+    "provides no material business or financial update.",
+    "The filing does not disclose the number of shares traded.",
+    "No specific details were provided in this disclosure.",
+]
+for text in NOTHING:
+    check(bool(publish_insider._NOTHING_TO_SAY.search(text)),
+          "an empty summary was kept as an insider trade", text[:60])
+
+SOMETHING = [
+    "Promoter Brij Rattan Bagri bought 90,503 BLB Ltd shares on 10 Sept 2026.",
+    "Granules India disclosed that promoter Chigurupati sold 1.72 crore "
+    "shares, with no material impact on operations.",
+    "Peterhouse Investments sold 150,000 equity shares in the open market. "
+    "The company said there is no change in its board.",
+]
+for text in SOMETHING:
+    check(not publish_insider._NOTHING_TO_SAY.search(text),
+          "a real trade was thrown away as an empty summary", text[:60])
+
+
 print(f"{CHECKS[0]} checks")
 if FAILURES:
     print(f"\n{len(FAILURES)} FAILED\n")

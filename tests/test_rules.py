@@ -2652,6 +2652,176 @@ for text in COMPANY_ISSUED:
           f"{(pts, tag)} <- {text[:58]!r}")
 
 
+
+# ---------------------------------------------------------------------------
+# 26. Six filings that reached the insider page without a trade in them
+#
+# 11 September, every one of them tagged Promoter Buy/Sell and published on
+# /insider as somebody dealing in their own shares.
+#
+# The first three are the company creating NEW shares. They say "promoter" -
+# as the recipient, or even as "NON-promoter investors" - and they carry a
+# verb the promoter rule looks for, because a convertible warrant "can be
+# CONVERTED". The NSE copy of the Raymond Realty filing was sitting under
+# Warrants at the same moment the BSE copy was under Promoter Buy/Sell, which
+# is as clear as a bug report gets.
+#
+# The fourth moves shares inside the promoter family and says so in words the
+# inter-se rule had never met. The last two are not about shares at all: they
+# reached a share-dealing category from a passing match in the attachment,
+# which nothing could check, because Promoter Buy/Sell was the one tag with no
+# evidence rule.
+# ---------------------------------------------------------------------------
+
+COMPANY_ISSUE_NOT_A_TRADE = [
+    ("Connplex",
+     "Connplex Cinemas Limited has informed the Exchange about Preferential "
+     "issue. Connplex Cinemas is raising Rs 18.64 crore by issuing 8,00,000 "
+     "convertible warrants to non-promoter investors. These warrants can be "
+     "converted into equity shares within 18 months."),
+    ("Raymond Realty",
+     "Fund Raising through Preferential Issue of Share Warrants and Increase "
+     "in Authorised Share Capital. Raymond Realty approved raising up to "
+     "about Rs 409 crore by issuing 66.57 lakh convertible warrants at "
+     "Rs 614 each to a promoter-group investor, and increased its authorized "
+     "share capital from Rs 70 crore to Rs 75 crore."),
+    ("HBG Hotels",
+     "Outcome of Board Meeting. HBG Hotels has approved raising Rs 47.02 "
+     "crore through the preferential issue of 56.65 lakh convertible "
+     "warrants. The company plans to use Rs 36 crore of these funds to "
+     "acquire a 7,000 sq. mt. land parcel in Goa from its promoter group."),
+]
+for name, text in COMPANY_ISSUE_NOT_A_TRADE:
+    check(not rules.promoter_deal(text),
+          "a company issuing securities was read as a promoter trading",
+          name)
+    pts, tag = rules.score_text(rules.soften_stops(text), floor=0)
+    check(tag == "Warrants",
+          "a warrant issue did not come out as Warrants",
+          f"{name}: {(pts, tag)}")
+
+# ...and the promoter who really is dealing still is. A conversion of warrants
+# ALREADY HELD creates nothing, and a sale on the open market on the day the
+# board approved an issue is still a sale - which is why the fresh-issue guard
+# has a second lock on it.
+STILL_A_TRADE = [
+    ("Modern Dairies converting warrants it holds",
+     "Modern Dairies disclosed that promoter Krishan Kumar Goyal and persons "
+     "acting in concert have converted convertible warrants into 19,00,000 "
+     "equity shares, raising promoter holding."),
+    ("a promoter selling on the day of an issue",
+     "The board approved a preferential issue of 10,00,000 equity shares. "
+     "Separately, promoter Ramesh Shah sold 45,000 shares in the open "
+     "market on 9 September."),
+    ("a SAST form that prints preferential allotment among its modes",
+     "Disclosure under Regulation 29(2). Mode of acquisition: open market / "
+     "public issue / rights issue / preferential allotment / inter-se "
+     "transfer. Promoter Brij Rattan Bagri acquired 90,503 equity shares."),
+]
+for name, text in STILL_A_TRADE:
+    check(rules.promoter_deal(text),
+          "a real promoter trade was refused by the fresh-issue guard", name)
+
+# Shares shuffled inside the family, in a filing that never says "inter-se".
+TRADEWELL = (
+    "Intimation for change in Promoter and promoter group shareholding and "
+    "addition of Promoter group members. Tradewell Holdings Limited announced "
+    "a minor internal reallocation of shares within its promoter group. "
+    "Promoter Kamal Manchanda reduced his holding by 10,000 shares (0.33%), "
+    "which were acquired by three new members added to the promoter group. "
+    "Overall promoter and promoter group shareholding remains unchanged "
+    "following the transactions.")
+check(rules.interse_transfer(TRADEWELL),
+      "a reallocation inside the promoter group was not read as inter-se",
+      "Tradewell Holdings")
+check(not rules.promoter_deal(TRADEWELL),
+      "an inter-se reallocation was still read as a promoter trade",
+      "Tradewell Holdings")
+
+# A filing with no shares moving in it cannot corroborate a share-dealing tag.
+NO_TRADE_IN_IT = [
+    ("United Foodbrands",
+     "United Foodbrands Limited has informed the Exchange about Issuance of "
+     "Bank Guarantee in the form of a Stand-by Letter of Credit (SBLC). "
+     "United Foodbrands issued a stand-by letter of credit worth Rs 17 crore "
+     "through ICICI Bank to back a foreign-currency term loan taken by its "
+     "wholly-owned subsidiary Barbeque Nation Restaurant LLC."),
+    ("Burnpur Cement reclassification",
+     "Intimation of NOC received from NSE in the matter of reclassification "
+     "of a promoter to public category. Burnpur Cement has received a No "
+     "Objection Certificate from the National Stock Exchange for "
+     "reclassifying Mrs. Suchitra Agarwal from the promoter category to the "
+     "public category."),
+]
+for name, text in NO_TRADE_IN_IT:
+    check(not rules.tag_supported("Promoter Buy/Sell", rules.soften_stops(text)),
+          "a filing with no share dealing in it corroborated Promoter Buy/Sell",
+          name)
+
+# The evidence rule asks for shares moving, NOT for the word "promoter" - that
+# was the original objection to having one, and it was right. Every summary
+# below describes a real promoter trade without using the word once.
+REAL_TRADES = [
+    "Innovative Money Matters Pvt Ltd acquired 55,000 shares of Avonmore "
+    "Capital in the open market.",
+    "Dr. Krishna Prasad Chigurupati sold 1.72 crore shares on Sep 11, 2026.",
+    "Kalpesh B Kothari sold 18 shares in the open market. His holding fell "
+    "from 67,674 to 67,656 shares.",
+    "PAGAC Ecstasy Pte. Ltd. has increased the amount of debt secured by its "
+    "shareholding in Nuvama Wealth Management.",
+    "Peterhouse Investments Limited sold 150,000 equity shares of Usha "
+    "Martin Limited in the open market.",
+    "Nishant Pitti pledged 34,51,39,404 Easy Trip shares to Motilal Oswal.",
+]
+for text in REAL_TRADES:
+    check(rules.tag_supported("Promoter Buy/Sell", rules.soften_stops(text)),
+          "a real promoter trade failed its own evidence rule",
+          text[:60])
+
+
+
+# ---------------------------------------------------------------------------
+# 27. A company buying a company, filed on a takeover form
+#
+# 7NR Retail "has acquired 100% of Cultureantique Jewellery Private Limited",
+# funded by a preferential allotment. It went out on the insider page as a
+# promoter trade.
+#
+# The guard that did it is a good one: a stake disclosure is filed under SAST
+# precisely to say WHO moved the shares, so a summary that merely does not
+# repeat the word "promoter" must not overturn it. What it lacked was the one
+# exception - the summary saying, plainly, that the buyer was the company.
+#
+# It has to stay narrow. Every SAST headline carries the words "Substantial
+# Acquisition of Shares & Takeovers", so anything keyed on "takeover" would
+# unlock the guard for the entire category it protects.
+# ---------------------------------------------------------------------------
+
+SAST = "Disclosure under Regulation 29(2) of SEBI (Substantial Acquisition of Shares & Takeovers) Regulations, 2011"
+
+_7NR_HEAD = "Preferential allotment"
+_7NR = ("7NR Retail has acquired 100% of Cultureantique Jewellery Private "
+        "Limited (CJPL) to diversify its business. The acquisition was funded "
+        "through a preferential allotment of 9 crore equity shares to "
+        "non-promoters via a share swap deal.")
+for cat in ("", SAST, "Reg. 29(2) - SAST"):
+    got = pipeline.category_from_summary(
+        cat, _7NR_HEAD, _7NR_HEAD + " " + _7NR, current="Promoter Buy/Sell")
+    check(got == "Acquisition",
+          "a company buying a company stayed a promoter trade",
+          f"category={cat[:34]!r} -> {got}")
+
+# The promoter who really did buy shares is still protected by it.
+AVONMORE = ("Promoter group entity Innovative Money Matters Private Limited "
+            "has acquired 55,000 additional shares of Avonmore Capital in the "
+            "open market.")
+got = pipeline.category_from_summary(
+    SAST, SAST, SAST + " " + AVONMORE, current="Promoter Buy/Sell")
+check(got is None,
+      "a promoter purchase was relabelled an acquisition again",
+      f"-> {got}")
+
+
 # ---------------------------------------------------------------------------
 
 print(f"{CHECKS[0]} checks")

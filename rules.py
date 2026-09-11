@@ -1056,6 +1056,17 @@ _INTERSE = re.compile(
     r"regulation 10\(5\)|regulation 10\(6\)|reg\.? ?10\(5\)|reg\.? ?10\(6\)|"
     r"gift deed|by way of gift|as a gift\b|"
     r"transfer[^.]{0,60}(no consideration|without consideration)|"
+    # Shares shuffled inside the family without the words "inter-se".
+    #
+    # Tradewell Holdings: "a minor internal reallocation of shares within its
+    # promoter group ... Overall promoter and promoter group shareholding
+    # remains unchanged". Nobody bought anything and nothing left the family,
+    # which is the whole definition - but the filing never uses the phrase, so
+    # it was published as a promoter buying.
+    r"(transferr?\w*|reallocat\w+|re-?allot\w+|mov(ed|ing)|shift\w+|"
+    r"acquir\w+|sold)[^.]{0,40}within[^.]{0,25}promoter (group|family)|"
+    r"promoter[^.]{0,60}(share)?holding[^.]{0,25}remains unchanged|"
+    r"no change in[^.]{0,30}(total|overall|aggregate)[^.]{0,20}promoter|"
     r"exempt(ed)? from[^.]{0,30}open offer", re.I)
 
 INTERSE_SCORE = 45
@@ -1072,6 +1083,11 @@ _FRESH_ISSUE = re.compile(
     r"(warrant|equity share|new share|convertible)|"
     r"rights issue|\bqip\b|private placement of|"
     r"increase[^.]{0,30}(authorised|authorized) share capital", re.I)
+
+
+def corporate_deal(text):
+    """Does this read as a company transaction rather than a personal one?"""
+    return bool(text and _CORPORATE_DEAL.search(text))
 
 
 def interse_transfer(text):
@@ -1166,6 +1182,18 @@ def part_of_a_bigger_deal(text):
     return bool(_PART_OF_A_DEAL.search(text or ""))
 
 
+# A person trading shares they already own, as opposed to a company minting
+# new ones. Used as the second lock on the fresh-issue guard below, so that a
+# filing which is BOTH - a promoter selling on the market on the day the board
+# approved a rights issue - is still read as the promoter selling.
+_OWN_DEALING = re.compile(
+    r"open market|market purchase|off-?market|"
+    r"on the (nse|bse|stock exchange)|through the stock exchange|"
+    r"pledg|encumbr|invoc|revok|"
+    r"(sold|disposed|divested|bought|acquired|purchased)[^.]{0,40}"
+    r"(share|equity|stake|holding)", re.I)
+
+
 def promoter_deal(text):
     """Is this a promoter dealing in their own company's shares?
 
@@ -1180,6 +1208,28 @@ def promoter_deal(text):
     if interse_transfer(text):
         return False
     if _CORPORATE_DEAL.search(text):
+        return False
+    # The company issuing new securities is the company's event, not a
+    # promoter's trade - even though every one of these filings says
+    # "promoter" and carries a verb this looks for.
+    #
+    #   Connplex Cinemas   "issuing 8,00,000 convertible warrants to
+    #                       NON-promoter investors ... can be CONVERTED"
+    #   Raymond Realty     "66.57 lakh convertible warrants ... to a
+    #                       promoter-group investor"
+    #   HBG Hotels         "preferential issue of 56.65 lakh warrants ...
+    #                       to ACQUIRE a land parcel from its promoter group"
+    #
+    # All three were sitting under Promoter Buy/Sell on 11 September, and the
+    # NSE copy of the Raymond filing was correctly under Warrants at the same
+    # moment. _DEALING_TAGS already says a company issuing warrants stays a
+    # Warrants filing; this is what makes that true.
+    #
+    # The blank SEBI form lists "preferential allotment" among its modes, so
+    # the option list is stripped first - otherwise a genuine promoter
+    # purchase disclosed on that form would be read as an issue.
+    cleaned = _FORM_OPTION_LIST.sub(" ", text)
+    if _FRESH_ISSUE.search(cleaned) and not _OWN_DEALING.search(cleaned):
         return False
     return bool(_PROMOTER_ACTOR.search(text) and _PROMOTER_DEAL.search(text))
 
@@ -2117,12 +2167,32 @@ TAG_EVIDENCE = {
     "New Subsidiary": r"subsidiar|incorporat|\bllp\b|associate company|"
                       r"joint venture",
     "Delisting": r"delist",
-    # Deliberately absent: Promoter Buy/Sell, Inter-se Transfer and Stake
-    # Change. Those are not read off the document at all - they come from the
-    # stake-disclosure form, which is filed under SAST precisely to say who
-    # moved the shares. The summary of one reads "Innovative Money Matters Pvt
-    # Ltd acquired 55,000 shares of Avonmore Capital" and never says promoter,
-    # so asking it to corroborate would demote every one of them.
+    # Inter-se Transfer and Stake Change stay absent: they are not read off
+    # the document at all - they come from the stake-disclosure form, which is
+    # filed under SAST precisely to say who moved the shares.
+    #
+    # Promoter Buy/Sell used to be absent for the same reason, and that left
+    # it the one tag nothing could check. Triage promotes on a regex hit
+    # anywhere in a forty-page attachment, and three filings on 11 September
+    # reached the insider page that way with no trade in them at all:
+    #
+    #   United Foodbrands  a stand-by letter of credit for a subsidiary's loan
+    #   Burnpur Cement     NSE's NOC to RECLASSIFY a promoter as public
+    #
+    # So the evidence asked for is not the word "promoter" - the original
+    # objection was right, and "Innovative Money Matters Pvt Ltd acquired
+    # 55,000 shares of Avonmore Capital" never uses it. What is asked for is
+    # SHARES MOVING, which every real one of these describes and none of the
+    # three above does.
+    "Promoter Buy/Sell":
+        r"(acquir|purchas|bought|sold|sell|sale|dispos|divest|transferr?|"
+        r"subscrib|allot|convert)[^.]{0,60}"
+        r"(share|equity|stake|holding|warrant|\d[\d,.]*\s?%)|"
+        r"(share|equity|stake|holding|warrant)s?[^.]{0,60}"
+        r"(acquir|purchas|bought|sold|sell|sale|dispos|divest|transferr?)|"
+        r"pledg|encumbr|invoc|secured by[^.]{0,40}(share|holding)|"
+        r"open market|inter-?\s?se|reg\.? ?29|regulation 29|"
+        r"substantial acquisition of shares",
     # Vas Infrastructure and JCT both filed notices of their Committee of
     # Creditors meetings, which is a thing only a company in insolvency
     # files, and neither summary used any of the words above.
