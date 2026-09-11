@@ -245,19 +245,73 @@ def deal_id(row):
                      row["kind"][:2], code, who, row["side"][:1]])
 
 
+def _indian(n):
+    """1234567 -> 12,34,567. The way the number is actually written here."""
+    n = int(n or 0)
+    sign = "-" if n < 0 else ""
+    s = str(abs(n))
+    if len(s) <= 3:
+        return sign + s
+    head, tail = s[:-3], s[-3:]
+    groups = []
+    while len(head) > 2:
+        groups.insert(0, head[-2:])
+        head = head[:-2]
+    if head:
+        groups.insert(0, head)
+    return sign + ",".join(groups + [tail])
+
+
+def _rupees(v):
+    """Rs 3.21 crore, not Rs 32,071,369."""
+    v = float(v or 0)
+    if v >= CRORE:
+        return f"Rs {v / CRORE:,.2f} crore"
+    if v >= 10 ** 5:
+        return f"Rs {v / 10 ** 5:,.2f} lakh"
+    return "Rs " + _indian(round(v))
+
+
+def _each(price):
+    """A share price, with the paise where a reader would look for them."""
+    price = float(price or 0)
+    if not price:
+        return ""
+    if price < 1000:
+        return f"Rs {price:,.2f}"
+    return "Rs " + _indian(round(price))
+
+
 def headline(row):
-    """A sentence a person can read."""
+    """One sentence, written the way the insider page writes one.
+
+    Same two habits: lakhs and crores rather than a nine-digit number, and
+    digits grouped 78,12,500 rather than 7,812,500, because that is how
+    everybody who will read this writes it.
+    """
     verb = "bought" if row["side"] == "Buy" else "sold"
-    bits = [row.get("who") or "A large investor", verb,
-            f"{int(row['shares']):,} shares"]
+    who = (row.get("who") or "").strip() or "A large investor"
+    text = f"{who} {verb} {_indian(row.get('shares'))} shares"
     if row.get("company"):
-        bits.append(f"of {row['company']}")
-    if row.get("price"):
-        bits.append(f"at Rs {row['price']:,.2f}")
+        text += f" of {row['company']}"
+    each = _each(row.get("price"))
+    if each:
+        text += f" at {each} each"
+    if row.get("value"):
+        text += f" - {_rupees(row['value'])} in all"
+    text += "."
     if row.get("netted"):
-        bits.append("(net of the same day's sales)" if row["side"] == "Buy"
-                    else "(net of the same day's purchases)")
-    return " ".join(bits)
+        gross = (row.get("gross_sell") if row["side"] == "Buy"
+                 else row.get("gross_buy"))
+        other = "sold" if row["side"] == "Buy" else "bought"
+        # Only when we know the other side's size. A netted row with no figure
+        # for it would read "also sold 0 shares", which is worse than silence.
+        if gross:
+            text += (f" This is the net: they also {other} "
+                     f"{_indian(gross)} shares the same day.")
+        else:
+            text += " This is the net of the same day's trades on both sides."
+    return text
 
 
 def fetch(from_date, to_date, log=print):
@@ -293,4 +347,4 @@ if __name__ == "__main__":
     print()
     for r in found[:a.show]:
         print(f"  {r['day']}  {r['exchange']} {r['kind']:<5} "
-              f"Rs {r['value'] / CRORE:>8,.1f} cr  {r['headline'][:88]}")
+              f"Rs {r['value'] / CRORE:>8,.1f} cr  {r['headline'][:96]}")

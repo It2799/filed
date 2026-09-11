@@ -216,15 +216,35 @@ check(deals.deal_id(a) != deals.deal_id(c),
 
 said = deals.headline(row(who="DSP MUTUAL FUND", company="Jamna Auto Ind Ltd",
                           side="Buy", shares=7812500, price=128.0))
-check("DSP MUTUAL FUND bought 7,812,500 shares" in said,
-      "the headline does not say who did what", said)
-check("Jamna Auto" in said and "128.00" in said,
-      "the headline lost the company or the price", said)
+# 78,12,500, not 7,812,500. That is how everybody who will read this writes it.
+check("DSP MUTUAL FUND bought 78,12,500 shares" in said,
+      "the headline does not say who did what, in Indian digits", said)
+check("Jamna Auto" in said and "Rs 128.00 each" in said,
+      "the headline lost the company or the price each", said)
+check("Rs 100.00 crore in all" in said,
+      "the headline did not put the total in crores", said)
+
+check(deals._indian(7812500) == "78,12,500",
+      "digits are not grouped the Indian way", deals._indian(7812500))
+check(deals._rupees(1160000000) == "Rs 116.00 crore",
+      "a crore was not written as a crore", deals._rupees(1160000000))
+check(deals._each(872.5) == "Rs 872.50",
+      "a block price lost its paise", deals._each(872.5))
+check(deals._each(2651) == "Rs 2,651",
+      "a four-figure price kept pointless paise", deals._each(2651))
 
 netted = deals.headline(row(who="A FUND", side="Buy", shares=900000,
-                            price=100.0, netted=True))
-check("net of" in netted,
-      "a netted row does not say the day's sales were taken out", netted)
+                            price=100.0, netted=True, gross_sell=100000))
+check("also sold 1,00,000 shares the same day" in netted,
+      "a netted row does not say what was sold the same day", netted)
+
+# ...and when the other side's size is missing, it must not say "0 shares".
+vague = deals.headline(row(who="A FUND", side="Buy", shares=900000,
+                           price=100.0, netted=True))
+check(" 0 shares" not in vague,
+      "a netted row with no figure claimed zero shares", vague)
+check("net" in vague.lower(),
+      "a netted row did not say it had been netted", vague)
 
 
 # ---------------------------------------------------------------------------
