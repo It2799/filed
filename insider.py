@@ -69,7 +69,15 @@ PIT_PAGE = ("https://www.nseindia.com/companies-listing/"
 
 # How the trade was done. These say nothing about what the person thinks the
 # shares are worth.
-SKIP_MODE = re.compile(r"^\s*(esop|inter[\s-]?se[\s-]?transfer)\s*$", re.I)
+#
+# Searched, not anchored. The old rule wanted the mode to be EXACTLY "esop",
+# so "ESOS" - an Employee Stock Option SCHEME, the same thing with a different
+# last letter - went straight through and onto the page.
+SKIP_MODE = re.compile(
+    r"\besop\b|\besos\b|\besps\b|\bespp\b|"
+    r"employee stock option|employees stock option|stock option scheme|"
+    r"sweat equity|share[- ]based|"
+    r"inter[\s-]?se[\s-]?transfer", re.I)
 
 # A company's own employee trust.
 #
@@ -80,9 +88,30 @@ SKIP_MODE = re.compile(r"^\s*(esop|inter[\s-]?se[\s-]?transfer)\s*$", re.I)
 #
 # A family trust is NOT one of these. "Adivam Family Trust" is somebody's own
 # money taking a view, which is the whole point of reading this.
-SKIP_NAME = re.compile(r"welfaretrust|employees?trust|esoptrust|"
-                       r"employeestockoption\w{0,20}trust|"
-                       r"employeesbenefittrust|staffwelfare", re.I)
+# It matched on the word TRUST, and the trusts do not always carry it in the
+# name. "Eclerx Employee Welfare" is the name; "Trust" is the CATEGORY, in a
+# different field, so the letters the rule read were "eclerxemployeewelfare"
+# and nothing matched. Ten of its trades were on the page. "Firstsource
+# Employee Benefit Trust" missed by one letter - the rule wanted
+# "employeesbenefittrust", with an s.
+#
+# So the rule keys on what these things actually are: an EMPLOYEE vehicle.
+# Whatever the company calls it, "employee" or "staff" is next to "welfare",
+# "benefit", "trust" or "stock option", and a person's name never is.
+SKIP_NAME = re.compile(
+    r"employee\w{0,2}welfare|employee\w{0,2}benefit|employee\w{0,2}trust|"
+    r"staff\w{0,2}welfare|staff\w{0,2}benefit|staff\w{0,2}trust|"
+    r"welfare\w{0,2}trust|benefittrust|"
+    r"esoptrust|esopplan|esopscheme|esopaccount|"
+    r"employeestockoption|employeesstockoption|"
+    r"sharebased|sweatequity|"
+    r"gratuitytrust|providentfund|superannuation", re.I)
+
+# The same thing said across two fields rather than one. A vehicle whose
+# CATEGORY is Trust and whose name mentions its employees is an employee
+# trust however it is spelled - this is the backstop for the next one of
+# these that is named in a way nobody predicted.
+_STAFF_WORD = re.compile(r"employee|staff|welfare|esop|gratuity", re.I)
 
 
 def _letters(s):
@@ -127,6 +156,13 @@ def _num(v):
         return float(s)
     except ValueError:
         return 0
+
+
+def _price(value, shares):
+    """What one share went for, which the filing never states outright."""
+    if not value or not shares:
+        return 0.0
+    return round(float(value) / float(shares), 2)
 
 
 def _date(v):
@@ -197,11 +233,25 @@ def parse_xbrl(text):
 
 
 def skip_reason(person):
-    """Why this trade is not worth showing, or None to keep it."""
-    if SKIP_MODE.match(person.get("mode") or ""):
+    """Why this trade is not worth showing, or None to keep it.
+
+    Ishan's rule, and it has not changed: an employee stock scheme, a company
+    welfare trust and a transfer inside a promoter family are all filed on
+    this form and none of them is anybody deciding what the shares are worth.
+    """
+    if SKIP_MODE.search(person.get("mode") or ""):
         return (person.get("mode") or "").strip().lower()
-    if SKIP_NAME.search(_letters(person.get("who"))):
-        return "welfare trust"
+
+    name = _letters(person.get("who"))
+    if SKIP_NAME.search(name):
+        return "employee trust"
+
+    # A family trust is NOT one of these. "Adivam Family Trust" is somebody's
+    # own money taking a view, which is the whole point of reading this - so
+    # the category alone is never enough, the name has to mention the staff.
+    category = (person.get("category") or "")
+    if re.search(r"trust", category, re.I) and _STAFF_WORD.search(name):
+        return "employee trust"
     return None
 
 
@@ -228,23 +278,167 @@ _VERBS = [
 ]
 
 
-def headline(row):
-    """A sentence a person can read."""
-    side = (row["side"] or "").strip().lower()
-    verb = next((v for k, v in _VERBS if k in side), side or "traded")
+# Who the person is, in words rather than in the exchange's shorthand. The
+# form offers a dozen categories and a reader only wants to know whether this
+# is somebody who RUNS the company, somebody related to them, or staff.
+_ROLES = [
+    ("promoter and director", "a promoter and director"),
+    ("promoter group", "a promoter group entity"),
+    ("promoter", "a promoter"),
+    ("immediate relative", "a relative of an insider"),
+    ("relative", "a relative of an insider"),
+    ("key managerial", "senior management"),
+    ("designated", "a designated employee"),
+    ("director", "a director"),
+    ("employee", "an employee"),
+    ("trust", "a trust"),
+]
 
-    bits = [row["who"] or "An insider"]
-    if row["category"]:
-        bits.append(f"({row['category']})")
-    bits.append(verb)
-    bits.append(f"{row['shares']:,} shares" if row["shares"] else "shares")
-    if row["value"]:
-        bits.append(f"worth Rs {row['value']:,.0f}")
-    if row["mode"]:
-        bits.append(f"by {row['mode'].lower()}")
-    if row["after_pct"]:
-        bits.append(f"- now holds {row['after_pct']}%")
-    return " ".join(bits)
+# How it was done, said the way a person would say it. "by market purchase"
+# is the form's wording; "on the open market" is English.
+_HOWS = [
+    ("market purchase", "on the open market"),
+    ("market sale", "on the open market"),
+    ("open market", "on the open market"),
+    ("off market", "off market"),
+    ("inheritance", "by inheritance"),
+    ("gift", "as a gift"),
+    ("allotment", "through an allotment"),
+    ("conversion", "on conversion"),
+    ("rights", "through a rights issue"),
+    ("preferential", "through a preferential issue"),
+    ("invocation", ""),
+    ("pledge", ""),
+    ("others", ""),
+    ("other", ""),
+]
+
+
+def _indian(n):
+    """1234567 -> 12,34,567. The way the number is actually written here."""
+    n = int(n or 0)
+    sign = "-" if n < 0 else ""
+    s = str(abs(n))
+    if len(s) <= 3:
+        return sign + s
+    head, tail = s[:-3], s[-3:]
+    groups = []
+    while len(head) > 2:
+        groups.insert(0, head[-2:])
+        head = head[:-2]
+    if head:
+        groups.insert(0, head)
+    return sign + ",".join(groups + [tail])
+
+
+def _rupees(v):
+    """Rs 3.21 crore, not Rs 32,071,369."""
+    v = float(v or 0)
+    if v >= 10 ** 7:
+        return f"Rs {v / 10 ** 7:,.2f} crore"
+    if v >= 10 ** 5:
+        return f"Rs {v / 10 ** 5:,.2f} lakh"
+    return "Rs " + _indian(round(v))
+
+
+def _each(price):
+    """A share price, with the paise where a reader would look for them.
+
+    Rs 872.50 is how a block gets priced and how the buyer talks about it, so
+    rounding it to Rs 872 throws away a real number. Above a thousand rupees
+    nobody quotes the paise, and a four-decimal average is noise.
+    """
+    price = float(price or 0)
+    if not price:
+        return ""
+    if price < 1000:
+        return f"Rs {price:,.2f}"
+    return "Rs " + _indian(round(price))
+
+
+def _stake(pct):
+    """A holding, to two decimals, without pretending 0.0238% is precision."""
+    try:
+        v = float(str(pct).strip().rstrip("%"))
+    except (TypeError, ValueError):
+        return ""
+    if not v:
+        return ""
+    return "under 0.01%" if v < 0.01 else f"{v:.2f}%"
+
+
+def _role(category):
+    c = (category or "").strip().lower()
+    if not c:
+        return ""
+    return next((v for k, v in _ROLES if k in c), "a " + c)
+
+
+def _how(mode):
+    m = (mode or "").strip().lower()
+    if not m:
+        return ""
+    for k, v in _HOWS:
+        if k in m:
+            return v
+    return "by " + m
+
+
+def headline(row):
+    """One sentence, written for a person rather than for a form.
+
+    It used to read:
+
+        Eclerx Employee Welfare (Trust) bought 16,900 shares worth
+        Rs 32,071,369 by market purchase - now holds 0.0238%
+
+    which is the form's own words in the form's own order, with a rupee figure
+    nobody can read at a glance and a stake quoted to four decimals it does
+    not have. Now:
+
+        Kalidindi Ravi, a promoter and director, bought 800 shares at
+        Rs 176.50 each - Rs 1.41 lakh in all - on the open market.
+        Holding after: 0.07%.
+
+    The price per share is the number that was missing altogether, and it is
+    the one that says whether somebody paid up or picked something off the
+    floor.
+    """
+    side = (row.get("side") or "").strip().lower()
+    verb = next((v for k, v in _VERBS if k in side), side or "traded")
+    a_pledge = "pledge" in verb
+
+    who = (row.get("who") or "").strip() or "An insider"
+    role = _role(row.get("category"))
+    shares = int(row.get("shares") or 0)
+    value = row.get("value") or 0
+    price = row.get("price") or _price(value, shares)
+
+    lead = f"{who}, {role}," if role else who
+    count = f"{_indian(shares)} shares" if shares else "shares"
+
+    # A pledge is not a purchase. Nobody paid a price per share to pledge
+    # something they already own, so "at Rs 176 each" would be a lie.
+    if a_pledge:
+        text = f"{lead} {verb} {count}"
+        if value:
+            text += f", worth {_rupees(value)}"
+    else:
+        text = f"{lead} {verb} {count}"
+        each = _each(price)
+        if each:
+            text += f" at {each} each"
+        if value:
+            text += f" - {_rupees(value)} in all"
+        how = _how(row.get("mode"))
+        if how:
+            text += f", {how}"
+    text += "."
+
+    after = _stake(row.get("after_pct"))
+    if after:
+        text += f" Holding after: {after}."
+    return text
 
 
 def index_filings(from_date, to_date, log=print, session=None):
@@ -347,6 +541,11 @@ def fetch(from_date, to_date, log=print, session=None):
                 "mode": p.get("mode", ""),
                 "shares": int(_num(p.get("shares"))),
                 "value": _num(p.get("value")),
+                # The filing gives a total and never a price. A reader wants
+                # the price: Rs 32,071,369 for 16,900 shares means nothing
+                # until it is Rs 1,898 each, which is the number you can hold
+                # against what the share is trading at today.
+                "price": _price(_num(p.get("value")), _num(p.get("shares"))),
                 "before_n": int(_num(p.get("before_n"))),
                 "before_pct": p.get("before_pct", ""),
                 "after_n": int(_num(p.get("after_n"))),

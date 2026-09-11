@@ -12,7 +12,7 @@ const MAX_ROWS = 400;
 function publicRow(row) {
   const fields = [
     "id", "day", "company", "symbol", "exchange", "mcap", "who", "category",
-    "side", "mode", "shares", "value", "before_n", "before_pct",
+    "side", "mode", "shares", "price", "value", "before_n", "before_pct",
     "after_n", "after_pct", "traded_on", "filed_on", "headline",
     "regulation", "revised", "url",
   ];

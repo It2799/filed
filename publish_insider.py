@@ -151,22 +151,53 @@ def trade_key(row):
            "|" + (row.get("headline") or "")[:120]
 
 
+def still_belongs(row):
+    """Would today's rules let this row in?
+
+    Applied to what is ALREADY STORED, not only to what this pass found.
+
+    Without it, tightening a rule fixes nothing a reader can see. The day a
+    trade is written it is written under the rules of that day, and it then
+    sits there for a week: ten Eclerx Employee Welfare trades stayed on the
+    page through two separate widenings of the exclusion, because nothing
+    ever asked the stored rows the question again.
+
+    Only about the exclusions - it never drops a row for being small or dull.
+    A row is removed here only if it is something Ishan said should not be
+    on the page at all.
+    """
+    if insider.skip_reason({"who": row.get("who"),
+                            "category": row.get("category"),
+                            "mode": row.get("mode")}):
+        return False
+    # The prose rows carry no fields to judge, so they are judged on the
+    # sentence, the same way from_filings judges them.
+    if not (row.get("who") or "").strip():
+        text = f"{row.get('headline') or ''} {row.get('company') or ''}"
+        if _NOT_A_VIEW.search(text):
+            return False
+    return True
+
+
 def merge(old, new):
     """Today's trades so far, plus whatever this pass found.
 
     A later filing wins on a key it shares with an earlier one, because a
     revision is filed to correct something.
     """
-    by_key = {trade_key(r): r for r in old}
+    by_key = {trade_key(r): r for r in old if still_belongs(r)}
+    dropped = len(old) - len(by_key)
     added = 0
     for r in new:
+        if not still_belongs(r):
+            continue
         k = trade_key(r)
         if k not in by_key:
             added += 1
         by_key[k] = r
     rows = list(by_key.values())
     rows.sort(key=lambda r: (-(r.get("value") or 0), -(r.get("shares") or 0)))
-    return rows, added
+    return rows, added, dropped
 
 
 def store_days(url, token, by_day, log=print):
@@ -174,10 +205,12 @@ def store_days(url, token, by_day, log=print):
     written = 0
     for day, found in sorted(by_day.items()):
         key = f"mt:insider:{day}"
-        rows, added = merge(read_day(url, token, key), found)
+        rows, added, dropped = merge(read_day(url, token, key), found)
         write_day(url, token, key, rows)
         written += added
-        log(f"  insider: {day} now holds {len(rows)} trades (+{added})")
+        gone = f", -{dropped} no longer allowed" if dropped else ""
+        log(f"  insider: {day} now holds {len(rows)} trades "
+            f"(+{added}{gone})")
     return written
 
 
@@ -208,6 +241,21 @@ def refresh_index(url, token, days_seen):
 # Inter-se Transfer is deliberately absent - Ishan's rule, and the same one the
 # XBRL reader applies.
 FILING_TAGS = {"Promoter Buy/Sell", "Stake Change"}
+
+# The same three exclusions insider.py applies to the structured filings, read
+# off the prose instead of off the fields.
+#
+# Kept wide for the same reason the field rule had to be widened: a company
+# calls its staff vehicle whatever it likes - Employee Welfare, Employees
+# Benefit Trust, Staff Welfare Fund, ESOP Trust, ESOS - and every one of them
+# is the company handing its own people shares rather than anybody deciding
+# what the shares are worth.
+_NOT_A_VIEW = re.compile(
+    r"\besop\b|\besos\b|\besps\b|"
+    r"employees? stock option|employees? welfare|employees? benefit|"
+    r"employees? trust|staff welfare|welfare trust|"
+    r"stock option scheme|sweat equity|share[- ]based|"
+    r"inter-?\s?se transfer", re.I)
 
 # The summary's own admission that it found nothing.
 _NOTHING_TO_SAY = re.compile(
@@ -247,8 +295,7 @@ def from_filings(days, log=print):
             # The same exclusions, judged on the prose rather than on fields.
             if insider.SKIP_NAME.search(insider._letters(text)):
                 continue
-            if re.search(r"\besop\b|employee stock option|inter-?se transfer",
-                         text, re.I):
+            if _NOT_A_VIEW.search(text):
                 continue
             # A summary that says the filing contains nothing is not a trade.
             #
@@ -406,7 +453,9 @@ def main():
 
     key = f"mt:insider:{day}"
     before = read_day(url, token, key)
-    rows, added = merge(before, found)
+    rows, added, dropped = merge(before, found)
+    if dropped:
+        print(f"  insider: {dropped} stored rows no longer pass the rules")
 
     # Nothing new and nothing stored means an empty day - before the market
     # opens, or a holiday. Writing an empty day over an empty day is harmless;

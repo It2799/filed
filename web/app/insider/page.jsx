@@ -44,6 +44,75 @@ function dayLabel(iso) {
   return dt.toLocaleDateString("en-IN", { day: "2-digit", month: "short" });
 }
 
+// What one share went for. The filing states a total and never a price, so
+// older stored rows have no `price` field and it is worked out here instead.
+// It is the number you can hold against what the share trades at today.
+function each(row) {
+  const p =
+    Number(row.price) ||
+    (Number(row.shares) ? Number(row.value) / Number(row.shares) : 0);
+  if (!p) return "";
+  return p < 1000
+    ? `Rs ${p.toLocaleString("en-IN", { minimumFractionDigits: 2,
+                                        maximumFractionDigits: 2 })}`
+    : `Rs ${Math.round(p).toLocaleString("en-IN")}`;
+}
+
+// The form's wording, in English. "Market Purchase" is a field name.
+const HOWS = [
+  ["market purchase", "on the open market"],
+  ["market sale", "on the open market"],
+  ["open market", "on the open market"],
+  ["off market", "off market"],
+  ["inheritance", "by inheritance"],
+  ["gift", "as a gift"],
+  ["allotment", "through an allotment"],
+  ["conversion", "on conversion"],
+  ["preferential", "through a preferential issue"],
+  ["rights", "through a rights issue"],
+  ["pledge", ""],
+  ["invocation", ""],
+  ["other", ""],
+];
+
+function how(mode) {
+  const m = (mode || "").trim().toLowerCase();
+  if (!m) return "";
+  const hit = HOWS.find(([k]) => m.includes(k));
+  return hit ? hit[1] : m;
+}
+
+// The chip on the right of the company name. The filing says "Pledge Revoke";
+// a reader should see "Pledge released".
+const SIDES = [
+  ["pledge revoke", "Pledge released"],
+  ["pledge release", "Pledge released"],
+  ["pledge invoke", "Pledge invoked"],
+  ["pledge creation", "Pledged"],
+  ["revoke", "Pledge released"],
+  ["invoke", "Pledge invoked"],
+  ["encumbrance", "Encumbered"],
+  ["pledge", "Pledged"],
+  ["buy", "Bought"],
+  ["sell", "Sold"],
+  ["acquisition", "Bought"],
+  ["disposal", "Sold"],
+];
+
+function sideLabel(side) {
+  const s = (side || "").trim().toLowerCase();
+  if (!s) return "";
+  const hit = SIDES.find(([k]) => s.includes(k));
+  return hit ? hit[1] : side;
+}
+
+// 0.0238% is not four decimals of precision.
+function stake(pct) {
+  const v = Number(String(pct ?? "").replace("%", ""));
+  if (!v) return "";
+  return v < 0.01 ? "under 0.01%" : `${v.toFixed(2)}%`;
+}
+
 function role(row) {
   const c = (row.category || "").toLowerCase();
   if (c.includes("promoter")) return "promoter";
@@ -172,7 +241,7 @@ export default function InsiderPage() {
                 {t.mcap ? <span className="cap">{cap(t.mcap)}</span> : null}
                 {t.symbol ? <span className="sym">{t.symbol}</span> : null}
                 <span className={`side ${t.side?.toLowerCase() || ""}`}>
-                  {t.side}
+                  {sideLabel(t.side)}
                 </span>
                 <span className="when">{dayLabel(t.day)}</span>
               </div>
@@ -188,11 +257,23 @@ export default function InsiderPage() {
                       <span className={`role ${role(t)}`}>{t.category}</span>
                     ) : null}
                   </div>
+                  {/* Value first, because it is what a reader compares, then
+                      the price per share, which says whether they paid up or
+                      picked it off the floor. */}
                   <div className="t-nums">
-                    <span>{Number(t.shares || 0).toLocaleString("en-IN")} shares</span>
                     {t.value ? <span className="val">{money(t.value)}</span> : null}
-                    {t.mode ? <span className="mode">{t.mode}</span> : null}
-                    {t.after_pct ? <span className="held">holds {t.after_pct}%</span> : null}
+                    <span>
+                      {Number(t.shares || 0).toLocaleString("en-IN")} shares
+                    </span>
+                    {each(t) ? (
+                      <span className="each">at {each(t)} each</span>
+                    ) : null}
+                    {how(t.mode) ? (
+                      <span className="mode">{how(t.mode)}</span>
+                    ) : null}
+                    {stake(t.after_pct) ? (
+                      <span className="held">holding {stake(t.after_pct)}</span>
+                    ) : null}
                   </div>
                 </>
               ) : (
@@ -272,7 +353,7 @@ export default function InsiderPage() {
         }
         .val { font-weight: 600; color: #222; }
         .t-text { margin: 5px 0 0; font-size: 0.9rem; line-height: 1.5; color: #333; }
-        .mode, .held { color: #888; }
+        .mode, .held, .each { color: #888; }
         .more {
           display: block; margin: 12px auto; padding: 8px 16px;
           border: 1px solid #ddd; border-radius: 8px; background: #fff; cursor: pointer;
@@ -280,7 +361,8 @@ export default function InsiderPage() {
         .empty { color: #777; padding: 18px 0; }
         .verify { margin-top: 26px; color: #999; font-size: 0.78rem; line-height: 1.5; }
         @media (prefers-color-scheme: dark) {
-          .sub { color: #bbb; } .note, .when, .mode, .held { color: #888; }
+          .sub { color: #bbb; }
+          .note, .when, .mode, .held, .each { color: #888; }
           .t-card { border-color: #333; }
           .t-card.buy { background: #102114; border-color: #2c5c3a; }
           .t-card.sell { background: #241111; border-color: #5e2b2b; }

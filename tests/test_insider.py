@@ -164,24 +164,139 @@ check(insider.feed_items("<rss><channel><item>", log=lambda *a: None) == [],
 
 # ---------------------------------------------------------------------------
 # 4. The sentence a reader sees
+#
+# It used to be the form's own words in the form's own order:
+#
+#     Eclerx Employee Welfare (Trust) bought 16,900 shares worth
+#     Rs 32,071,369 by market purchase - now holds 0.0238%
+#
+# Rs 32,071,369 is a figure nobody reads at a glance, "by market purchase" is
+# a form field rather than English, and 0.0238% claims four decimals of
+# precision the number does not have. The price per share - the one figure
+# you can hold against what the share trades at today - was missing entirely.
 # ---------------------------------------------------------------------------
 
 line = insider.headline({
     "who": "Kalidindi Ravi", "category": "Promoter and Director", "side": "Buy",
     "shares": 800, "value": 141200, "mode": "Market Purchase",
     "after_pct": "0.0722"})
-for bit in ("Kalidindi Ravi", "Promoter and Director", "bought", "800 shares",
-            "141,200", "market purchase", "0.0722%"):
+for bit in ("Kalidindi Ravi", "a promoter and director", "bought",
+            "800 shares", "Rs 176.50 each", "Rs 1.41 lakh in all",
+            "on the open market", "Holding after: 0.07%"):
     check(bit in line, f"the headline is missing {bit!r}", line)
+
+# The price is worked out, because the filing never states it.
+check(insider._price(141200, 800) == 176.5,
+      "the price per share is wrong", str(insider._price(141200, 800)))
+check(insider._price(0, 800) == 0 and insider._price(141200, 0) == 0,
+      "a missing value or share count did not give a price of nothing")
+
+# Lakhs and crores, not a nine-digit number.
+check(insider._rupees(141200) == "Rs 1.41 lakh",
+      "a lakh was not written as a lakh", insider._rupees(141200))
+check(insider._rupees(474522751) == "Rs 47.45 crore",
+      "a crore was not written as a crore", insider._rupees(474522751))
+check(insider._rupees(4120) == "Rs 4,120",
+      "a small figure was inflated into lakhs", insider._rupees(4120))
+
+# Indian digit grouping. 620000 is six lakh twenty thousand, and it is written
+# 6,20,000 by everybody who will read this.
+check(insider._indian(620000) == "6,20,000",
+      "digits are not grouped the Indian way", insider._indian(620000))
+check(insider._indian(1234567) == "12,34,567",
+      "digits are not grouped the Indian way", insider._indian(1234567))
+check(insider._indian(800) == "800" and insider._indian(0) == "0",
+      "a short number was mangled by the grouping")
+
+# Paise where they matter and nowhere else.
+check(insider._each(872.5) == "Rs 872.50",
+      "a block price lost its paise", insider._each(872.5))
+check(insider._each(2651) == "Rs 2,651",
+      "a four-figure price kept pointless paise", insider._each(2651))
+check(insider._each(0) == "", "a missing price printed something")
+
+# A stake of 0.0238% is not four decimals of precision.
+check(insider._stake("0.0722") == "0.07%",
+      "the stake was not rounded", insider._stake("0.0722"))
+check(insider._stake("0.004") == "under 0.01%",
+      "a tiny stake was printed as 0.00%", insider._stake("0.004"))
+check(insider._stake("") == "" and insider._stake("0") == "",
+      "an absent stake printed something")
+
+# A pledge is not a purchase. Nobody paid a price per share to pledge shares
+# they already own, so quoting one would be a lie.
+pledged = insider.headline({
+    "who": "Sunil Agarwal", "category": "Promoter", "side": "Pledge Revoke",
+    "shares": 2775000, "value": 195304500, "mode": "Pledge Release",
+    "after_pct": "12.3"})
+check("released a pledge on" in pledged,
+      "a pledge release did not read as one", pledged)
+check("each" not in pledged, "a pledge was given a price per share", pledged)
+check("Rs 19.53 crore" in pledged, "the pledge lost its value", pledged)
 
 sold = insider.headline({"who": "X", "category": "", "side": "Sell",
                          "shares": 0, "value": 0, "mode": "", "after_pct": ""})
 check("sold" in sold, "a sale does not read as sold", sold)
 
+# An empty row must still produce a sentence rather than a crash.
+blank = insider.headline({})
+check(blank and blank.endswith("."), "an empty row did not give a sentence",
+      repr(blank))
+
 # Numbers arrive as '6,900', '-', '' and None.
 for raw, want in [("6,900", 6900), ("-", 0), ("", 0), (None, 0), ("141200", 141200)]:
     check(insider._num(raw) == want, f"_num({raw!r}) should be {want}",
           repr(insider._num(raw)))
+
+
+# ---------------------------------------------------------------------------
+# 4b. The employee schemes that were on the page anyway
+#
+# Ishan asked twice. The first rule matched on the word TRUST, and the trusts
+# do not always carry it in the name: "Eclerx Employee Welfare" is the NAME
+# and "Trust" is the CATEGORY, in a different field, so the letters the rule
+# read were "eclerxemployeewelfare" and nothing matched. Ten of its trades
+# were live. "Firstsource Employee Benefit Trust" missed by one letter, the
+# rule wanting "employeesbenefittrust" with an s. And the mode rule demanded
+# the word be exactly "esop", so "ESOS" - the same scheme, one letter apart -
+# walked through.
+# ---------------------------------------------------------------------------
+
+MUST_GO = [
+    ("Eclerx Employee Welfare", "Trust", "Market Purchase"),
+    ("Eclerx Employee Welfare (Trust)", "Trust", "Off Market"),
+    ("Firstsource Employee Benefit Trust", "Trust", "Off Market"),
+    ("JSW Steel Employees Welfare Trust - ESOP Plan 2016 A/c", "Trust", "Market Sale"),
+    ("Some Company Staff Welfare Fund", "Trust", "Market Purchase"),
+    ("Anybody At All", "Promoter", "ESOP"),
+    ("Anybody At All", "Promoter", "ESOS"),
+    ("Anybody At All", "Promoter", "Employee Stock Option"),
+    ("Anybody At All", "Promoter", "Inter-se Transfer"),
+    # The backstop: category says Trust, name says staff, spelled any way.
+    ("ABC Employees Group", "Trust", "Off Market"),
+]
+for name, category, mode in MUST_GO:
+    check(insider.skip_reason({"who": name, "category": category,
+                               "mode": mode}) is not None,
+          "an employee scheme or an inter-se transfer is still on the page",
+          f"{name!r} / {category!r} / {mode!r}")
+
+# A family trust is NOT one of these. "Adivam Family Trust" is somebody's own
+# money taking a view, which is the whole point of reading this - so the
+# category alone must never be enough.
+MUST_STAY = [
+    ("Adivam Family Trust", "Trust", "Market Purchase"),
+    ("Sulabhya Paramita Private Trust", "Promoter Group", "Pledge Release"),
+    ("Kalidindi Ravi", "Promoter and Director", "Market Purchase"),
+    ("Shalinee Gurtu", "Promoter Group", "Inheritance"),
+    ("Sanjay Purohit", "Director", "Market Sale"),
+    ("JSL Overseas Holding Limited", "Promoter Group", "Market Purchase"),
+]
+for name, category, mode in MUST_STAY:
+    check(insider.skip_reason({"who": name, "category": category,
+                               "mode": mode}) is None,
+          "a real insider trade was thrown away with the employee schemes",
+          f"{name!r} / {category!r} / {mode!r}")
 
 
 # ---------------------------------------------------------------------------
@@ -223,7 +338,8 @@ check(pi.trade_key(FILING_A) != pi.trade_key(FILING_C),
 check(pi.trade_key(FILING_A) == pi.trade_key(dict(FILING_A)),
       "the same filing gets two keys, so it would show twice")
 
-rows, added = pi.merge([], [FILING_A, FILING_B, FILING_C, dict(FILING_A)])
+rows, added, dropped = pi.merge(
+    [], [FILING_A, FILING_B, FILING_C, dict(FILING_A)])
 check(len(rows) == 3 and added == 3,
       "merging three distinct filings and one repeat should give three",
       f"{len(rows)} rows, {added} added")
@@ -270,6 +386,59 @@ SOMETHING = [
 for text in SOMETHING:
     check(not publish_insider._NOTHING_TO_SAY.search(text),
           "a real trade was thrown away as an empty summary", text[:60])
+
+
+# ---------------------------------------------------------------------------
+# 7. Tightening a rule has to clean what a looser rule already wrote
+#
+# Ten Eclerx Employee Welfare trades survived TWO widenings of the exclusion,
+# because a day is written under the rules of the day it was written and then
+# sits there for a week. Nothing ever asked the stored rows the question
+# again. merge() asks now, on the way past, so the next pass over a day is
+# also a sweep of it.
+# ---------------------------------------------------------------------------
+
+STORED_UNDER_OLD_RULES = [
+    {"symbol": "ECLERX", "who": "Eclerx Employee Welfare", "category": "Trust",
+     "shares": 16900, "value": 32071369, "mode": "Market Purchase",
+     "traded_on": "2026-09-09", "headline": "..."},
+    {"symbol": "FSL", "who": "Firstsource Employee Benefit Trust",
+     "category": "Trust", "shares": 65898, "value": 658980,
+     "mode": "Off Market", "traded_on": "2026-09-09", "headline": "..."},
+    {"symbol": "NCLIND", "who": "Kalidindi Ravi",
+     "category": "Promoter and Director", "shares": 800, "value": 141200,
+     "mode": "Market Purchase", "traded_on": "2026-09-11", "headline": "..."},
+]
+rows, added, dropped = pi.merge(STORED_UNDER_OLD_RULES, [])
+check(dropped == 2, "stored employee-trust rows were not swept out",
+      f"{dropped} dropped of 3")
+check(len(rows) == 1 and rows[0]["who"] == "Kalidindi Ravi",
+      "the sweep took a real trade with it", str([r["who"] for r in rows]))
+
+# It must never take a row out for being small or dull - only for being
+# something Ishan said should not be on the page at all.
+SMALL_BUT_REAL = [{"symbol": "TIRUPATI", "who": "Kalpesh B Kothari",
+                   "category": "Promoter Group", "shares": 18, "value": 900,
+                   "mode": "Market Sale", "traded_on": "2026-09-10",
+                   "headline": "..."}]
+rows, added, dropped = pi.merge(SMALL_BUT_REAL, [])
+check(dropped == 0 and len(rows) == 1,
+      "an eighteen-share promoter sale was swept out as noise")
+
+# A prose row has no fields to judge, so it is judged on its sentence.
+PROSE = [
+    {"company": "Some Ltd", "filed_on": "2026-09-11", "who": "",
+     "headline": "The company allotted shares under its ESOP scheme to 40 "
+                 "employees."},
+    {"company": "Other Ltd", "filed_on": "2026-09-11", "who": "",
+     "headline": "Promoter Brij Rattan Bagri bought 90,503 shares on the "
+                 "open market."},
+]
+rows, added, dropped = pi.merge(PROSE, [])
+check(dropped == 1, "an ESOP allotment described in prose was kept",
+      f"{dropped} dropped of 2")
+check(len(rows) == 1 and "Bagri" in rows[0]["headline"],
+      "the prose sweep took the real one", str(rows))
 
 
 print(f"{CHECKS[0]} checks")
