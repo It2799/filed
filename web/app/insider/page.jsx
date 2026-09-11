@@ -11,7 +11,7 @@ const ROLES = [
   ["director", "Directors"],
   ["kmp", "Key management"],
   ["employee", "Employees"],
-  ["relative", "Relatives"],
+  ["relative", "Family"],
 ];
 
 function money(n) {
@@ -53,8 +53,10 @@ function each(row) {
     (Number(row.shares) ? Number(row.value) / Number(row.shares) : 0);
   if (!p) return "";
   return p < 1000
-    ? `Rs ${p.toLocaleString("en-IN", { minimumFractionDigits: 2,
-                                        maximumFractionDigits: 2 })}`
+    ? `Rs ${p.toLocaleString("en-IN", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      })}`
     : `Rs ${Math.round(p).toLocaleString("en-IN")}`;
 }
 
@@ -82,8 +84,29 @@ function how(mode) {
   return hit ? hit[1] : m;
 }
 
-// The chip on the right of the company name. The filing says "Pledge Revoke";
-// a reader should see "Pledge released".
+// Who the person is, in words rather than in the exchange's shorthand.
+const ROLE_WORDS = [
+  ["promoter and director", "promoter and director"],
+  ["promoter group", "promoter group"],
+  ["promoter", "promoter"],
+  ["immediate relative", "family of an insider"],
+  ["relative", "family of an insider"],
+  ["key managerial", "senior management"],
+  ["designated", "senior employee"],
+  ["director", "director"],
+  ["employee", "employee"],
+  ["trust", "trust"],
+];
+
+function roleWords(category) {
+  const c = (category || "").trim().toLowerCase();
+  if (!c) return "";
+  const hit = ROLE_WORDS.find(([k]) => c.includes(k));
+  return hit ? hit[1] : c;
+}
+
+// The chip beside the company. The filing says "Pledge Revoke"; a reader
+// should see "Pledge released".
 const SIDES = [
   ["pledge revoke", "Pledge released"],
   ["pledge release", "Pledge released"],
@@ -101,9 +124,18 @@ const SIDES = [
 
 function sideLabel(side) {
   const s = (side || "").trim().toLowerCase();
-  if (!s) return "";
+  if (!s) return "Traded";
   const hit = SIDES.find(([k]) => s.includes(k));
   return hit ? hit[1] : side;
+}
+
+// A pledge is not a purchase. Nobody paid Rs 70.38 a share to pledge shares
+// they already own, so quoting a price on a pledge row would be a lie - the
+// same rule the sentence in insider.py follows.
+function isPledge(side) {
+  const s = (side || "").toLowerCase();
+  return s.includes("pledge") || s.includes("encumbr") ||
+    s.includes("revoke") || s.includes("invoke");
 }
 
 // 0.0238% is not four decimals of precision.
@@ -159,41 +191,47 @@ export default function InsiderPage() {
       <Nav />
       <main className="wrap">
         <header className="head">
-          <h1>Insider trading</h1>
+          <h1>Who&rsquo;s buying their own shares</h1>
           <p className="sub">
-            What promoters, directors and senior staff are doing with their own
-            money in their own company&rsquo;s shares &mdash; disclosed to the
-            exchange under SEBI&rsquo;s Regulation 7(2).
+            When a promoter, a director or senior staff buy or sell shares in
+            their own company, they have to tell the exchange. This is that
+            list &mdash; who, how many, and at what price.
           </p>
           <p className="note">
-            Employee stock options, transfers inside a promoter family and
-            company welfare trusts are left out. None of them is a decision
-            about what the shares are worth.
+            Left out on purpose: employee stock schemes, company welfare
+            trusts, and shares moving between members of one promoter family.
+            None of those is anyone deciding what the shares are worth.
           </p>
         </header>
 
+        {/* Counts only. The rupee totals that used to sit here added up
+            purchases across two hundred different companies, which is not a
+            number that means anything - Rs 177 crore of "buying" can be one
+            block in one company or two hundred small ones. */}
         {counts ? (
           <section className="tally">
             <div className="t-card buy">
               <span className="t-n">{counts.buys}</span>
               <span className="t-l">bought</span>
-              <span className="t-v">{money(counts.boughtValue)}</span>
             </div>
             <div className="t-card sell">
               <span className="t-n">{counts.sells}</span>
               <span className="t-l">sold</span>
-              <span className="t-v">{money(counts.soldValue)}</span>
             </div>
             <div className="t-card">
               <span className="t-n">{counts.total}</span>
-              <span className="t-l">trades, last 7 days</span>
+              <span className="t-l">in the last 7 days</span>
             </div>
           </section>
         ) : null}
 
         <section className="controls">
           <div className="seg">
-            {[["all", "All"], ["buy", "Bought"], ["sell", "Sold"]].map(([k, l]) => (
+            {[
+              ["all", "All"],
+              ["buy", "Buying"],
+              ["sell", "Selling"],
+            ].map(([k, l]) => (
               <button
                 key={k}
                 type="button"
@@ -218,7 +256,7 @@ export default function InsiderPage() {
           </div>
           <input
             className="search"
-            placeholder="Company or person"
+            placeholder="Search a company or a person"
             value={q}
             onChange={(e) => setQ(e.target.value)}
           />
@@ -228,8 +266,8 @@ export default function InsiderPage() {
         {!error && !data ? <p className="empty">Loading&hellip;</p> : null}
         {data && !data.items.length ? (
           <p className="empty">
-            No insider trades match. They arrive through the trading day, so
-            early morning is often quiet.
+            Nothing matches that. Companies file these through the trading day,
+            so mornings are often quiet.
           </p>
         ) : null}
 
@@ -239,42 +277,51 @@ export default function InsiderPage() {
               <div className="t-top">
                 <span className="co">{t.company}</span>
                 {t.mcap ? <span className="cap">{cap(t.mcap)}</span> : null}
-                {t.symbol ? <span className="sym">{t.symbol}</span> : null}
-                <span className={`side ${t.side?.toLowerCase() || ""}`}>
-                  {sideLabel(t.side)}
-                </span>
                 <span className="when">{dayLabel(t.day)}</span>
               </div>
+
               {/* Two shapes of row. The XBRL filing gives fields - who, how
                   many, at what, by what route. Our own scrape of the same
                   filing gives a sentence. Rather than draw a field row full of
                   blanks, a sentence is drawn as a sentence. */}
               {t.who ? (
                 <>
-                  <div className="t-who">
-                    <strong>{t.who}</strong>
-                    {t.category ? (
-                      <span className={`role ${role(t)}`}>{t.category}</span>
-                    ) : null}
-                  </div>
-                  {/* Value first, because it is what a reader compares, then
-                      the price per share, which says whether they paid up or
-                      picked it off the floor. */}
-                  <div className="t-nums">
-                    {t.value ? <span className="val">{money(t.value)}</span> : null}
-                    <span>
+                  {/* The money line, read left to right the way it is said
+                      out loud: what happened, how much of it, at what price. */}
+                  <p className="t-deal">
+                    <span className={`side ${t.side?.toLowerCase() || ""}`}>
+                      {sideLabel(t.side)}
+                    </span>
+                    <span className="qty">
                       {Number(t.shares || 0).toLocaleString("en-IN")} shares
                     </span>
-                    {each(t) ? (
-                      <span className="each">at {each(t)} each</span>
+                    {each(t) && !isPledge(t.side) ? (
+                      <span className="each">at {each(t)}</span>
                     ) : null}
-                    {how(t.mode) ? (
-                      <span className="mode">{how(t.mode)}</span>
+                    {t.value ? (
+                      <span className="val">
+                        {isPledge(t.side) ? "worth " : ""}
+                        {money(t.value)}
+                      </span>
                     ) : null}
-                    {stake(t.after_pct) ? (
-                      <span className="held">holding {stake(t.after_pct)}</span>
+                  </p>
+                  <p className="t-who">
+                    <strong>{t.who}</strong>
+                    {roleWords(t.category) ? (
+                      <span className={`role ${role(t)}`}>
+                        {roleWords(t.category)}
+                      </span>
                     ) : null}
-                  </div>
+                  </p>
+                  {how(t.mode) || stake(t.after_pct) ? (
+                    <p className="t-tail">
+                      {how(t.mode)}
+                      {how(t.mode) && stake(t.after_pct) ? " · " : ""}
+                      {stake(t.after_pct)
+                        ? `holds ${stake(t.after_pct)} after this`
+                        : ""}
+                    </p>
+                  ) : null}
                 </>
               ) : (
                 <p className="t-text">{t.headline}</p>
@@ -284,96 +331,126 @@ export default function InsiderPage() {
         </ul>
 
         {data && data.items.length > shown ? (
-          <button className="more" type="button" onClick={() => setShown(shown + PAGE)}>
-            Show more ({data.items.length - shown} left)
+          <button
+            className="more"
+            type="button"
+            onClick={() => setShown(shown + PAGE)}
+          >
+            Show {Math.min(PAGE, data.items.length - shown)} more
           </button>
         ) : null}
 
         <p className="verify">
-          From the disclosures companies file under SEBI&rsquo;s Regulation
-          7(2), on both exchanges. Rows with a named person and a share count
-          come from the structured filing; the rest are the same disclosure
-          read from the document. Nothing here is advice.
+          Straight from what companies file with NSE and BSE under SEBI&rsquo;s
+          Regulation 7(2). Rows with a named person and a share count come from
+          the structured filing; the rest are the same disclosure read from the
+          document. Nothing here is advice.
         </p>
       </main>
 
       <style jsx>{`
         .wrap { max-width: 900px; margin: 0 auto; padding: 24px 16px 64px; }
-        .head h1 { margin: 0 0 6px; font-size: 1.7rem; }
-        .sub { margin: 0 0 8px; color: #444; line-height: 1.5; }
-        .note { margin: 0 0 18px; color: #777; font-size: 0.86rem; line-height: 1.5; }
+        .head h1 { margin: 0 0 8px; font-size: 1.75rem; letter-spacing: -0.01em; }
+        .sub { margin: 0 0 8px; color: #444; line-height: 1.55; max-width: 62ch; }
+        .note {
+          margin: 0 0 20px; color: #6b6b6b; font-size: 0.85rem;
+          line-height: 1.55; max-width: 62ch;
+          border-left: 2px solid #e8e8e8; padding-left: 11px;
+        }
         .tally { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 18px; }
         .t-card {
-          flex: 1 1 150px; border: 1px solid #e6e6e6; border-radius: 10px;
-          padding: 10px 12px; display: flex; flex-direction: column; gap: 2px;
+          flex: 1 1 130px; border: 1px solid #e8e8e8; border-radius: 12px;
+          padding: 12px 14px; display: flex; flex-direction: column; gap: 1px;
         }
-        .t-card.buy { border-color: #b9e2c4; background: #f3fbf5; }
-        .t-card.sell { border-color: #f0c8c8; background: #fdf5f5; }
-        .t-n { font-size: 1.5rem; font-weight: 650; }
+        .t-card.buy { border-color: #c6e6cf; background: #f4fbf6; }
+        .t-card.sell { border-color: #f2d0d0; background: #fdf6f6; }
+        .t-n { font-size: 1.7rem; font-weight: 660; letter-spacing: -0.02em; }
         .t-l { font-size: 0.8rem; color: #666; }
-        .t-v { font-size: 0.86rem; color: #333; }
-        .controls { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
-        .seg { display: inline-flex; border: 1px solid #ddd; border-radius: 8px; overflow: hidden; }
+        .controls { display: flex; gap: 9px; flex-wrap: wrap; margin-bottom: 16px; }
+        .seg {
+          display: inline-flex; border: 1px solid #e2e2e2; border-radius: 9px;
+          overflow: hidden;
+        }
         .seg.wrapseg { flex-wrap: wrap; }
         .seg button {
-          border: 0; background: #fff; padding: 7px 11px; cursor: pointer;
-          font-size: 0.85rem; border-right: 1px solid #eee;
+          border: 0; background: #fff; padding: 7px 12px; cursor: pointer;
+          font-size: 0.85rem; color: #333; border-right: 1px solid #eee;
         }
         .seg button:last-child { border-right: 0; }
+        .seg button:hover { background: #f6f6f6; }
         .seg button.on { background: #111; color: #fff; }
         .search {
-          flex: 1 1 180px; min-width: 160px; padding: 7px 11px;
-          border: 1px solid #ddd; border-radius: 8px; font-size: 0.85rem;
+          flex: 1 1 200px; min-width: 170px; padding: 7px 12px;
+          border: 1px solid #e2e2e2; border-radius: 9px; font-size: 0.85rem;
         }
         .trades { list-style: none; margin: 0; padding: 0; }
         .trade {
-          border: 1px solid #eee; border-left: 3px solid #ddd; border-radius: 8px;
-          padding: 11px 13px; margin-bottom: 9px;
+          border: 1px solid #eee; border-left: 3px solid #e0e0e0;
+          border-radius: 10px; padding: 12px 14px; margin-bottom: 9px;
         }
         .trade.buy { border-left-color: #3aa35c; }
         .trade.sell { border-left-color: #cc4b4b; }
-        .t-top { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
-        .co { font-weight: 620; }
-        .sym { font-size: 0.75rem; color: #888; }
-        .cap {
-          font-size: 0.72rem; color: #555; background: #f1f1f1;
-          padding: 1px 7px; border-radius: 99px;
+        .t-top {
+          display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap;
         }
-        .side { font-size: 0.72rem; padding: 1px 7px; border-radius: 99px; background: #eee; }
+        .co { font-weight: 630; }
+        .cap {
+          font-size: 0.71rem; color: #555; background: #f2f2f2;
+          padding: 1px 7px; border-radius: 99px; white-space: nowrap;
+        }
+        .when { margin-left: auto; font-size: 0.76rem; color: #9a9a9a; }
+        .t-deal {
+          margin: 8px 0 0; display: flex; gap: 9px; align-items: baseline;
+          flex-wrap: wrap; font-size: 0.92rem;
+        }
+        .side {
+          font-size: 0.72rem; padding: 2px 8px; border-radius: 99px;
+          background: #eee; font-weight: 600; letter-spacing: 0.01em;
+        }
         .side.buy { background: #e4f5e9; color: #1e6b38; }
         .side.sell { background: #fbe7e7; color: #8c2b2b; }
-        .when { margin-left: auto; font-size: 0.76rem; color: #999; }
-        .t-who { margin-top: 4px; font-size: 0.92rem; }
-        .role { margin-left: 7px; font-size: 0.74rem; color: #666; }
+        .qty { color: #222; }
+        .each { color: #666; }
+        .val { margin-left: auto; font-weight: 650; color: #111; }
+        .t-who { margin: 6px 0 0; font-size: 0.88rem; color: #333; }
+        .role { margin-left: 7px; font-size: 0.75rem; color: #777; }
         .role.promoter { color: #7a4bbd; }
         .role.director { color: #1f6fb2; }
-        .t-nums {
-          margin-top: 5px; display: flex; gap: 12px; flex-wrap: wrap;
-          font-size: 0.84rem; color: #555;
-        }
-        .val { font-weight: 600; color: #222; }
-        .t-text { margin: 5px 0 0; font-size: 0.9rem; line-height: 1.5; color: #333; }
-        .mode, .held, .each { color: #888; }
+        .t-tail { margin: 4px 0 0; font-size: 0.8rem; color: #8a8a8a; }
+        .t-text { margin: 7px 0 0; font-size: 0.9rem; line-height: 1.55; color: #333; }
         .more {
-          display: block; margin: 12px auto; padding: 8px 16px;
-          border: 1px solid #ddd; border-radius: 8px; background: #fff; cursor: pointer;
+          display: block; margin: 14px auto; padding: 9px 18px;
+          border: 1px solid #e2e2e2; border-radius: 9px; background: #fff;
+          cursor: pointer; font-size: 0.87rem;
         }
-        .empty { color: #777; padding: 18px 0; }
-        .verify { margin-top: 26px; color: #999; font-size: 0.78rem; line-height: 1.5; }
+        .more:hover { background: #f6f6f6; }
+        .empty { color: #777; padding: 18px 0; line-height: 1.55; }
+        .verify {
+          margin-top: 28px; color: #9a9a9a; font-size: 0.78rem;
+          line-height: 1.55; max-width: 66ch;
+        }
         @media (prefers-color-scheme: dark) {
           .sub { color: #bbb; }
-          .note, .when, .mode, .held, .each { color: #888; }
+          .note { color: #8d8d8d; border-left-color: #2c2c2c; }
+          .when, .t-tail, .each, .role { color: #888; }
           .t-card { border-color: #333; }
           .t-card.buy { background: #102114; border-color: #2c5c3a; }
           .t-card.sell { background: #241111; border-color: #5e2b2b; }
-          .trade { border-color: #2a2a2a; }
-          .cap { background: #222; color: #aaa; }
+          .t-l { color: #999; }
+          .trade { border-color: #2a2a2a; border-left-color: #383838; }
+          .cap { background: #232323; color: #aaa; }
           .seg { border-color: #333; }
-          .seg button { background: #161616; color: #ddd; border-right-color: #262626; }
+          .seg button {
+            background: #161616; color: #ddd; border-right-color: #262626;
+          }
+          .seg button:hover { background: #1e1e1e; }
           .seg button.on { background: #fff; color: #111; }
           .search { background: #161616; color: #ddd; border-color: #333; }
           .more { background: #161616; color: #ddd; border-color: #333; }
-          .val { color: #eee; }
+          .more:hover { background: #1e1e1e; }
+          .qty { color: #ddd; }
+          .val { color: #fff; }
+          .t-who { color: #ccc; }
           .t-text { color: #ccc; }
         }
       `}</style>
