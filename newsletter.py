@@ -32,7 +32,16 @@ import urllib.request
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 OUT_DIR = os.path.join(HERE, "brief")
-API = "https://markettide.in/api/announcements?scope=important"
+# www, not the bare domain. markettide.in answers every request with a 308 to
+# www.markettide.in, and a redirect on every one of a hundred-odd paged
+# requests is a hundred wasted round trips - and urllib gave up partway through
+# with a connection reset rather than following them all.
+API = "https://www.markettide.in/api/announcements?scope=important"
+
+# The API hands back ten rows a request, so the whole window takes many. Capped
+# so a paging bug on either side cannot spin for ever; 120 pages is 1,200
+# filings, comfortably more than two days of important news.
+MAX_PAGES = 120
 
 # A call, a slide deck and a meeting invitation are things an investor puts in
 # a diary, not things that happened. Dividends and splits are left out too -
@@ -84,18 +93,72 @@ CHROME_CANDIDATES = [
 
 # --------------------------------------------------------------------- data
 
-def fetch(day=None, source=None):
+def fetch(day=None, source=None, max_pages=MAX_PAGES, earliest=None):
+    """Every important filing the site holds, a page at a time.
+
+    The API returns ten rows per request and no more - MAX_PAGE_SIZE in
+    web/app/api/announcements/route.js, which exists so the dashboard can page
+    through them. This asked for one page and got ten filings, so the brief
+    was chosen from ten candidates however large --count was: the issue of
+    11 September said "8 filings from 10" and nobody noticed, because eight
+    filings still look like a newsletter.
+
+    Nothing failed. The cap was added for the dashboard and silently became
+    the size of the morning brief.
+
+    board=Main, because the brief is a main-board product. SME filings have
+    been arriving since NSE's sme list started being fetched, and an SME
+    company is a different thing from the ones this issue is about.
+
+    `earliest` is the oldest day the caller wants. Rows come back newest
+    first, so once a whole page falls before it there is nothing left to find
+    and the remaining pages can be left alone.
+    """
     if source:
         with open(source, encoding="utf-8") as f:
             data = json.load(f)
-    else:
-        req = urllib.request.Request(API, headers={"User-Agent": "markettide-brief"})
+        rows = data.get("items") or []
+        meta = data.get("meta") or {}
+        if day:
+            rows = [r for r in rows if r.get("day") == day]
+        return rows, meta
+
+    rows, meta, page = [], {}, 1
+    while page <= max_pages:
+        url = f"{API}&board=Main&page={page}"
+        req = urllib.request.Request(
+            url, headers={"User-Agent": "markettide-brief"})
         with urllib.request.urlopen(req, timeout=60) as r:
             data = json.load(r)
-    rows = data.get("items") or []
+
+        got = data.get("items") or []
+        rows.extend(got)
+        meta = meta or data.get("meta") or {}
+
+        if not got:
+            break
+
+        # page, pageSize, totalPages and hasMore are TOP-LEVEL on this
+        # response, not under a "paging" object. Reading a key that is not
+        # there gives None, which reads as "no idea how many pages", and the
+        # loop would then walk all 159 of them every morning.
+        if not data.get("hasMore"):
+            break
+        total_pages = data.get("totalPages")
+        if total_pages and page >= int(total_pages):
+            break
+
+        # Rows come back newest first, so once a whole page is older than the
+        # window there is nothing left to find. The brief covers yesterday and
+        # this morning; the site holds a week.
+        if earliest and all((r.get("day") or "") < earliest for r in got):
+            break
+
+        page += 1
+
     if day:
         rows = [r for r in rows if r.get("day") == day]
-    return rows, data.get("meta") or {}
+    return rows, meta
 
 
 def pick(rows, count):
@@ -588,7 +651,14 @@ def main():
                     help="put the PDF in the KV store so the site can serve it")
     args = ap.parse_args()
 
-    rows, meta = fetch(None, args.source)
+    # The window starts at the beginning of yesterday, so there is no reason to
+    # page back beyond it. Without this the fetch walks all 159 pages of the
+    # week every morning to use two days of them.
+    issue_day = args.day or datetime.datetime.now(IST).date().isoformat()
+    earliest = (datetime.date.fromisoformat(issue_day)
+                - datetime.timedelta(days=1)).isoformat()
+
+    rows, meta = fetch(None, args.source, earliest=earliest)
     if not rows:
         sys.exit("the API returned no filings")
 

@@ -18,7 +18,16 @@ import sys
 import urllib.parse
 import urllib.request
 
-DEFAULT_URL = "https://filed-omega.vercel.app"
+# The site readers actually use, not the preview alias.
+#
+# This pointed at filed-omega.vercel.app, which Vercel has paused - it answers
+# 503 to everything. So every run went red on "Verify the live site" while
+# www.markettide.in was serving perfectly well, and a red tick that means
+# nothing is worse than no tick: it trains you to ignore the one that matters.
+#
+# www, not the bare domain, because markettide.in 308-redirects to it and the
+# checks below read status codes.
+DEFAULT_URL = "https://www.markettide.in"
 EXPECT_DAYS = 7
 
 fails, warns = [], []
@@ -87,10 +96,15 @@ def main():
         check(got[:EXPECT_DAYS] == expected, "the days are consecutive, no gaps",
               f"got {got[:EXPECT_DAYS]}")
 
-        per_day = {}
-        for it in d.get("items", []):
-            per_day[it.get("day")] = per_day.get(it.get("day"), 0) + 1
-        with_filings = sum(1 for x in days if per_day.get(x, 0) > 0)
+        # dayCounts, not the rows on this page.
+        #
+        # The API serves ten rows a request, so counting the days present in
+        # one page says only that today exists - and this reported "1/7 days
+        # have filings" every run while all seven were full. A check that
+        # measures the page size rather than the data is worse than no check:
+        # it goes red for ever and teaches you to ignore it.
+        per_day = d.get("dayCounts") or {}
+        with_filings = sum(1 for x in days if (per_day.get(x) or 0) > 0)
         check(with_filings >= 4, "most days actually hold filings",
               f"{with_filings}/{len(days)} days have filings")
 
@@ -104,7 +118,10 @@ def main():
         try:
             r = get(f"{base}/api/announcements?scope=important&tag="
                     + urllib.parse.quote(tag), timeout=45)
-            served = r.get("count", 0)
+            # "total" is what the filter matched; "count" is what fitted on
+            # this page, which is ten. Comparing the sidebar's number against
+            # the page size made every busy category look broken.
+            served = r.get("total", r.get("count", 0))
             if served != n:
                 broken.append(f"{tag} says {n} serves {served}")
         except Exception as e:
