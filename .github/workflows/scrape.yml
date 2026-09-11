@@ -286,6 +286,24 @@ jobs:
         continue-on-error: true
         run: python tools/reconcile_feeds.py --show 10 --fail-over 120
 
+      # Who inside a company is buying or selling its shares.
+      #
+      # Runs on every pass, not once a day, because NSE's feed holds only what
+      # has been filed so far today and empties overnight: a pass at eleven in
+      # the morning sees less than one at six in the evening. Each pass merges
+      # what it finds into the day already stored rather than replacing it, so
+      # the morning's trades survive the afternoon.
+      #
+      # continue-on-error: an exchange serving broken XML is a reason to have
+      # no insider trades this pass, not to throw away a good scrape.
+      - name: Read the day's insider trades
+        if: always()
+        continue-on-error: true
+        env:
+          KV_REST_API_URL: ${{ secrets.KV_REST_API_URL }}
+          KV_REST_API_TOKEN: ${{ secrets.KV_REST_API_TOKEN }}
+        run: python -u publish_insider.py
+
       # Make sure today's morning brief exists.
       #
       # This lives here because this workflow is the thing that actually runs

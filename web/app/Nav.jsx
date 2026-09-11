@@ -22,6 +22,7 @@ export default function Nav() {
         <div className="nav-links">
           <a href="/dashboard">Dashboard</a>
           <a href="/brief">Daily brief</a>
+          <a href="/insider">Insider trading</a>
           {user ? (
             <button type="button" className="nav-account" onClick={signOut}>Log out</button>
           ) : ready ? (
