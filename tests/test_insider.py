@@ -185,6 +185,55 @@ for raw, want in [("6,900", 6900), ("-", 0), ("", 0), (None, 0), ("141200", 1412
 
 
 # ---------------------------------------------------------------------------
+# 5. Two shapes of row, and what makes each one distinct
+#
+# A row read from the XBRL filing has a named person, a share count, a value
+# and a mode. A row read from the document has none of them - just a company
+# and a sentence. The key that decides whether two rows are the same trade was
+# built from the first shape's fields, so every row of the second shape
+# collapsed to the same key: a day of sixty-eight filings stored as one, and
+# the page showed three rows for four days.
+# ---------------------------------------------------------------------------
+
+import publish_insider as pi                                # noqa: E402
+
+STRUCTURED_A = {"symbol": "ABC", "who": "Ravi", "shares": 100, "value": 1000,
+                "mode": "Market Purchase", "traded_on": "2026-09-11"}
+STRUCTURED_B = {"symbol": "ABC", "who": "Anita", "shares": 200, "value": 2000,
+                "mode": "Market Sale", "traded_on": "2026-09-11"}
+check(pi.trade_key(STRUCTURED_A) != pi.trade_key(STRUCTURED_B),
+      "two different structured trades share a key")
+check(pi.trade_key(STRUCTURED_A) == pi.trade_key(dict(STRUCTURED_A)),
+      "the same structured trade gets two keys")
+
+BLANK = {"symbol": "", "who": "", "shares": 0, "value": 0, "mode": "",
+         "traded_on": ""}
+FILING_A = dict(BLANK, company="BLB Ltd", filed_on="2026-09-11",
+                headline="Promoter Brij Rattan Bagri bought 90,503 shares")
+FILING_B = dict(BLANK, company="Usha Martin", filed_on="2026-09-11",
+                headline="Peterhouse Investments sold 150,000 shares")
+FILING_C = dict(BLANK, company="BLB Ltd", filed_on="2026-09-11",
+                headline="Promoter Brij Rattan Bagri sold 1,000 shares")
+
+check(pi.trade_key(FILING_A) != pi.trade_key(FILING_B),
+      "two filings from different companies collapsed to one key",
+      pi.trade_key(FILING_A))
+check(pi.trade_key(FILING_A) != pi.trade_key(FILING_C),
+      "two different filings from the SAME company collapsed to one key")
+check(pi.trade_key(FILING_A) == pi.trade_key(dict(FILING_A)),
+      "the same filing gets two keys, so it would show twice")
+
+rows, added = pi.merge([], [FILING_A, FILING_B, FILING_C, dict(FILING_A)])
+check(len(rows) == 3 and added == 3,
+      "merging three distinct filings and one repeat should give three",
+      f"{len(rows)} rows, {added} added")
+
+# A structured row and a filing row never share a key, whatever else matches.
+check(pi.trade_key(STRUCTURED_A) != pi.trade_key(FILING_A),
+      "a structured trade and a document row share a key")
+
+
+# ---------------------------------------------------------------------------
 
 print(f"{CHECKS[0]} checks")
 if FAILURES:

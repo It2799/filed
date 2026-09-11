@@ -137,8 +137,18 @@ def trade_key(row):
     Not the id: that carries the filing's file name, and a company filing a
     revision produces a new file for a trade already shown.
     """
-    return "|".join(str(row.get(k, "")) for k in
-                    ("symbol", "who", "shares", "value", "mode", "traded_on"))
+    key = "|".join(str(row.get(k, "")) for k in
+                   ("symbol", "who", "shares", "value", "mode", "traded_on"))
+    if key.strip("|0"):
+        return key
+
+    # A row read from the document has none of those - no share count in a
+    # field, no named person, no mode - so every one of them collapsed to the
+    # same key and a day of sixty-eight filings stored as one. For those, the
+    # company and the sentence are what make it distinct.
+    return "FIL|" + "|".join(str(row.get(k, "")) for k in
+                             ("company", "filed_on"))[:200] + \
+           "|" + (row.get("headline") or "")[:120]
 
 
 def merge(old, new):
