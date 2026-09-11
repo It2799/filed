@@ -52,6 +52,14 @@ JUNK = [
     # Depository plumbing: the date a company's shares became transferable at
     # CDSL or NSDL.
     r"date of connectivity|connectivity (informed|intimated) by",
+    # A bill. Prakash Steelage filed the invoice from the agent who made its
+    # SAST filings - Rs 1.77 lakh, taxable Rs 1.5 lakh, GST Rs 13,500 - and it
+    # was published as an Acquisition, because the invoice describes what it
+    # was for. The company's own purchase ledger is not news.
+    r"\binvoice\b|tax invoice|debit note|credit note|"
+    r"taxable (amount|value)[^.]{0,30}\bgst\b|"
+    r"(filing|professional|consultancy|service) (fees|charges)[^.]{0,30}"
+    r"(invoice|payable|paid)",
     # Changing the registrar. The letter is addressed to shareholders and
     # recites every class of security the registrar will handle, so S&S Power
     # Switchgear's "Change in RTA" was published under Warrants at 61.
@@ -169,9 +177,19 @@ VAGUE = [
 # "Important"; everything else is still kept and tagged, just under "All".
 TOPICS = [
     # ---- corporate actions on the share itself -------------------------------
-    ("Buyback",              70, r"buy-?\s?back"),
+    # "bought back" is how a company describes the thing after it has done it,
+    # and it matched nothing: Man Infraconstruction "bought back 7,09,145
+    # equity shares from the open market" was published as an Acquisition.
+    ("Buyback",              70, r"buy-?\s?back|(bought|buying|purchas\w+) back|"
+                                 r"shares bought back"),
+    # An amalgamation IS a scheme, whether or not the filing writes the words
+    # "scheme of" in front of it. Only the long form was listed, so Warren Tea
+    # announcing that "the NCLT has reserved the final order for its proposed
+    # amalgamation" fell through to Acquisition, which had bare "amalgamation"
+    # in its own list and scores four points lower.
     ("Scheme Of Arrangement", 69, r"scheme of (arrangement|amalgamation|merger|demerger)|"
-                                 r"composite scheme|de-?merger|\bdemerge"),
+                                 r"composite scheme|de-?merger|\bdemerge|"
+                                 r"\bamalgamat\w+"),
     ("Rights Issue",         68, r"rights issue|rights entitlement|letter of offer.{0,25}rights"),
     ("Split",                67, r"stock split|sub-?division of (equity |the )?share|"
                                  r"split of (equity )?share|face value.{0,30}split"),
@@ -218,7 +236,21 @@ TOPICS = [
     # a thing rather than a company. "In-principle approval for the
     # acquisition of land for about Rs 50 crore" is a capacity increase, and
     # it outranked one at 65 to 57 on this word alone.
-    ("Acquisition",          65, r"\bacquisition\b(?![^.]{0,40}\b(land|plant|"
+    # The bare word "acquisition", except where it is not an event at all.
+    #
+    # Not when what is being acquired is a thing rather than a company:
+    # "in-principle approval for the acquisition of land" is a capacity
+    # increase, and it outranked one at 65 to 57 on this word alone.
+    #
+    # And not when it is part of the NAME of the takeover regulations. SEBI
+    # (Substantial Acquisition of Shares and Takeovers) Regulations, 2011 is a
+    # title, and it appears in every disclosure filed under it. Prakash
+    # Steelage's invoice from the agent who filed one - Rs 1.77 lakh, GST
+    # Rs 13,500 - was published as an Acquisition on that phrase, with "it
+    # signals an insider is acquiring shares" written underneath.
+    ("Acquisition",          65, r"(?<!substantial )\bacquisition\b"
+                                 r"(?! of shares and takeover)"
+                                 r"(?![^.]{0,40}\b(land|plant|"
                                  r"machinery|equipment|aircraft|vessel|"
                                  r"property|premises|building)\b)|"
                                  r"acquir(e|es|ed|ing)\b[^.]{0,60}"
@@ -260,7 +292,18 @@ TOPICS = [
                                  r"(\d[\d.,]*\s?(%|per cent|crore|lakh|million|billion)|"
                                  r"stake|shareholding|equity)|"
                                  r"(acquisition|purchase) of[^.]{0,30}(stake|shareholding)|"
-                                 r"share purchase agreement|\bspa\b executed"),
+                                 r"share purchase agreement|\bspa\b executed|"
+                                 # Two real deals lived only in the evidence
+                                 # list and not here, so tightening the check
+                                 # to this pattern demoted them: International
+                                 # Gemological "will consolidate control over
+                                 # IGI Botswana", and NLC India's addendum to
+                                 # "transfer about 709 MW of renewable assets".
+                                 # Both are acquisitions; this is where that
+                                 # belongs.
+                                 r"consolidat\w+ control|acquir\w+ control\b|"
+                                 r"transfer\w*[^.]{0,40}\b(assets|undertaking|"
+                                 r"megawatt|\bmw\b)\b"),
 
     # ---- raising money -------------------------------------------------------
     ("Qip Allotment",        63, r"qip allotment|allotment.{0,30}qualified institution|"
@@ -1060,6 +1103,11 @@ _NEW_SUBSIDIARY = re.compile(
     r"registered)[^.]{0,70}"
     r"(wholly[- ]owned subsidiar|step[- ]down subsidiar|new subsidiar|"
     r"subsidiar\w+ (company|named)|joint venture company|"
+    # Keystone Realtors "jointly set up a new real-estate LLP called One
+    # Landmark House LLP" - the same event, in the vehicle Indian developers
+    # actually use. Only "incorporation of ... LLP" was listed, and this
+    # filing says "set up".
+    r"\bllp\b|limited liability partnership|"
     # Welspun Corp's "associate company Welspun Slagexcel Private Ltd was
     # incorporated" is the same event under a different word.
     r"associate company)|"
@@ -2094,6 +2142,31 @@ TAG_EVIDENCE = {
 }
 
 _TAG_EVIDENCE_RE = {t: re.compile(p, re.I) for t, p in TAG_EVIDENCE.items()}
+
+
+_TOPIC_BY_TAG = {}
+for _t, _p, _rx in _TOPIC_RE:
+    _TOPIC_BY_TAG.setdefault(_t, []).append(_rx)
+
+
+def topic_matches(tag, text):
+    """Would this text produce `tag` from the topic patterns themselves?
+
+    Stricter than tag_supported, and deliberately. The evidence lists are loose
+    on purpose - they exist to catch a filing with NOTHING to do with its
+    category - and looseness is wrong when the question is whether a deal
+    actually happened. TAG_EVIDENCE["Acquisition"] contains "joint venture" and
+    "acquir", so Syrma's joint venture company CHANGING ITS NAME and Modern
+    Dairies' promoter converting warrants both counted as evidence of an
+    acquisition, and both stayed under it.
+
+    The topic pattern is the thing that would have put a filing in the category
+    in the first place. If it does not match, the category was not earned.
+    """
+    rxs = _TOPIC_BY_TAG.get(tag)
+    if not rxs or not text:
+        return True                    # no pattern to judge on; leave it alone
+    return any(rx.search(text) for rx in rxs)
 
 
 def tag_supported(tag, text):

@@ -302,6 +302,19 @@ def category_from_summary(category, headline, blob, current=None):
     # Arrangement on 8 September on exactly that - Elgi Equipments,
     # Gujarat Apollo and Sanginita - and a scheme outranks an
     # acquisition (69 to 65), so nothing else could dislodge them.
+    # The loose evidence list, NOT rules.topic_matches.
+    #
+    # Tightening this to the topic pattern was tried on 12 September and it
+    # demoted real deals wholesale: Coforge divesting AdvantageGo, Dilip
+    # Buildcon selling a 51% stake, Medplus buying out a minority, Maithan
+    # Alloys buying shares. The topic pattern wants a particular verb next to a
+    # particular object, and a summary written by a person says "selling its
+    # 51% stake" or "buying the remaining 0.01% stake" instead.
+    #
+    # So the loose list stays. It lets a few through - a joint venture company
+    # changing its NAME reads as evidence of a joint venture - and that is the
+    # cheaper mistake. This guard exists to catch a filing with nothing to do
+    # with its category, not to adjudicate the ones that nearly belong.
     if (current in DEAL_TAGS and blob
             and not (_DEAL_EVIDENCE.search(blob)
                      and rules.tag_supported(current, blob))):
