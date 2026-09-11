@@ -151,7 +151,9 @@ jobs:
       # to be ordinary English inside a PDF. If a rule change would mislabel
       # filings, the run stops here rather than putting it on the dashboard.
       - name: Check the scoring rules
-        run: python tests/test_rules.py
+        run: |
+          python tests/test_rules.py
+          python tests/test_insider.py
 
       - name: Decide how much to scrape
         id: plan

@@ -341,7 +341,15 @@ TOPICS = [
                                  # being revised upwards read as money being
                                  # brought in. So the sentence has to name what
                                  # is being raised as well.
-                                 r"rais(e|es|ed|ing)[^.]{0,60}"
+                                 # ...and what is being raised has to be the money,
+                                 # not a shareholding. A stake disclosure reads
+                                 # "raising his holding to 46,82,622 shares (6.169%
+                                 # of VOTING CAPITAL)", and capital is on the list
+                                 # below, so a promoter buying 9,481 shares of W.S.
+                                 # Industries was published as a fund raise, as was
+                                 # JM Financial ARC buying 3% of Alok Industries.
+                                 r"rais(e|es|ed|ing)(?![^.]{0,40}\b(holding|stake|"
+                                 r"shareholding|voting capital|paid-?up)\b)[^.]{0,60}"
                                  r"(funds|capital|equity|\bdebt\b|\bncds?\b|"
                                  r"debenture|\bbonds?\b|commercial paper|"
                                  r"private placement|borrowing)|"
@@ -1085,6 +1093,25 @@ def new_subsidiary(text):
     return bool(_NEW_SUBSIDIARY.search(text))
 
 
+# The bigger event, when a promoter transaction is a step inside one.
+#
+# The promoter override replaces any dealing tag once the text mentions a
+# promoter transaction, which is right for a Regulation 29 form and wrong for
+# a corporate event that happens to contain one. Happiest Minds "is merging
+# with ITC Infotech ... the deal involves a promoter stake sale and a
+# subsequent merger where ITC Infotech will be the surviving entity" - a
+# billion-dollar merger, published as a promoter buying shares.
+_PART_OF_A_DEAL = re.compile(
+    r"\bmerg(e|es|ed|er|ing)\b|amalgamat\w+|de-?merger|surviving entity|"
+    r"scheme of (arrangement|amalgamation|merger)|open offer|takeover|"
+    r"slump sale|acquir\w+[^.]{0,40}(entire|100 ?%|control|majority)", re.I)
+
+
+def part_of_a_bigger_deal(text):
+    """Is the promoter transaction a step inside a corporate event?"""
+    return bool(_PART_OF_A_DEAL.search(text or ""))
+
+
 def promoter_deal(text):
     """Is this a promoter dealing in their own company's shares?
 
@@ -1815,7 +1842,8 @@ def score(category, headline, critical=False):
         tag, pts = "New Subsidiary", NEW_SUBSIDIARY_SCORE
     elif tag in _DEALING_TAGS and interse_transfer(both):
         tag, pts = "Inter-se Transfer", INTERSE_SCORE
-    elif tag in _DEALING_TAGS and promoter_deal(both):
+    elif (tag in _DEALING_TAGS and promoter_deal(both)
+          and not part_of_a_bigger_deal(both)):
         tag, pts = "Promoter Buy/Sell", PROMOTER_SCORE
 
     # Correct the label where the category word is misleading. Score stands -
@@ -1923,7 +1951,8 @@ def score_text(text, floor=0):
         tag, pts = "New Subsidiary", NEW_SUBSIDIARY_SCORE
     elif tag in _DEALING_TAGS and interse_transfer(body):
         tag, pts = "Inter-se Transfer", INTERSE_SCORE
-    elif tag in _DEALING_TAGS and promoter_deal(body):
+    elif (tag in _DEALING_TAGS and promoter_deal(body)
+          and not part_of_a_bigger_deal(body)):
         tag, pts = "Promoter Buy/Sell", PROMOTER_SCORE
 
     # retag() rather than a second copy of its loop. There WERE two copies,
