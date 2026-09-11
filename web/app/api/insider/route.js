@@ -11,7 +11,7 @@ const MAX_ROWS = 400;
 // keeping for later and not worth moving through Vercel on every request.
 function publicRow(row) {
   const fields = [
-    "id", "day", "company", "symbol", "exchange", "who", "category",
+    "id", "day", "company", "symbol", "exchange", "mcap", "who", "category",
     "side", "mode", "shares", "value", "before_n", "before_pct",
     "after_n", "after_pct", "traded_on", "filed_on", "headline",
     "regulation", "revised", "url",

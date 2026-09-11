@@ -2601,6 +2601,58 @@ check(rules.tag_supported(
 
 
 # ---------------------------------------------------------------------------
+# 25. A promoter converting warrants is a promoter, not an acquirer
+#
+# Modern Dairies: "promoter Krishan Kumar Goyal and persons acting in concert
+# have converted convertible warrants into 1,900,000 equity shares, filed under
+# SEBI Regulation 29(2)". Published as an Acquisition, helped along by the AI's
+# own key number - "Acquisition of 1,900,000 equity shares".
+#
+# Two faults. "converted" was not in the promoter verb list, though converting
+# warrants you hold is exactly what Regulation 29(2) exists to disclose. And
+# Warrants was not a tag a promoter transaction could take over from.
+#
+# The trap in fixing it: "convert" as a stem also matches "CONVERTible
+# warrants", so a company ALLOTTING convertible warrants to its promoters
+# became the promoters dealing. The verb has to be the action.
+# ---------------------------------------------------------------------------
+
+PROMOTER_ACTED = [
+    "Modern Dairies disclosed that promoter Krishan Kumar Goyal and persons "
+    "acting in concert have converted convertible warrants into 1,900,000 "
+    "equity shares. Acquisition of 1,900,000 equity shares",
+    "The promoter has converted 5,00,000 warrants into equity shares",
+    "Promoter group entity is converting its warrants into shares",
+]
+for text in PROMOTER_ACTED:
+    check(rules.promoter_deal(text),
+          "a promoter converting warrants is not read as a promoter dealing",
+          f"{text[:62]!r}")
+    pts, tag = rules.score_text(text, floor=0)
+    check(tag == "Promoter Buy/Sell",
+          "a promoter converting warrants landed elsewhere",
+          f"{(pts, tag)} <- {text[:58]!r}")
+
+# The company ISSUING them is a Warrants filing, however many times the word
+# "promoter" appears as the recipient.
+COMPANY_ISSUED = [
+    "Allotment of 60,82,000 convertible warrants to promoters on a "
+    "preferential basis",
+    "Kiri Industries is issuing 60.82 lakh warrants to its promoters at "
+    "Rs 475 per warrant",
+    "Digicontent approved the preferential issue of 1,40,85,571 warrants at "
+    "INR 26.41 each",
+    "Allotment of 65,00,000 convertible equity warrants on a preferential "
+    "basis to the promoter group",
+]
+for text in COMPANY_ISSUED:
+    pts, tag = rules.score_text(text, floor=0)
+    check(tag == "Warrants",
+          "a company issuing warrants was read as its promoters dealing",
+          f"{(pts, tag)} <- {text[:58]!r}")
+
+
+# ---------------------------------------------------------------------------
 
 print(f"{CHECKS[0]} checks")
 if FAILURES:

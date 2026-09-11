@@ -42,6 +42,7 @@ WHAT IS LEFT OUT, and why
 
 import datetime
 import re
+import time
 import xml.etree.ElementTree as ET
 
 import requests
@@ -306,3 +307,107 @@ if __name__ == "__main__":
     print()
     for r in rows[:a.show]:
         print(f"  {r['company'][:24]:<26}{r['headline'][:104]}")
+
+
+# ---------------------------------------------------------------- history
+
+# The feed holds today and empties overnight, so a week of history has to come
+# from somewhere else. nseindia.com/api/corporates-pit does have history - it
+# is only the LIVE end it lags on, which is why the daily reader does not use
+# it - but it answers per symbol, so it needs a list of companies to ask about.
+API_PIT = "https://www.nseindia.com/api/corporates-pit"
+PIT_PAGE = ("https://www.nseindia.com/companies-listing/"
+            "corporate-filings-insider-trading")
+
+
+def _api_row(row, sym):
+    """One row of the per-symbol API, in the same shape the XBRL reader gives."""
+    qty = int(_num(row.get("secAcq")))
+    out = {
+        "id": f"PIT-{row.get('did') or ''}-{sym}",
+        "exchange": "NSE",
+        "symbol": (row.get("symbol") or sym or "").strip(),
+        "scrip": "",
+        "company": (row.get("company") or sym or "").strip(),
+        "who": (row.get("acqName") or "").strip(),
+        "category": (row.get("personCategory") or "").strip(),
+        "side": (row.get("tdpTransactionType") or "").strip(),
+        "mode": (row.get("acqMode") or "").strip(),
+        "shares": qty,
+        "value": _num(row.get("buyValue")) or _num(row.get("sellValue")),
+        "before_n": int(_num(row.get("befAcqSharesNo"))),
+        "before_pct": row.get("befAcqSharesPer") or "",
+        "after_n": int(_num(row.get("afterAcqSharesNo"))),
+        "after_pct": row.get("afterAcqSharesPer") or "",
+        "traded_on": (row.get("acqfromDt") or "").strip(),
+        "filed_on": "",
+        "regulation": (row.get("anex") or "").strip(),
+        "revised": False,
+        "url": "",
+    }
+    out["headline"] = headline(out)
+    return out
+
+
+def fetch_history(symbols, from_date, to_date, log=print, session=None,
+                  pause=0.25):
+    """Insider trades for these symbols, filed in the window.
+
+    Used to fill the page with the past week the first time, and to repair a
+    day the daily reader missed. Slower than the feed and behind it, so it is
+    not what the every-pass reader uses.
+    """
+    s = session or _nse_session_or_plain()
+    hdr = {"Accept": "application/json", "Referer": PIT_PAGE,
+           "X-Requested-With": "XMLHttpRequest"}
+
+    kept, skipped, seen = [], {}, set()
+    for i, sym in enumerate(symbols):
+        try:
+            r = s.get(API_PIT, params={"symbol": sym}, timeout=35, headers=hdr)
+            rows = (r.json() or {}).get("data") or []
+        except Exception:
+            continue
+
+        for row in rows:
+            when = _date(row.get("intimDt")) or _date(row.get("date"))
+            if not when or not (from_date <= when <= to_date):
+                continue
+
+            person = {"mode": row.get("acqMode"), "who": row.get("acqName")}
+            why = skip_reason(person)
+            if why:
+                skipped[why] = skipped.get(why, 0) + 1
+                continue
+
+            key = (sym, row.get("acqName"), row.get("secAcq"),
+                   row.get("acqMode"), row.get("acqfromDt"))
+            if key in seen:
+                continue
+            seen.add(key)
+
+            out = _api_row(row, sym)
+            out["filed_on"] = str(when)
+            kept.append(out)
+
+        if pause:
+            time.sleep(pause)
+        if log and i and i % 100 == 0:
+            log(f"  insider history: {i}/{len(symbols)} symbols, "
+                f"{len(kept)} trades")
+
+    if skipped:
+        log("  insider history: left out " + ", ".join(
+            f"{n} {k}" for k, n in sorted(skipped.items(), key=lambda kv: -kv[1])))
+    log(f"  insider history: {len(kept)} trades from {len(symbols)} symbols")
+    return kept
+
+
+def _nse_session_or_plain():
+    """A session that has shaken hands with NSE, or a plain one if that failed."""
+    try:
+        return sources._nse_session()
+    except Exception:
+        s = requests.Session()
+        s.headers.update({"User-Agent": sources.UA})
+        return s

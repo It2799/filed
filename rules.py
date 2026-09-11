@@ -992,7 +992,13 @@ _PROMOTER_ACTOR = re.compile(
 # so the filing was not recognised as a promoter dealing and its summary
 # relabelled it an Acquisition.
 _PROMOTER_DEAL = re.compile(
-    r"(acquir|purchas|bought|sold|sell|sale|dispos|divest|"
+    # "converted" was missing, and converting warrants you hold is exactly the
+    # kind of thing a promoter discloses under Regulation 29(2). Modern
+    # Dairies' promoter converting 19 lakh warrants matched no verb at all, so
+    # it was not recognised as a promoter transaction - and the AI's own key
+    # number, "Acquisition of 1,900,000 equity shares", carried it to
+    # Acquisition at 69.
+    r"(acquir|purchas|bought|sold|sell|sale|dispos|divest|converted|converting|"
     # a word-bounded buy/buys/buying, not bare "buy", so that a buyback filing mentioning
     # promoters is not read as one of them dealing.
     r"\bbuy(s|ing)?\b|"
@@ -1185,8 +1191,12 @@ def promoter_deal(text):
 # form's own wording - "proposed transfer of shares within the promoter family"
 # was published as an Open Offer. A genuine open offer is protected by
 # _CORPORATE_DEAL above, which wins first.
+# Warrants is here so that a PROMOTER converting warrants can be recognised as
+# a promoter transaction. A company ISSUING warrants stays a Warrants filing:
+# promoter_deal needs both a promoter and a dealing verb, and "allotted",
+# "issuing" and "approved the preferential issue of" are none of them.
 _DEALING_TAGS = {"Acquisition", "Stake Change", "Promoter Buy/Sell", "Other",
-                 "Open Offer", "Rights Issue", "Inter-se Transfer"}
+                 "Open Offer", "Rights Issue", "Inter-se Transfer", "Warrants"}
 PROMOTER_SCORE = 58
 SCORE_FOR_TAG["Promoter Buy/Sell"] = PROMOTER_SCORE
 

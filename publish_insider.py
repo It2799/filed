@@ -33,6 +33,7 @@ import sys
 import requests
 
 import insider
+import mcap
 
 TTL_DAYS = 400
 TTL_SECONDS = TTL_DAYS * 24 * 3600
@@ -99,6 +100,36 @@ def write_day(url, token, key, rows):
     return len(chunks)
 
 
+def with_mcap(rows, log=print):
+    """Put the company's market cap on every trade we can identify.
+
+    A promoter putting Rs 2 crore into a Rs 60 crore company is a different
+    piece of news from the same Rs 2 crore going into a Rs 60,000 crore one,
+    and without the size there is no way to tell them apart.
+
+    mcap.attach matches on the BSE scrip code, which the XBRL filing carries -
+    so these rows are handed over looking like BSE records, which is what they
+    are: the code is the company's own.
+    """
+    if not rows:
+        return rows
+    shaped = [{"company": r.get("company"), "ticker": r.get("scrip") or "",
+               "exchange": "BSE" if r.get("scrip") else "NSE"} for r in rows]
+    try:
+        mcap.attach(shaped, log=lambda *a, **k: None)
+    except Exception as e:
+        log(f"  insider: market caps unavailable ({type(e).__name__})")
+        return rows
+
+    got = 0
+    for r, sh in zip(rows, shaped):
+        if sh.get("mcap"):
+            r["mcap"] = sh["mcap"]
+            got += 1
+    log(f"  insider: market cap on {got} of {len(rows)} trades")
+    return rows
+
+
 def trade_key(row):
     """What makes two rows the same trade.
 
@@ -127,10 +158,66 @@ def merge(old, new):
     return rows, added
 
 
+def store_days(url, token, by_day, log=print):
+    """Merge each day's trades into whatever is already stored for it."""
+    written = 0
+    for day, found in sorted(by_day.items()):
+        key = f"mt:insider:{day}"
+        rows, added = merge(read_day(url, token, key), found)
+        write_day(url, token, key, rows)
+        written += added
+        log(f"  insider: {day} now holds {len(rows)} trades (+{added})")
+    return written
+
+
+def refresh_index(url, token, days_seen):
+    raw = redis(url, token, ["GET", "mt:insider:index"])
+    try:
+        days = json.loads(raw) if raw else []
+    except Exception:
+        days = []
+    days = sorted(set(list(days_seen) + [x for x in days if isinstance(x, str)]),
+                  reverse=True)[:KEEP_DAYS]
+    redis(url, token, ["SET", "mt:insider:index",
+                       json.dumps(days), "EX", str(TTL_SECONDS)])
+    return days
+
+
+def symbols_from_site(days=7, log=print):
+    """Companies that filed anything recently, as NSE symbols.
+
+    The history API answers per symbol, so it needs a list to ask about. The
+    site already knows which companies have been active - that is what it is
+    for - and asking about two thousand listed companies to find fifty with
+    insider trades would be rude as well as slow.
+    """
+    seen, page = {}, 1
+    while page <= 80:
+        u = ("https://www.markettide.in/api/announcements"
+             f"?scope=all&page={page}")
+        try:
+            d = requests.get(u, timeout=45,
+                             headers={"User-Agent": "markettide-insider"}).json()
+        except Exception:
+            break
+        for r in d.get("items") or []:
+            t = (r.get("ticker") or "").strip()
+            if t and not t.isdigit():            # NSE symbols, not BSE codes
+                seen[t] = True
+        if not d.get("hasMore"):
+            break
+        page += 1
+    log(f"  insider: {len(seen)} NSE symbols to ask about")
+    return list(seen)
+
+
 def main():
     p = argparse.ArgumentParser()
     p.add_argument("--day", help="YYYY-MM-DD; default is today in India")
     p.add_argument("--dry-run", action="store_true")
+    p.add_argument("--backfill", type=int, metavar="DAYS",
+                   help="fill the last DAYS days from the per-symbol history "
+                        "API instead of today's feed")
     args = p.parse_args()
 
     ist = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(
@@ -138,7 +225,32 @@ def main():
     day = args.day or ist.strftime("%Y-%m-%d")
     d = datetime.datetime.strptime(day, "%Y-%m-%d").date()
 
-    found = insider.fetch(d, d)
+    if args.backfill:
+        start = d - datetime.timedelta(days=args.backfill - 1)
+        syms = symbols_from_site()
+        found = insider.fetch_history(syms, start, d)
+        found = with_mcap(found)
+        if args.dry_run:
+            print()
+            print(f"{len(found)} trades from {start} to {d} (nothing written)")
+            for r in sorted(found, key=lambda x: -(x.get("value") or 0))[:25]:
+                print(f"  {r['filed_on']}  {r['company'][:22]:<24}"
+                      f"{r['headline'][:88]}")
+            return 0
+        url, token = creds()
+        if not (url and token):
+            print("No KV credentials, so nothing was stored.")
+            return 0
+        by_day = {}
+        for r in found:
+            by_day.setdefault(r["filed_on"], []).append(r)
+        store_days(url, token, by_day)
+        refresh_index(url, token, by_day.keys())
+        print(f"  insider: backfilled {len(found)} trades across "
+              f"{len(by_day)} days")
+        return 0
+
+    found = with_mcap(insider.fetch(d, d))
     if args.dry_run:
         print(f"\n{len(found)} trades for {day} (nothing written)")
         for r in found[:25]:

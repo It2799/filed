@@ -22,6 +22,17 @@ function money(n) {
   return `Rs ${v.toLocaleString("en-IN")}`;
 }
 
+// Company size, the way an Indian reader says it. A promoter putting Rs 2
+// crore into a Rs 60 crore company is a different piece of news from the same
+// Rs 2 crore going into a Rs 60,000 crore one.
+function cap(n) {
+  const v = Number(n) || 0;
+  if (!v) return "";
+  if (v >= 100000) return `Rs ${(v / 100000).toFixed(2)} lakh cr`;
+  if (v >= 1000) return `Rs ${Math.round(v).toLocaleString("en-IN")} cr`;
+  return `Rs ${v.toFixed(0)} cr`;
+}
+
 function dayLabel(iso) {
   if (!iso) return "";
   const dt = new Date(iso + "T00:00:00");
@@ -158,6 +169,7 @@ export default function InsiderPage() {
             <li key={t.id} className={`trade ${t.side?.toLowerCase() || ""}`}>
               <div className="t-top">
                 <span className="co">{t.company}</span>
+                {t.mcap ? <span className="cap">{cap(t.mcap)}</span> : null}
                 {t.symbol ? <span className="sym">{t.symbol}</span> : null}
                 <span className={`side ${t.side?.toLowerCase() || ""}`}>
                   {t.side}
@@ -229,6 +241,10 @@ export default function InsiderPage() {
         .t-top { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
         .co { font-weight: 620; }
         .sym { font-size: 0.75rem; color: #888; }
+        .cap {
+          font-size: 0.72rem; color: #555; background: #f1f1f1;
+          padding: 1px 7px; border-radius: 99px;
+        }
         .side { font-size: 0.72rem; padding: 1px 7px; border-radius: 99px; background: #eee; }
         .side.buy { background: #e4f5e9; color: #1e6b38; }
         .side.sell { background: #fbe7e7; color: #8c2b2b; }
@@ -255,6 +271,7 @@ export default function InsiderPage() {
           .t-card.buy { background: #102114; border-color: #2c5c3a; }
           .t-card.sell { background: #241111; border-color: #5e2b2b; }
           .trade { border-color: #2a2a2a; }
+          .cap { background: #222; color: #aaa; }
           .seg { border-color: #333; }
           .seg button { background: #161616; color: #ddd; border-right-color: #262626; }
           .seg button.on { background: #fff; color: #111; }
