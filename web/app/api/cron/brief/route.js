@@ -1,7 +1,7 @@
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const OWNER = "It2799";
+const OWNER = "markettide";
 const REPO = "filed";
 const WORKFLOW = "brief.yml";
 

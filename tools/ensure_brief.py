@@ -30,7 +30,11 @@ import sys
 import urllib.error
 import urllib.request
 
-OWNER_REPO = os.environ.get("GITHUB_REPOSITORY", "It2799/filed")
+# GITHUB_REPOSITORY is always set inside Actions, so the fallback only
+# matters when this is run by hand. The repo moved from It2799/filed to
+# markettide/filed on 12 September; GitHub redirects the old name, but a
+# redirect is not something to depend on.
+OWNER_REPO = os.environ.get("GITHUB_REPOSITORY", "markettide/filed")
 
 # 07:30 IST is the promise. The threshold is 07:25 because the workflow's own
 # clock drifts by a few minutes either way, and being five minutes early

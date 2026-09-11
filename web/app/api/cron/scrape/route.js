@@ -19,11 +19,11 @@ export const dynamic = "force-dynamic";
  *
  * Needs two environment variables:
  *   CRON_SECRET            any long random string, shared with the caller
- *   GITHUB_DISPATCH_TOKEN  a fine-grained PAT for It2799/filed with
+ *   GITHUB_DISPATCH_TOKEN  a fine-grained PAT for markettide/filed with
  *                          Actions: read and write. Nothing else.
  */
 
-const OWNER = "It2799";
+const OWNER = "markettide";
 const REPO = "filed";
 const WORKFLOW = "scrape.yml";
 const BRIEF_WORKFLOW = "brief.yml";
