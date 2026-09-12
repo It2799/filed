@@ -134,3 +134,33 @@ export function byDay(rows) {
     .sort((a, b) => (a[0] < b[0] ? 1 : a[0] > b[0] ? -1 : 0))
     .map(([day, list]) => ({ day, rows: list }));
 }
+
+// One company, one card - however many people filed that day.
+//
+// INDO-MIM had ELEVEN rows on 7 September, Paisalo Digital eight, Diamines &
+// Chemicals six on each of two days. Every one is a different person and a
+// real separate trade, but as eleven near-identical cards in a row it reads
+// as a bug, and it buries the next company underneath it.
+//
+// Grouped, it reads as what it is: eleven people at one company selling on
+// one day, which is a more interesting fact than any of the eleven rows.
+//
+// The group keeps the position of its biggest trade, so the ordering the API
+// chose still holds and one large sale is not pushed below a company that
+// happens to have filed more often.
+export function byCompany(rows) {
+  const groups = [];
+  const seen = new Map();
+  for (const r of rows) {
+    const k = (r.company || r.symbol || "").trim().toLowerCase();
+    if (seen.has(k)) {
+      seen.get(k).rows.push(r);
+      continue;
+    }
+    const g = { key: k, company: r.company, mcap: r.mcap, symbol: r.symbol,
+                rows: [r] };
+    seen.set(k, g);
+    groups.push(g);
+  }
+  return groups;
+}

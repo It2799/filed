@@ -112,12 +112,34 @@ export function isSell(row) {
   return (row.side || "").toLowerCase() === "sell";
 }
 
+/**
+ * A pledge is not a trade, and it was drowning the page.
+ *
+ * Pledging shares is how a promoter borrows against a holding, and releasing
+ * one is how they pay the loan back. Nobody bought or sold anything and
+ * nobody expressed a view - but the SIZE of a pledge is the whole holding,
+ * so these carry the largest rupee figures on the page and sorted straight to
+ * the top. Seven of the first twelve rows were one company's pledge releases,
+ * repeated, which is the least interesting thing here shown first and loudest.
+ *
+ * They are still published, under their own filter. They are just no longer
+ * the first thing a reader meets.
+ */
+export function isPledge(row) {
+  const s = (row.side || "").toLowerCase();
+  return ["pledge", "encumbr", "revoke", "invoke"].some((k) => s.includes(k));
+}
+
 /** Filters the page applies, kept here so the page stays about layout. */
 export function applyFilters(trades, { side = "all", role = "all", q = "" } = {}) {
   const needle = q.trim().toLowerCase();
   return trades.filter((t) => {
     if (side === "buy" && !isBuy(t)) return false;
     if (side === "sell" && !isSell(t)) return false;
+    if (side === "pledge" && !isPledge(t)) return false;
+    // "all" means every actual trade, not literally every row. Pledges have
+    // their own tab because mixed in they hide everything else.
+    if (side === "all" && isPledge(t)) return false;
     if (role !== "all" && who(t) !== role) return false;
     if (needle) {
       const hay = `${t.company || ""} ${t.who || ""} ${t.symbol || ""}`.toLowerCase();

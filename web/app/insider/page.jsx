@@ -3,10 +3,14 @@
 import { useEffect, useMemo, useState } from "react";
 import Nav from "../Nav";
 import {
-  byDay, count, dayLabel, mcapLabel, mcapTier, money, name, pct, price,
+  byCompany, byDay, count, dayLabel, mcapLabel, mcapTier, money, name, pct,
+  price,
 } from "../fmt";
 
-const PAGE = 30;
+const PAGE = 40;
+
+// Rows shown on a company card before the rest fold away.
+const PER_CARD = 5;
 
 const ROLES = [
   ["all", "Everyone"],
@@ -109,6 +113,20 @@ function roleClass(row) {
   return "";
 }
 
+// What a card of several trades adds up to. This total IS meaningful, unlike
+// one across unrelated companies: it is one company, one day, one direction.
+function sumUp(rows) {
+  const total = (list) => list.reduce((s, r) => s + (Number(r.value) || 0), 0);
+  const bits = [];
+  for (const [tone, word] of [["pos", "bought"], ["neg", "sold"]]) {
+    const list = rows.filter((r) => badge(r.side)[1] === tone);
+    if (!list.length) continue;
+    const sum = money(total(list));
+    bits.push(`${list.length} ${word}${sum ? ` · ${sum}` : ""}`);
+  }
+  return bits.join("    ");
+}
+
 export default function InsiderPage() {
   const [data, setData] = useState(null);
   const [error, setError] = useState("");
@@ -117,13 +135,65 @@ export default function InsiderPage() {
   const [q, setQ] = useState("");
   const [shown, setShown] = useState(PAGE);
 
+  // One filing. Defined HERE, inside the component, and not as a component of
+  // its own: styled-jsx only scopes its rules to JSX owned by the component
+  // that holds the <style jsx> tag, so a row drawn elsewhere would come out
+  // with none of the styles below applied.
+  const renderRow = (t) => {
+    const [label, tone] = badge(t.side);
+    const per = each(t);
+
+    // Two shapes of row. The structured filing gives fields - who, how many,
+    // at what, by what route. Our own read of the same document gives a
+    // sentence. Rather than draw a field row full of blanks, a sentence is
+    // drawn as a sentence.
+    if (!t.who) {
+      return (
+        <li key={t.id} className="t">
+          <p className="summary">{t.headline}</p>
+        </li>
+      );
+    }
+
+    return (
+      <li key={t.id} className="t">
+        <div className="t-top">
+          <span className="person">
+            {name(t.who)}
+            {roleWords(t.category) ? (
+              <span className={`role ${roleClass(t)}`}>
+                {roleWords(t.category)}
+              </span>
+            ) : null}
+          </span>
+          <span className="right">
+            <span className={`b ${tone}`}>{label}</span>
+            {t.value ? <span className="amt">{money(t.value)}</span> : null}
+          </span>
+        </div>
+        <p className="line">
+          {t.shares ? (
+            <span className="qty">{count(t.shares)} shares</span>
+          ) : null}
+          {per && !isPledge(t.side) ? <span>at {price(per)} each</span> : null}
+          {how(t.mode) ? <span>{how(t.mode)}</span> : null}
+          {pct(t.after_pct) ? <span>holds {pct(t.after_pct)} after</span> : null}
+        </p>
+      </li>
+    );
+  };
+
+  const query = useMemo(() => {
+    const p = new URLSearchParams({ days: "7", side, role: who });
+    if (q.trim()) p.set("q", q.trim());
+    return p.toString();
+  }, [side, who, q]);
+
   useEffect(() => {
     let alive = true;
     setData(null);
     setError("");
-    const p = new URLSearchParams({ days: "7", side, role: who });
-    if (q.trim()) p.set("q", q.trim());
-    fetch(`/api/insider?${p}`, { cache: "no-store" })
+    fetch(`/api/insider?${query}`, { cache: "no-store" })
       .then((r) => r.json())
       .then((d) => {
         if (!alive) return;
@@ -135,16 +205,41 @@ export default function InsiderPage() {
     return () => {
       alive = false;
     };
-  }, [side, who, q]);
+  }, [query]);
 
   const items = data?.items || [];
-  const groups = useMemo(() => byDay(items.slice(0, shown)), [items, shown]);
+
+  // Day first, then company inside the day. A card is one company on one day.
+  const days = useMemo(
+    () =>
+      byDay(items.slice(0, shown)).map((d) => ({
+        ...d,
+        companies: byCompany(d.rows),
+      })),
+    [items, shown]
+  );
+
+  // Pledging a stake and freeing one are opposite events, and the API's
+  // buy/sell counts cannot tell them apart - both sides are "pledge"
+  // something. Counted here off the rows the page already has.
+  const pledged = useMemo(() => {
+    let made = 0;
+    let freed = 0;
+    for (const t of items) {
+      const label = badge(t.side)[0].toLowerCase();
+      if (label.includes("released")) freed += 1;
+      else if (label.includes("pledged") || label.includes("encumbered"))
+        made += 1;
+    }
+    return { made, freed };
+  }, [items]);
+
   const counts = data?.counts;
 
   return (
     <>
       <Nav />
-      <main className="wrap page">
+      <main className="wrap insider-page">
         <header className="head">
           <h1>Who&rsquo;s buying their own shares</h1>
           <p className="lede">
@@ -164,14 +259,32 @@ export default function InsiderPage() {
             block in one company or two hundred small trades. */}
         {counts ? (
           <section className="tally">
-            <div className="t-card pos">
-              <span className="t-n">{counts.buys}</span>
-              <span className="t-l">bought</span>
-            </div>
-            <div className="t-card neg">
-              <span className="t-n">{counts.sells}</span>
-              <span className="t-l">sold</span>
-            </div>
+            {/* "0 bought, 0 sold" is not a summary of a pledge list. Under
+                that tab the two numbers a reader wants are how many stakes
+                were pledged and how many were freed. */}
+            {side === "pledge" ? (
+              <>
+                <div className="t-card neg">
+                  <span className="t-n">{pledged.made}</span>
+                  <span className="t-l">pledged</span>
+                </div>
+                <div className="t-card pos">
+                  <span className="t-n">{pledged.freed}</span>
+                  <span className="t-l">released</span>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="t-card pos">
+                  <span className="t-n">{counts.buys}</span>
+                  <span className="t-l">bought</span>
+                </div>
+                <div className="t-card neg">
+                  <span className="t-n">{counts.sells}</span>
+                  <span className="t-l">sold</span>
+                </div>
+              </>
+            )}
             <div className="t-card">
               <span className="t-n">{counts.total}</span>
               <span className="t-l">in the last 7 days</span>
@@ -181,18 +294,24 @@ export default function InsiderPage() {
 
         <section className="controls">
           <div className="seg">
-            {[["all", "All"], ["buy", "Buying"], ["sell", "Selling"]].map(
-              ([k, l]) => (
-                <button
-                  key={k}
-                  type="button"
-                  className={side === k ? "on" : ""}
-                  onClick={() => setSide(k)}
-                >
-                  {l}
-                </button>
-              )
-            )}
+            {[
+              ["all", "Buying & selling"],
+              ["buy", "Buying"],
+              ["sell", "Selling"],
+              ["pledge", "Pledges"],
+            ].map(([k, l]) => (
+              <button
+                key={k}
+                type="button"
+                className={side === k ? "on" : ""}
+                onClick={() => setSide(k)}
+              >
+                {l}
+                {k === "pledge" && counts?.pledges ? (
+                  <span className="n">{counts.pledges}</span>
+                ) : null}
+              </button>
+            ))}
           </div>
           <div className="seg wrapseg">
             {ROLES.map(([k, l]) => (
@@ -212,7 +331,22 @@ export default function InsiderPage() {
             value={q}
             onChange={(e) => setQ(e.target.value)}
           />
+          {/* Whatever is on screen, as a spreadsheet - same filters, same
+              days. A plain link, so the browser downloads it. */}
+          <a className="dl" href={`/api/insider?${query}&format=xlsx`}>
+            <span aria-hidden="true">&darr;</span> Excel
+          </a>
         </section>
+
+        {side === "pledge" ? (
+          <p className="explain">
+            A pledge is a promoter borrowing against shares they already own,
+            and a release is that loan being paid back. Nobody bought or sold
+            anything, so these sit apart from the trades &mdash; but the amounts
+            are large, and a promoter pledging most of their stake is worth
+            knowing.
+          </p>
+        ) : null}
 
         {error ? <p className="empty">{error}</p> : null}
         {!error && !data ? <p className="empty">Loading&hellip;</p> : null}
@@ -223,82 +357,49 @@ export default function InsiderPage() {
           </p>
         ) : null}
 
-        {groups.map((g) => (
+        {days.map((g) => (
           <section key={g.day} className="day">
             <h2 className="day-head">
               <span>{dayLabel(g.day)}</span>
               <span className="day-n">
-                {g.rows.length} {g.rows.length === 1 ? "trade" : "trades"}
+                {g.rows.length} {g.rows.length === 1 ? "filing" : "filings"}
               </span>
             </h2>
 
-            {g.rows.map((t) => {
-              const [label, tone] = badge(t.side);
-              const per = each(t);
+            {g.companies.map((c) => {
+              const tones = new Set(c.rows.map((r) => badge(r.side)[1]));
+              const tone = tones.size === 1 ? [...tones][0] : "mixed";
+              // Past a handful of rows the rest fold away, so the next
+              // company is still on screen. <details> rather than React
+              // state: no wiring, and it works before hydration.
+              const head = c.rows.slice(0, PER_CARD);
+              const rest = c.rows.slice(PER_CARD);
               return (
-                <article key={t.id} className={`card tone-${tone}`}>
-                  <div className="card-top">
-                    <div className="left">
-                      <div className="co-line">
-                        <span className="co">{name(t.company)}</span>
-                        {mcapLabel(t.mcap) ? (
-                          <span className={`mcap ${mcapTier(t.mcap)}`}>
-                            {mcapLabel(t.mcap)}
-                          </span>
-                        ) : null}
-                      </div>
-                      {t.who ? (
-                        <div className="meta who">
-                          {name(t.who)}
-                          {roleWords(t.category) ? (
-                            <span className={`role ${roleClass(t)}`}>
-                              {roleWords(t.category)}
-                            </span>
-                          ) : null}
-                        </div>
-                      ) : null}
-                    </div>
-
-                    {/* The money column. It runs straight down the right edge
-                        so the eye can scan sizes without reading a word. */}
-                    <div className="right">
-                      <span className={`b ${tone}`}>{label}</span>
-                      {t.value ? (
-                        <span className="amt">{money(t.value)}</span>
-                      ) : null}
-                    </div>
+                <article key={c.key} className={`card tone-${tone}`}>
+                  <div className="co-line">
+                    <span className="co">{name(c.company)}</span>
+                    {mcapLabel(c.mcap) ? (
+                      <span className={`mcap ${mcapTier(c.mcap)}`}>
+                        {mcapLabel(c.mcap)}
+                      </span>
+                    ) : null}
+                    {c.rows.length > 1 ? (
+                      <span className="roll">{sumUp(c.rows)}</span>
+                    ) : null}
                   </div>
 
-                  {/* Two shapes of row. The structured filing gives fields;
-                      our own read of the same document gives a sentence.
-                      Rather than draw a field row full of blanks, a sentence
-                      is drawn as a sentence. */}
-                  {t.who ? (
-                    <>
-                      <p className="line">
-                        {t.shares ? (
-                          <span className="qty">{count(t.shares)} shares</span>
-                        ) : null}
-                        {per && !isPledge(t.side) ? (
-                          <span className="at">at {price(per)} each</span>
-                        ) : null}
-                      </p>
-                      {how(t.mode) || pct(t.after_pct) ? (
-                        <p className="tail">
-                          {[
-                            how(t.mode),
-                            pct(t.after_pct)
-                              ? `holds ${pct(t.after_pct)} after this`
-                              : "",
-                          ]
-                            .filter(Boolean)
-                            .join(" · ")}
-                        </p>
-                      ) : null}
-                    </>
-                  ) : (
-                    <p className="summary">{t.headline}</p>
-                  )}
+                  <ul className="trades">
+                    {head.map(renderRow)}
+                  </ul>
+
+                  {rest.length ? (
+                    <details className="rest">
+                      <summary>{rest.length} more at this company</summary>
+                      <ul className="trades">
+                        {rest.map(renderRow)}
+                      </ul>
+                    </details>
+                  ) : null}
                 </article>
               );
             })}
@@ -323,23 +424,23 @@ export default function InsiderPage() {
         </p>
       </main>
 
-      <style jsx>{`
-        .page { padding-bottom: 72px; }
-        .head { padding-top: 26px; }
-        .head h1 {
+      <style jsx global>{`
+        .insider-page { padding-bottom: 72px; }
+        .insider-page .head { padding-top: 26px; }
+        .insider-page .head h1 {
           margin: 0 0 10px;
           font-size: 29px;
           line-height: 1.2;
           letter-spacing: -0.025em;
         }
-        .lede {
+        .insider-page .lede {
           margin: 0 0 12px;
           font-size: 16px;
           line-height: 1.6;
           color: var(--muted);
           max-width: 60ch;
         }
-        .aside {
+        .insider-page .aside {
           margin: 0 0 22px;
           font-size: 13.5px;
           line-height: 1.6;
@@ -348,9 +449,20 @@ export default function InsiderPage() {
           padding-left: 13px;
           max-width: 60ch;
         }
+        .insider-page .explain {
+          margin: -8px 0 18px;
+          font-size: 13.5px;
+          line-height: 1.6;
+          color: var(--muted);
+          background: var(--panel);
+          border: 1px solid var(--line);
+          border-radius: 11px;
+          padding: 11px 14px;
+          max-width: 70ch;
+        }
 
-        .tally { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 18px; }
-        .t-card {
+        .insider-page .tally { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 18px; }
+        .insider-page .t-card {
           flex: 1 1 130px;
           background: var(--panel);
           border: 1px solid var(--line);
@@ -360,28 +472,28 @@ export default function InsiderPage() {
           flex-direction: column;
           gap: 1px;
         }
-        .t-card.pos { border-color: color-mix(in srgb, var(--pos) 35%, var(--line)); }
-        .t-card.neg { border-color: color-mix(in srgb, var(--neg) 35%, var(--line)); }
-        .t-n {
+        .insider-page .t-card.pos { border-color: color-mix(in srgb, var(--pos) 35%, var(--line)); }
+        .insider-page .t-card.neg { border-color: color-mix(in srgb, var(--neg) 35%, var(--line)); }
+        .insider-page .t-n {
           font-size: 27px;
           font-weight: 680;
           letter-spacing: -0.03em;
           font-variant-numeric: tabular-nums;
         }
-        .t-card.pos .t-n { color: var(--pos); }
-        .t-card.neg .t-n { color: var(--neg); }
-        .t-l { font-size: 12.5px; color: var(--dim); }
+        .insider-page .t-card.pos .t-n { color: var(--pos); }
+        .insider-page .t-card.neg .t-n { color: var(--neg); }
+        .insider-page .t-l { font-size: 12.5px; color: var(--dim); }
 
-        .controls { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 22px; }
-        .seg {
+        .insider-page .controls { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 22px; }
+        .insider-page .seg {
           display: inline-flex;
           border: 1px solid var(--line);
           border-radius: 10px;
           overflow: hidden;
           background: var(--panel);
         }
-        .seg.wrapseg { flex-wrap: wrap; }
-        .seg button {
+        .insider-page .seg.wrapseg { flex-wrap: wrap; }
+        .insider-page .seg button {
           border: 0;
           background: transparent;
           color: var(--muted);
@@ -392,12 +504,18 @@ export default function InsiderPage() {
           border-right: 1px solid var(--line);
           transition: background .12s ease, color .12s ease;
         }
-        .seg button:last-child { border-right: 0; }
-        .seg button:hover { background: var(--panel-2); color: var(--ink); }
-        .seg button.on { background: var(--ink); color: var(--bg); font-weight: 600; }
-        .search {
-          flex: 1 1 210px;
-          min-width: 180px;
+        .insider-page .seg button:last-child { border-right: 0; }
+        .insider-page .seg button:hover { background: var(--panel-2); color: var(--ink); }
+        .insider-page .seg button.on { background: var(--ink); color: var(--bg); font-weight: 600; }
+        .insider-page .seg button .n {
+          margin-left: 6px;
+          font-size: 11px;
+          opacity: 0.6;
+          font-variant-numeric: tabular-nums;
+        }
+        .insider-page .search {
+          flex: 1 1 180px;
+          min-width: 160px;
           padding: 7px 13px;
           border: 1px solid var(--line);
           border-radius: 10px;
@@ -406,14 +524,28 @@ export default function InsiderPage() {
           font: inherit;
           font-size: 13px;
         }
-        .search::placeholder { color: var(--dim); }
-        .search:focus {
+        .insider-page .search::placeholder { color: var(--dim); }
+        .insider-page .search:focus {
           outline: none;
           border-color: color-mix(in srgb, var(--accent) 55%, var(--line));
         }
+        .insider-page .dl {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          padding: 7px 14px;
+          border: 1px solid var(--line);
+          border-radius: 10px;
+          background: var(--panel);
+          color: var(--muted);
+          font-size: 13px;
+          text-decoration: none;
+          white-space: nowrap;
+        }
+        .insider-page .dl:hover { background: var(--panel-2); color: var(--ink); }
 
-        .day { margin-bottom: 26px; }
-        .day-head {
+        .insider-page .day { margin-bottom: 26px; }
+        .insider-page .day-head {
           display: flex;
           align-items: baseline;
           gap: 9px;
@@ -424,13 +556,13 @@ export default function InsiderPage() {
           text-transform: uppercase;
           color: var(--dim);
         }
-        .day-head::after {
+        .insider-page .day-head::after {
           content: "";
           flex: 1;
           height: 1px;
           background: var(--line);
         }
-        .day-n {
+        .insider-page .day-n {
           font-size: 11.5px;
           letter-spacing: 0;
           text-transform: none;
@@ -442,55 +574,85 @@ export default function InsiderPage() {
           order: 3;
         }
 
-        .card {
+        .insider-page .card {
           background: var(--panel);
           border: 1px solid var(--line);
           border-left: 3px solid var(--line);
           border-radius: 13px;
-          padding: 14px 17px;
+          padding: 13px 17px 14px;
           margin-bottom: 9px;
           transition: border-color .15s ease;
         }
-        .card:hover {
+        .insider-page .card:hover {
           border-color: color-mix(in srgb, var(--accent) 35%, var(--line));
         }
-        .card.tone-pos { border-left-color: var(--pos); }
-        .card.tone-neg { border-left-color: var(--neg); }
-        .card:hover.tone-pos { border-left-color: var(--pos); }
-        .card:hover.tone-neg { border-left-color: var(--neg); }
+        .insider-page .card.tone-pos { border-left-color: var(--pos); }
+        .insider-page .card.tone-neg { border-left-color: var(--neg); }
+        .insider-page .card.tone-mixed {
+          border-left-color: color-mix(in srgb, var(--pos) 50%, var(--neg));
+        }
+        .insider-page .card:hover.tone-pos { border-left-color: var(--pos); }
+        .insider-page .card:hover.tone-neg { border-left-color: var(--neg); }
 
-        .card-top { display: flex; justify-content: space-between; gap: 14px; }
-        .left { min-width: 0; }
-        .co-line {
+        .insider-page .co-line {
           display: flex;
           align-items: baseline;
           gap: 8px;
           flex-wrap: wrap;
         }
-        .co { font-size: 16px; font-weight: 670; letter-spacing: -0.015em; }
-        .mcap {
+        .insider-page .co { font-size: 16px; font-weight: 670; letter-spacing: -0.015em; }
+        .insider-page .mcap {
           font-size: 11.5px;
           font-weight: 600;
           font-variant-numeric: tabular-nums;
           white-space: nowrap;
         }
-        .mcap.lg { color: var(--accent); }
-        .mcap.md { color: var(--muted); }
-        .mcap.sm { color: var(--dim); }
-        .meta { font-size: 12.5px; color: var(--dim); }
-        .who { margin-top: 4px; color: var(--muted); font-size: 13.5px; }
-        .role { margin-left: 7px; color: var(--dim); font-size: 12px; }
-        .role.promoter { color: #9b7cff; }
-        .role.director { color: var(--accent); }
+        .insider-page .mcap.lg { color: var(--accent); }
+        .insider-page .mcap.md { color: var(--muted); }
+        .insider-page .mcap.sm { color: var(--dim); }
+        /* What eleven rows at one company add up to. Shown only when there is
+           more than one, because otherwise it just repeats the row below. */
+        .insider-page .roll {
+          margin-left: auto;
+          font-size: 12px;
+          color: var(--dim);
+          font-variant-numeric: tabular-nums;
+          white-space: nowrap;
+        }
 
-        .right {
+        .insider-page .trades { list-style: none; margin: 0; padding: 0; }
+        .insider-page .rest { margin: 0; }
+        .insider-page .rest > summary {
+          cursor: pointer;
+          list-style: none;
+          font-size: 12.5px;
+          color: var(--muted);
+          padding: 9px 0 1px;
+        }
+        .insider-page .rest > summary::-webkit-details-marker { display: none; }
+        .insider-page .rest > summary::before { content: "+ "; opacity: 0.7; }
+        .insider-page .rest[open] > summary::before { content: "− "; }
+        .insider-page .rest > summary:hover { color: var(--ink); }
+
+        .insider-page .t { padding-top: 9px; }
+        .insider-page .t + .t { margin-top: 9px; border-top: 1px solid var(--line); }
+        .insider-page .t-top {
           display: flex;
-          flex-direction: column;
-          align-items: flex-end;
-          gap: 5px;
+          justify-content: space-between;
+          align-items: baseline;
+          gap: 12px;
+        }
+        .insider-page .person { font-size: 14px; color: var(--ink); min-width: 0; }
+        .insider-page .role { margin-left: 7px; color: var(--dim); font-size: 12px; }
+        .insider-page .role.promoter { color: #9b7cff; }
+        .insider-page .role.director { color: var(--accent); }
+        .insider-page .right {
+          display: flex;
+          align-items: baseline;
+          gap: 9px;
           flex-shrink: 0;
         }
-        .b {
+        .insider-page .b {
           font-size: 11.5px;
           font-weight: 650;
           padding: 3px 9px;
@@ -499,30 +661,31 @@ export default function InsiderPage() {
           color: var(--muted);
           white-space: nowrap;
         }
-        .b.pos { background: var(--pos-bg); color: var(--pos); }
-        .b.neg { background: var(--neg-bg); color: var(--neg); }
-        .amt {
-          font-size: 17px;
+        .insider-page .b.pos { background: var(--pos-bg); color: var(--pos); }
+        .insider-page .b.neg { background: var(--neg-bg); color: var(--neg); }
+        .insider-page .amt {
+          font-size: 15.5px;
           font-weight: 680;
           letter-spacing: -0.02em;
           font-variant-numeric: tabular-nums;
           white-space: nowrap;
+          min-width: 94px;
+          text-align: right;
         }
 
-        .line {
-          margin: 9px 0 0;
+        .insider-page .line {
+          margin: 4px 0 0;
           display: flex;
           gap: 10px;
           flex-wrap: wrap;
-          font-size: 13.5px;
-          color: var(--muted);
+          font-size: 12.5px;
+          color: var(--dim);
           font-variant-numeric: tabular-nums;
         }
-        .qty { color: var(--ink); }
-        .tail { margin: 5px 0 0; font-size: 12.5px; color: var(--dim); }
-        .summary { margin: 9px 0 0; font-size: 14.5px; line-height: 1.6; }
+        .insider-page .qty { color: var(--muted); }
+        .insider-page .summary { margin: 0; font-size: 14px; line-height: 1.6; }
 
-        .more {
+        .insider-page .more {
           display: block;
           margin: 4px auto 0;
           padding: 9px 20px;
@@ -534,9 +697,9 @@ export default function InsiderPage() {
           font-size: 13.5px;
           cursor: pointer;
         }
-        .more:hover { background: var(--panel-2); color: var(--ink); }
-        .empty { color: var(--dim); padding: 22px 0; line-height: 1.6; }
-        .verify {
+        .insider-page .more:hover { background: var(--panel-2); color: var(--ink); }
+        .insider-page .empty { color: var(--dim); padding: 22px 0; line-height: 1.6; }
+        .insider-page .verify {
           margin-top: 30px;
           color: var(--dim);
           font-size: 12.5px;
@@ -545,19 +708,13 @@ export default function InsiderPage() {
         }
 
         @media (max-width: 560px) {
-          .head h1 { font-size: 24px; }
-          .lede { font-size: 15px; }
-          .card { padding: 13px 14px; }
-          .card-top { flex-direction: column; gap: 8px; }
-          /* The money column only works while there is a column. On a phone
-             the badge and the figure sit on one line under the name. */
-          .right {
-            flex-direction: row-reverse;
-            justify-content: flex-end;
-            align-items: baseline;
-            gap: 9px;
-          }
-          .amt { font-size: 16px; }
+          .insider-page .head h1 { font-size: 24px; }
+          .insider-page .lede { font-size: 15px; }
+          .insider-page .card { padding: 12px 14px 13px; }
+          .insider-page .roll { margin-left: 0; width: 100%; }
+          .insider-page .t-top { flex-direction: column; gap: 5px; }
+          .insider-page .right { flex-direction: row-reverse; justify-content: flex-end; }
+          .insider-page .amt { min-width: 0; text-align: left; }
         }
       `}</style>
     </>
