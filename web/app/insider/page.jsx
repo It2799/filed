@@ -2,8 +2,11 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Nav from "../Nav";
+import {
+  byDay, count, dayLabel, mcapLabel, mcapTier, money, name, pct, price,
+} from "../fmt";
 
-const PAGE = 25;
+const PAGE = 30;
 
 const ROLES = [
   ["all", "Everyone"],
@@ -14,50 +17,21 @@ const ROLES = [
   ["relative", "Family"],
 ];
 
-function money(n) {
-  const v = Number(n) || 0;
-  if (!v) return "";
-  if (v >= 1e7) return `Rs ${(v / 1e7).toFixed(2)} cr`;
-  if (v >= 1e5) return `Rs ${(v / 1e5).toFixed(2)} lakh`;
-  return `Rs ${v.toLocaleString("en-IN")}`;
-}
-
-// Company size, the way an Indian reader says it. A promoter putting Rs 2
-// crore into a Rs 60 crore company is a different piece of news from the same
-// Rs 2 crore going into a Rs 60,000 crore one.
-function cap(n) {
-  const v = Number(n) || 0;
-  if (!v) return "";
-  if (v >= 100000) return `Rs ${(v / 100000).toFixed(2)} lakh cr`;
-  if (v >= 1000) return `Rs ${Math.round(v).toLocaleString("en-IN")} cr`;
-  return `Rs ${v.toFixed(0)} cr`;
-}
-
-function dayLabel(iso) {
-  if (!iso) return "";
-  const dt = new Date(iso + "T00:00:00");
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const diff = Math.round((today - dt) / 86400000);
-  if (diff === 0) return "Today";
-  if (diff === 1) return "Yesterday";
-  return dt.toLocaleDateString("en-IN", { day: "2-digit", month: "short" });
-}
-
 // What one share went for. The filing states a total and never a price, so
-// older stored rows have no `price` field and it is worked out here instead.
-// It is the number you can hold against what the share trades at today.
+// rows stored before we worked it out have no `price` field and it is derived
+// here instead. It is the number you can hold against today's share price.
 function each(row) {
-  const p =
+  return (
     Number(row.price) ||
-    (Number(row.shares) ? Number(row.value) / Number(row.shares) : 0);
-  if (!p) return "";
-  return p < 1000
-    ? `Rs ${p.toLocaleString("en-IN", {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      })}`
-    : `Rs ${Math.round(p).toLocaleString("en-IN")}`;
+    (Number(row.shares) ? Number(row.value) / Number(row.shares) : 0)
+  );
+}
+
+// A pledge is not a purchase. Nobody paid ₹70.38 a share to pledge shares they
+// already own, so a price on a pledge row would be an invented number.
+function isPledge(side) {
+  const s = (side || "").toLowerCase();
+  return ["pledge", "encumbr", "revoke", "invoke"].some((k) => s.includes(k));
 }
 
 // The form's wording, in English. "Market Purchase" is a field name.
@@ -105,54 +79,34 @@ function roleWords(category) {
   return hit ? hit[1] : c;
 }
 
-// The chip beside the company. The filing says "Pledge Revoke"; a reader
-// should see "Pledge released".
+// The badge. The filing says "Pledge Revoke"; a reader should see "Released".
 const SIDES = [
-  ["pledge revoke", "Pledge released"],
-  ["pledge release", "Pledge released"],
-  ["pledge invoke", "Pledge invoked"],
-  ["pledge creation", "Pledged"],
-  ["revoke", "Pledge released"],
-  ["invoke", "Pledge invoked"],
-  ["encumbrance", "Encumbered"],
-  ["pledge", "Pledged"],
-  ["buy", "Bought"],
-  ["sell", "Sold"],
-  ["acquisition", "Bought"],
-  ["disposal", "Sold"],
+  ["pledge revoke", ["Pledge released", "neu"]],
+  ["pledge release", ["Pledge released", "neu"]],
+  ["pledge invoke", ["Pledge invoked", "neg"]],
+  ["pledge creation", ["Pledged", "neu"]],
+  ["revoke", ["Pledge released", "neu"]],
+  ["invoke", ["Pledge invoked", "neg"]],
+  ["encumbrance", ["Encumbered", "neu"]],
+  ["pledge", ["Pledged", "neu"]],
+  ["buy", ["Bought", "pos"]],
+  ["acquisition", ["Bought", "pos"]],
+  ["sell", ["Sold", "neg"]],
+  ["disposal", ["Sold", "neg"]],
 ];
 
-function sideLabel(side) {
+function badge(side) {
   const s = (side || "").trim().toLowerCase();
-  if (!s) return "Traded";
+  if (!s) return ["Traded", "neu"];
   const hit = SIDES.find(([k]) => s.includes(k));
-  return hit ? hit[1] : side;
+  return hit ? hit[1] : [side, "neu"];
 }
 
-// A pledge is not a purchase. Nobody paid Rs 70.38 a share to pledge shares
-// they already own, so quoting a price on a pledge row would be a lie - the
-// same rule the sentence in insider.py follows.
-function isPledge(side) {
-  const s = (side || "").toLowerCase();
-  return s.includes("pledge") || s.includes("encumbr") ||
-    s.includes("revoke") || s.includes("invoke");
-}
-
-// 0.0238% is not four decimals of precision.
-function stake(pct) {
-  const v = Number(String(pct ?? "").replace("%", ""));
-  if (!v) return "";
-  return v < 0.01 ? "under 0.01%" : `${v.toFixed(2)}%`;
-}
-
-function role(row) {
+function roleClass(row) {
   const c = (row.category || "").toLowerCase();
   if (c.includes("promoter")) return "promoter";
   if (c.includes("director")) return "director";
-  if (c.includes("key managerial") || c.includes("kmp")) return "kmp";
-  if (c.includes("relative")) return "relative";
-  if (c.includes("employee") || c.includes("designated")) return "employee";
-  return "other";
+  return "";
 }
 
 export default function InsiderPage() {
@@ -183,38 +137,38 @@ export default function InsiderPage() {
     };
   }, [side, who, q]);
 
-  const rows = useMemo(() => (data?.items || []).slice(0, shown), [data, shown]);
+  const items = data?.items || [];
+  const groups = useMemo(() => byDay(items.slice(0, shown)), [items, shown]);
   const counts = data?.counts;
 
   return (
     <>
       <Nav />
-      <main className="wrap">
+      <main className="wrap page">
         <header className="head">
           <h1>Who&rsquo;s buying their own shares</h1>
-          <p className="sub">
-            When a promoter, a director or senior staff buy or sell shares in
-            their own company, they have to tell the exchange. This is that
-            list &mdash; who, how many, and at what price.
+          <p className="lede">
+            A promoter, a director or senior staff buying or selling shares in
+            their own company has to tell the exchange. This is that list
+            &mdash; who, how many, and at what price.
           </p>
-          <p className="note">
-            Left out on purpose: employee stock schemes, company welfare
-            trusts, and shares moving between members of one promoter family.
-            None of those is anyone deciding what the shares are worth.
+          <p className="aside">
+            Left out on purpose: employee stock schemes, company welfare trusts,
+            and shares moving between members of one promoter family. None of
+            those is anyone deciding what the shares are worth.
           </p>
         </header>
 
-        {/* Counts only. The rupee totals that used to sit here added up
-            purchases across two hundred different companies, which is not a
-            number that means anything - Rs 177 crore of "buying" can be one
-            block in one company or two hundred small ones. */}
+        {/* Counts, not rupee totals. A total here would add up buying across
+            two hundred unrelated companies, and the same ₹177 Cr can be one
+            block in one company or two hundred small trades. */}
         {counts ? (
           <section className="tally">
-            <div className="t-card buy">
+            <div className="t-card pos">
               <span className="t-n">{counts.buys}</span>
               <span className="t-l">bought</span>
             </div>
-            <div className="t-card sell">
+            <div className="t-card neg">
               <span className="t-n">{counts.sells}</span>
               <span className="t-l">sold</span>
             </div>
@@ -227,20 +181,18 @@ export default function InsiderPage() {
 
         <section className="controls">
           <div className="seg">
-            {[
-              ["all", "All"],
-              ["buy", "Buying"],
-              ["sell", "Selling"],
-            ].map(([k, l]) => (
-              <button
-                key={k}
-                type="button"
-                className={side === k ? "on" : ""}
-                onClick={() => setSide(k)}
-              >
-                {l}
-              </button>
-            ))}
+            {[["all", "All"], ["buy", "Buying"], ["sell", "Selling"]].map(
+              ([k, l]) => (
+                <button
+                  key={k}
+                  type="button"
+                  className={side === k ? "on" : ""}
+                  onClick={() => setSide(k)}
+                >
+                  {l}
+                </button>
+              )
+            )}
           </div>
           <div className="seg wrapseg">
             {ROLES.map(([k, l]) => (
@@ -264,79 +216,102 @@ export default function InsiderPage() {
 
         {error ? <p className="empty">{error}</p> : null}
         {!error && !data ? <p className="empty">Loading&hellip;</p> : null}
-        {data && !data.items.length ? (
+        {data && !items.length ? (
           <p className="empty">
             Nothing matches that. Companies file these through the trading day,
             so mornings are often quiet.
           </p>
         ) : null}
 
-        <ul className="trades">
-          {rows.map((t) => (
-            <li key={t.id} className={`trade ${t.side?.toLowerCase() || ""}`}>
-              <div className="t-top">
-                <span className="co">{t.company}</span>
-                {t.mcap ? <span className="cap">{cap(t.mcap)}</span> : null}
-                <span className="when">{dayLabel(t.day)}</span>
-              </div>
+        {groups.map((g) => (
+          <section key={g.day} className="day">
+            <h2 className="day-head">
+              <span>{dayLabel(g.day)}</span>
+              <span className="day-n">
+                {g.rows.length} {g.rows.length === 1 ? "trade" : "trades"}
+              </span>
+            </h2>
 
-              {/* Two shapes of row. The XBRL filing gives fields - who, how
-                  many, at what, by what route. Our own scrape of the same
-                  filing gives a sentence. Rather than draw a field row full of
-                  blanks, a sentence is drawn as a sentence. */}
-              {t.who ? (
-                <>
-                  {/* The money line, read left to right the way it is said
-                      out loud: what happened, how much of it, at what price. */}
-                  <p className="t-deal">
-                    <span className={`side ${t.side?.toLowerCase() || ""}`}>
-                      {sideLabel(t.side)}
-                    </span>
-                    <span className="qty">
-                      {Number(t.shares || 0).toLocaleString("en-IN")} shares
-                    </span>
-                    {each(t) && !isPledge(t.side) ? (
-                      <span className="each">at {each(t)}</span>
-                    ) : null}
-                    {t.value ? (
-                      <span className="val">
-                        {isPledge(t.side) ? "worth " : ""}
-                        {money(t.value)}
-                      </span>
-                    ) : null}
-                  </p>
-                  <p className="t-who">
-                    <strong>{t.who}</strong>
-                    {roleWords(t.category) ? (
-                      <span className={`role ${role(t)}`}>
-                        {roleWords(t.category)}
-                      </span>
-                    ) : null}
-                  </p>
-                  {how(t.mode) || stake(t.after_pct) ? (
-                    <p className="t-tail">
-                      {how(t.mode)}
-                      {how(t.mode) && stake(t.after_pct) ? " · " : ""}
-                      {stake(t.after_pct)
-                        ? `holds ${stake(t.after_pct)} after this`
-                        : ""}
-                    </p>
-                  ) : null}
-                </>
-              ) : (
-                <p className="t-text">{t.headline}</p>
-              )}
-            </li>
-          ))}
-        </ul>
+            {g.rows.map((t) => {
+              const [label, tone] = badge(t.side);
+              const per = each(t);
+              return (
+                <article key={t.id} className={`card tone-${tone}`}>
+                  <div className="card-top">
+                    <div className="left">
+                      <div className="co-line">
+                        <span className="co">{name(t.company)}</span>
+                        {mcapLabel(t.mcap) ? (
+                          <span className={`mcap ${mcapTier(t.mcap)}`}>
+                            {mcapLabel(t.mcap)}
+                          </span>
+                        ) : null}
+                      </div>
+                      {t.who ? (
+                        <div className="meta who">
+                          {name(t.who)}
+                          {roleWords(t.category) ? (
+                            <span className={`role ${roleClass(t)}`}>
+                              {roleWords(t.category)}
+                            </span>
+                          ) : null}
+                        </div>
+                      ) : null}
+                    </div>
 
-        {data && data.items.length > shown ? (
+                    {/* The money column. It runs straight down the right edge
+                        so the eye can scan sizes without reading a word. */}
+                    <div className="right">
+                      <span className={`b ${tone}`}>{label}</span>
+                      {t.value ? (
+                        <span className="amt">{money(t.value)}</span>
+                      ) : null}
+                    </div>
+                  </div>
+
+                  {/* Two shapes of row. The structured filing gives fields;
+                      our own read of the same document gives a sentence.
+                      Rather than draw a field row full of blanks, a sentence
+                      is drawn as a sentence. */}
+                  {t.who ? (
+                    <>
+                      <p className="line">
+                        {t.shares ? (
+                          <span className="qty">{count(t.shares)} shares</span>
+                        ) : null}
+                        {per && !isPledge(t.side) ? (
+                          <span className="at">at {price(per)} each</span>
+                        ) : null}
+                      </p>
+                      {how(t.mode) || pct(t.after_pct) ? (
+                        <p className="tail">
+                          {[
+                            how(t.mode),
+                            pct(t.after_pct)
+                              ? `holds ${pct(t.after_pct)} after this`
+                              : "",
+                          ]
+                            .filter(Boolean)
+                            .join(" · ")}
+                        </p>
+                      ) : null}
+                    </>
+                  ) : (
+                    <p className="summary">{t.headline}</p>
+                  )}
+                </article>
+              );
+            })}
+          </section>
+        ))}
+
+        {data && items.length > shown ? (
           <button
             className="more"
             type="button"
             onClick={() => setShown(shown + PAGE)}
           >
-            Show {Math.min(PAGE, data.items.length - shown)} more
+            Show {Math.min(PAGE, items.length - shown)} more
           </button>
         ) : null}
 
@@ -349,109 +324,240 @@ export default function InsiderPage() {
       </main>
 
       <style jsx>{`
-        .wrap { max-width: 900px; margin: 0 auto; padding: 24px 16px 64px; }
-        .head h1 { margin: 0 0 8px; font-size: 1.75rem; letter-spacing: -0.01em; }
-        .sub { margin: 0 0 8px; color: #444; line-height: 1.55; max-width: 62ch; }
-        .note {
-          margin: 0 0 20px; color: #6b6b6b; font-size: 0.85rem;
-          line-height: 1.55; max-width: 62ch;
-          border-left: 2px solid #e8e8e8; padding-left: 11px;
+        .page { padding-bottom: 72px; }
+        .head { padding-top: 26px; }
+        .head h1 {
+          margin: 0 0 10px;
+          font-size: 29px;
+          line-height: 1.2;
+          letter-spacing: -0.025em;
         }
+        .lede {
+          margin: 0 0 12px;
+          font-size: 16px;
+          line-height: 1.6;
+          color: var(--muted);
+          max-width: 60ch;
+        }
+        .aside {
+          margin: 0 0 22px;
+          font-size: 13.5px;
+          line-height: 1.6;
+          color: var(--dim);
+          border-left: 2px solid var(--line);
+          padding-left: 13px;
+          max-width: 60ch;
+        }
+
         .tally { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 18px; }
         .t-card {
-          flex: 1 1 130px; border: 1px solid #e8e8e8; border-radius: 12px;
-          padding: 12px 14px; display: flex; flex-direction: column; gap: 1px;
+          flex: 1 1 130px;
+          background: var(--panel);
+          border: 1px solid var(--line);
+          border-radius: 13px;
+          padding: 13px 15px;
+          display: flex;
+          flex-direction: column;
+          gap: 1px;
         }
-        .t-card.buy { border-color: #c6e6cf; background: #f4fbf6; }
-        .t-card.sell { border-color: #f2d0d0; background: #fdf6f6; }
-        .t-n { font-size: 1.7rem; font-weight: 660; letter-spacing: -0.02em; }
-        .t-l { font-size: 0.8rem; color: #666; }
-        .controls { display: flex; gap: 9px; flex-wrap: wrap; margin-bottom: 16px; }
+        .t-card.pos { border-color: color-mix(in srgb, var(--pos) 35%, var(--line)); }
+        .t-card.neg { border-color: color-mix(in srgb, var(--neg) 35%, var(--line)); }
+        .t-n {
+          font-size: 27px;
+          font-weight: 680;
+          letter-spacing: -0.03em;
+          font-variant-numeric: tabular-nums;
+        }
+        .t-card.pos .t-n { color: var(--pos); }
+        .t-card.neg .t-n { color: var(--neg); }
+        .t-l { font-size: 12.5px; color: var(--dim); }
+
+        .controls { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 22px; }
         .seg {
-          display: inline-flex; border: 1px solid #e2e2e2; border-radius: 9px;
+          display: inline-flex;
+          border: 1px solid var(--line);
+          border-radius: 10px;
           overflow: hidden;
+          background: var(--panel);
         }
         .seg.wrapseg { flex-wrap: wrap; }
         .seg button {
-          border: 0; background: #fff; padding: 7px 12px; cursor: pointer;
-          font-size: 0.85rem; color: #333; border-right: 1px solid #eee;
+          border: 0;
+          background: transparent;
+          color: var(--muted);
+          padding: 7px 13px;
+          cursor: pointer;
+          font: inherit;
+          font-size: 13px;
+          border-right: 1px solid var(--line);
+          transition: background .12s ease, color .12s ease;
         }
         .seg button:last-child { border-right: 0; }
-        .seg button:hover { background: #f6f6f6; }
-        .seg button.on { background: #111; color: #fff; }
+        .seg button:hover { background: var(--panel-2); color: var(--ink); }
+        .seg button.on { background: var(--ink); color: var(--bg); font-weight: 600; }
         .search {
-          flex: 1 1 200px; min-width: 170px; padding: 7px 12px;
-          border: 1px solid #e2e2e2; border-radius: 9px; font-size: 0.85rem;
+          flex: 1 1 210px;
+          min-width: 180px;
+          padding: 7px 13px;
+          border: 1px solid var(--line);
+          border-radius: 10px;
+          background: var(--panel);
+          color: var(--ink);
+          font: inherit;
+          font-size: 13px;
         }
-        .trades { list-style: none; margin: 0; padding: 0; }
-        .trade {
-          border: 1px solid #eee; border-left: 3px solid #e0e0e0;
-          border-radius: 10px; padding: 12px 14px; margin-bottom: 9px;
+        .search::placeholder { color: var(--dim); }
+        .search:focus {
+          outline: none;
+          border-color: color-mix(in srgb, var(--accent) 55%, var(--line));
         }
-        .trade.buy { border-left-color: #3aa35c; }
-        .trade.sell { border-left-color: #cc4b4b; }
-        .t-top {
-          display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap;
+
+        .day { margin-bottom: 26px; }
+        .day-head {
+          display: flex;
+          align-items: baseline;
+          gap: 9px;
+          margin: 0 0 11px;
+          font-size: 12px;
+          font-weight: 680;
+          letter-spacing: 0.07em;
+          text-transform: uppercase;
+          color: var(--dim);
         }
-        .co { font-weight: 630; }
-        .cap {
-          font-size: 0.71rem; color: #555; background: #f2f2f2;
-          padding: 1px 7px; border-radius: 99px; white-space: nowrap;
+        .day-head::after {
+          content: "";
+          flex: 1;
+          height: 1px;
+          background: var(--line);
         }
-        .when { margin-left: auto; font-size: 0.76rem; color: #9a9a9a; }
-        .t-deal {
-          margin: 8px 0 0; display: flex; gap: 9px; align-items: baseline;
-          flex-wrap: wrap; font-size: 0.92rem;
+        .day-n {
+          font-size: 11.5px;
+          letter-spacing: 0;
+          text-transform: none;
+          font-weight: 600;
+          color: var(--dim);
+          background: var(--panel-2);
+          border-radius: 999px;
+          padding: 1px 8px;
+          order: 3;
         }
-        .side {
-          font-size: 0.72rem; padding: 2px 8px; border-radius: 99px;
-          background: #eee; font-weight: 600; letter-spacing: 0.01em;
+
+        .card {
+          background: var(--panel);
+          border: 1px solid var(--line);
+          border-left: 3px solid var(--line);
+          border-radius: 13px;
+          padding: 14px 17px;
+          margin-bottom: 9px;
+          transition: border-color .15s ease;
         }
-        .side.buy { background: #e4f5e9; color: #1e6b38; }
-        .side.sell { background: #fbe7e7; color: #8c2b2b; }
-        .qty { color: #222; }
-        .each { color: #666; }
-        .val { margin-left: auto; font-weight: 650; color: #111; }
-        .t-who { margin: 6px 0 0; font-size: 0.88rem; color: #333; }
-        .role { margin-left: 7px; font-size: 0.75rem; color: #777; }
-        .role.promoter { color: #7a4bbd; }
-        .role.director { color: #1f6fb2; }
-        .t-tail { margin: 4px 0 0; font-size: 0.8rem; color: #8a8a8a; }
-        .t-text { margin: 7px 0 0; font-size: 0.9rem; line-height: 1.55; color: #333; }
+        .card:hover {
+          border-color: color-mix(in srgb, var(--accent) 35%, var(--line));
+        }
+        .card.tone-pos { border-left-color: var(--pos); }
+        .card.tone-neg { border-left-color: var(--neg); }
+        .card:hover.tone-pos { border-left-color: var(--pos); }
+        .card:hover.tone-neg { border-left-color: var(--neg); }
+
+        .card-top { display: flex; justify-content: space-between; gap: 14px; }
+        .left { min-width: 0; }
+        .co-line {
+          display: flex;
+          align-items: baseline;
+          gap: 8px;
+          flex-wrap: wrap;
+        }
+        .co { font-size: 16px; font-weight: 670; letter-spacing: -0.015em; }
+        .mcap {
+          font-size: 11.5px;
+          font-weight: 600;
+          font-variant-numeric: tabular-nums;
+          white-space: nowrap;
+        }
+        .mcap.lg { color: var(--accent); }
+        .mcap.md { color: var(--muted); }
+        .mcap.sm { color: var(--dim); }
+        .meta { font-size: 12.5px; color: var(--dim); }
+        .who { margin-top: 4px; color: var(--muted); font-size: 13.5px; }
+        .role { margin-left: 7px; color: var(--dim); font-size: 12px; }
+        .role.promoter { color: #9b7cff; }
+        .role.director { color: var(--accent); }
+
+        .right {
+          display: flex;
+          flex-direction: column;
+          align-items: flex-end;
+          gap: 5px;
+          flex-shrink: 0;
+        }
+        .b {
+          font-size: 11.5px;
+          font-weight: 650;
+          padding: 3px 9px;
+          border-radius: 999px;
+          background: var(--panel-2);
+          color: var(--muted);
+          white-space: nowrap;
+        }
+        .b.pos { background: var(--pos-bg); color: var(--pos); }
+        .b.neg { background: var(--neg-bg); color: var(--neg); }
+        .amt {
+          font-size: 17px;
+          font-weight: 680;
+          letter-spacing: -0.02em;
+          font-variant-numeric: tabular-nums;
+          white-space: nowrap;
+        }
+
+        .line {
+          margin: 9px 0 0;
+          display: flex;
+          gap: 10px;
+          flex-wrap: wrap;
+          font-size: 13.5px;
+          color: var(--muted);
+          font-variant-numeric: tabular-nums;
+        }
+        .qty { color: var(--ink); }
+        .tail { margin: 5px 0 0; font-size: 12.5px; color: var(--dim); }
+        .summary { margin: 9px 0 0; font-size: 14.5px; line-height: 1.6; }
+
         .more {
-          display: block; margin: 14px auto; padding: 9px 18px;
-          border: 1px solid #e2e2e2; border-radius: 9px; background: #fff;
-          cursor: pointer; font-size: 0.87rem;
+          display: block;
+          margin: 4px auto 0;
+          padding: 9px 20px;
+          border: 1px solid var(--line);
+          border-radius: 10px;
+          background: var(--panel);
+          color: var(--muted);
+          font: inherit;
+          font-size: 13.5px;
+          cursor: pointer;
         }
-        .more:hover { background: #f6f6f6; }
-        .empty { color: #777; padding: 18px 0; line-height: 1.55; }
+        .more:hover { background: var(--panel-2); color: var(--ink); }
+        .empty { color: var(--dim); padding: 22px 0; line-height: 1.6; }
         .verify {
-          margin-top: 28px; color: #9a9a9a; font-size: 0.78rem;
-          line-height: 1.55; max-width: 66ch;
+          margin-top: 30px;
+          color: var(--dim);
+          font-size: 12.5px;
+          line-height: 1.6;
+          max-width: 66ch;
         }
-        @media (prefers-color-scheme: dark) {
-          .sub { color: #bbb; }
-          .note { color: #8d8d8d; border-left-color: #2c2c2c; }
-          .when, .t-tail, .each, .role { color: #888; }
-          .t-card { border-color: #333; }
-          .t-card.buy { background: #102114; border-color: #2c5c3a; }
-          .t-card.sell { background: #241111; border-color: #5e2b2b; }
-          .t-l { color: #999; }
-          .trade { border-color: #2a2a2a; border-left-color: #383838; }
-          .cap { background: #232323; color: #aaa; }
-          .seg { border-color: #333; }
-          .seg button {
-            background: #161616; color: #ddd; border-right-color: #262626;
+
+        @media (max-width: 560px) {
+          .head h1 { font-size: 24px; }
+          .lede { font-size: 15px; }
+          .card { padding: 13px 14px; }
+          .card-top { flex-direction: column; gap: 8px; }
+          /* The money column only works while there is a column. On a phone
+             the badge and the figure sit on one line under the name. */
+          .right {
+            flex-direction: row-reverse;
+            justify-content: flex-end;
+            align-items: baseline;
+            gap: 9px;
           }
-          .seg button:hover { background: #1e1e1e; }
-          .seg button.on { background: #fff; color: #111; }
-          .search { background: #161616; color: #ddd; border-color: #333; }
-          .more { background: #161616; color: #ddd; border-color: #333; }
-          .more:hover { background: #1e1e1e; }
-          .qty { color: #ddd; }
-          .val { color: #fff; }
-          .t-who { color: #ccc; }
-          .t-text { color: #ccc; }
+          .amt { font-size: 16px; }
         }
       `}</style>
     </>

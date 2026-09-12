@@ -2,49 +2,11 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Nav from "../Nav";
+import {
+  byDay, count, dayLabel, mcapLabel, mcapTier, money, name, price,
+} from "../fmt";
 
-const PAGE = 25;
-
-function money(n) {
-  const v = Number(n) || 0;
-  if (!v) return "";
-  if (v >= 1e7) return `Rs ${(v / 1e7).toFixed(2)} cr`;
-  if (v >= 1e5) return `Rs ${(v / 1e5).toFixed(2)} lakh`;
-  return `Rs ${v.toLocaleString("en-IN")}`;
-}
-
-// Company size, the way an Indian reader says it. Rs 20 crore into a Rs 200
-// crore company is a different piece of news from the same Rs 20 crore into a
-// Rs 2 lakh crore one.
-function cap(n) {
-  const v = Number(n) || 0;
-  if (!v) return "";
-  if (v >= 100000) return `Rs ${(v / 100000).toFixed(2)} lakh cr`;
-  if (v >= 1000) return `Rs ${Math.round(v).toLocaleString("en-IN")} cr`;
-  return `Rs ${v.toFixed(0)} cr`;
-}
-
-function each(price) {
-  const p = Number(price) || 0;
-  if (!p) return "";
-  return p < 1000
-    ? `Rs ${p.toLocaleString("en-IN", {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      })}`
-    : `Rs ${Math.round(p).toLocaleString("en-IN")}`;
-}
-
-function dayLabel(iso) {
-  if (!iso) return "";
-  const dt = new Date(iso + "T00:00:00");
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const diff = Math.round((today - dt) / 86400000);
-  if (diff === 0) return "Today";
-  if (diff === 1) return "Yesterday";
-  return dt.toLocaleDateString("en-IN", { day: "2-digit", month: "short" });
-}
+const PAGE = 30;
 
 export default function DealsPage() {
   const [data, setData] = useState(null);
@@ -75,40 +37,41 @@ export default function DealsPage() {
     };
   }, [side, kind, exch, q]);
 
-  const rows = useMemo(() => (data?.items || []).slice(0, shown), [data, shown]);
+  const items = data?.items || [];
+  const groups = useMemo(() => byDay(items.slice(0, shown)), [items, shown]);
   const counts = data?.counts;
 
   return (
     <>
       <Nav />
-      <main className="wrap">
+      <main className="wrap page">
         <header className="head">
           <h1>The big trades, by name</h1>
-          <p className="sub">
+          <p className="lede">
             When one investor buys or sells a large slice of a company in a
             single day, the exchange has to publish their name. Funds, family
             offices, promoters &mdash; this is who moved, and at what price.
           </p>
-          <p className="note">
-            Day trading is taken out. Someone who buys and sells the same
-            shares in one day gets reported twice and owns nothing by the
-            close, so we net each name&rsquo;s trades in a company on a day and
-            drop the pure round trips. Tiny deals are left out too &mdash; a
-            bulk deal is half a percent of the company, which in a small one
-            can be a few lakh rupees.
+          <p className="aside">
+            Day trading is taken out. Someone who buys and sells the same shares
+            in one day gets reported twice and owns nothing by the close, so
+            each name&rsquo;s trades in a company on a day are netted and the
+            pure round trips dropped. Tiny deals go too &mdash; a bulk deal is
+            half a percent of the company, which in a small one can be a few
+            lakh rupees.
           </p>
         </header>
 
-        {/* Counts only. A rupee total here would add up purchases across
+        {/* Counts, not rupee totals. A total here would add up buying across
             dozens of unrelated companies, which is not a number that means
             anything. */}
         {counts ? (
           <section className="tally">
-            <div className="t-card buy">
+            <div className="t-card pos">
               <span className="t-n">{counts.buys}</span>
               <span className="t-l">bought</span>
             </div>
-            <div className="t-card sell">
+            <div className="t-card neg">
               <span className="t-n">{counts.sells}</span>
               <span className="t-l">sold</span>
             </div>
@@ -121,52 +84,46 @@ export default function DealsPage() {
 
         <section className="controls">
           <div className="seg">
-            {[
-              ["all", "All"],
-              ["buy", "Buying"],
-              ["sell", "Selling"],
-            ].map(([k, l]) => (
-              <button
-                key={k}
-                type="button"
-                className={side === k ? "on" : ""}
-                onClick={() => setSide(k)}
-              >
-                {l}
-              </button>
-            ))}
+            {[["all", "All"], ["buy", "Buying"], ["sell", "Selling"]].map(
+              ([k, l]) => (
+                <button
+                  key={k}
+                  type="button"
+                  className={side === k ? "on" : ""}
+                  onClick={() => setSide(k)}
+                >
+                  {l}
+                </button>
+              )
+            )}
           </div>
           <div className="seg">
-            {[
-              ["all", "Both kinds"],
-              ["bulk", "Bulk"],
-              ["block", "Block"],
-            ].map(([k, l]) => (
-              <button
-                key={k}
-                type="button"
-                className={kind === k ? "on" : ""}
-                onClick={() => setKind(k)}
-              >
-                {l}
-              </button>
-            ))}
+            {[["all", "Both kinds"], ["bulk", "Bulk"], ["block", "Block"]].map(
+              ([k, l]) => (
+                <button
+                  key={k}
+                  type="button"
+                  className={kind === k ? "on" : ""}
+                  onClick={() => setKind(k)}
+                >
+                  {l}
+                </button>
+              )
+            )}
           </div>
           <div className="seg">
-            {[
-              ["all", "Both exchanges"],
-              ["NSE", "NSE"],
-              ["BSE", "BSE"],
-            ].map(([k, l]) => (
-              <button
-                key={k}
-                type="button"
-                className={exch === k ? "on" : ""}
-                onClick={() => setExch(k)}
-              >
-                {l}
-              </button>
-            ))}
+            {[["all", "Both exchanges"], ["NSE", "NSE"], ["BSE", "BSE"]].map(
+              ([k, l]) => (
+                <button
+                  key={k}
+                  type="button"
+                  className={exch === k ? "on" : ""}
+                  onClick={() => setExch(k)}
+                >
+                  {l}
+                </button>
+              )
+            )}
           </div>
           <input
             className="search"
@@ -178,66 +135,87 @@ export default function DealsPage() {
 
         {error ? <p className="empty">{error}</p> : null}
         {!error && !data ? <p className="empty">Loading&hellip;</p> : null}
-        {data && !data.items.length ? (
+        {data && !items.length ? (
           <p className="empty">
             Nothing matches that. Both exchanges publish these after the close,
             so the trading day itself is quiet.
           </p>
         ) : null}
 
-        <ul className="deals">
-          {rows.map((d) => (
-            <li key={d.id} className={`deal ${d.side?.toLowerCase() || ""}`}>
-              <div className="d-top">
-                <span className="co">{d.company}</span>
-                {d.mcap ? <span className="cap">{cap(d.mcap)}</span> : null}
-                <span className="when">{dayLabel(d.day)}</span>
-              </div>
+        {groups.map((g) => (
+          <section key={g.day} className="day">
+            <h2 className="day-head">
+              <span>{dayLabel(g.day)}</span>
+              <span className="day-n">
+                {g.rows.length} {g.rows.length === 1 ? "deal" : "deals"}
+              </span>
+            </h2>
 
-              {/* Read left to right the way it is said out loud: what
-                  happened, how many, at what price, for how much. */}
-              <p className="d-deal">
-                <span className={`side ${d.side?.toLowerCase() || ""}`}>
-                  {d.side === "Buy" ? "Bought" : "Sold"}
-                </span>
-                <span className="qty">
-                  {Number(d.shares || 0).toLocaleString("en-IN")} shares
-                </span>
-                {each(d.price) ? (
-                  <span className="each">at {each(d.price)}</span>
-                ) : null}
-                {d.value ? <span className="val">{money(d.value)}</span> : null}
-              </p>
+            {g.rows.map((d) => {
+              const bought = d.side === "Buy";
+              const tone = bought ? "pos" : "neg";
+              return (
+                <article key={d.id} className={`card tone-${tone}`}>
+                  <div className="card-top">
+                    <div className="left">
+                      <div className="co-line">
+                        <span className="co">{name(d.company)}</span>
+                        {mcapLabel(d.mcap) ? (
+                          <span className={`mcap ${mcapTier(d.mcap)}`}>
+                            {mcapLabel(d.mcap)}
+                          </span>
+                        ) : null}
+                      </div>
+                      <div className="who">
+                        {name(d.who)}
+                        <span className="tag">
+                          {d.kind} deal &middot; {d.exchange}
+                        </span>
+                      </div>
+                    </div>
 
-              <p className="d-who">
-                <strong>{d.who}</strong>
-                <span className="tag">
-                  {d.kind} deal &middot; {d.exchange}
-                </span>
-              </p>
+                    {/* The money column, running straight down the right edge
+                        so sizes can be scanned without reading a word. */}
+                    <div className="right">
+                      <span className={`b ${tone}`}>
+                        {bought ? "Bought" : "Sold"}
+                      </span>
+                      {d.value ? (
+                        <span className="amt">{money(d.value)}</span>
+                      ) : null}
+                    </div>
+                  </div>
 
-              {d.netted ? (
-                <p className="d-tail">
-                  Net figure &mdash; they also{" "}
-                  {d.side === "Buy" ? "sold" : "bought"}{" "}
-                  {Number(
-                    (d.side === "Buy" ? d.gross_sell : d.gross_buy) || 0
-                  ).toLocaleString("en-IN")}{" "}
-                  shares the same day.
-                </p>
-              ) : null}
-              {d.remarks ? <p className="d-tail">{d.remarks}</p> : null}
-            </li>
-          ))}
-        </ul>
+                  <p className="line">
+                    {d.shares ? (
+                      <span className="qty">{count(d.shares)} shares</span>
+                    ) : null}
+                    {price(d.price) ? (
+                      <span className="at">at {price(d.price)} each</span>
+                    ) : null}
+                  </p>
 
-        {data && data.items.length > shown ? (
+                  {d.netted ? (
+                    <p className="tail">
+                      Net figure &mdash; they also {bought ? "sold" : "bought"}{" "}
+                      {count((bought ? d.gross_sell : d.gross_buy) || 0)} shares
+                      the same day.
+                    </p>
+                  ) : null}
+                  {d.remarks ? <p className="tail">{d.remarks}</p> : null}
+                </article>
+              );
+            })}
+          </section>
+        ))}
+
+        {data && items.length > shown ? (
           <button
             className="more"
             type="button"
             onClick={() => setShown(shown + PAGE)}
           >
-            Show {Math.min(PAGE, data.items.length - shown)} more
+            Show {Math.min(PAGE, items.length - shown)} more
           </button>
         ) : null}
 
@@ -249,102 +227,235 @@ export default function DealsPage() {
       </main>
 
       <style jsx>{`
-        .wrap { max-width: 900px; margin: 0 auto; padding: 24px 16px 64px; }
-        .head h1 { margin: 0 0 8px; font-size: 1.75rem; letter-spacing: -0.01em; }
-        .sub { margin: 0 0 8px; color: #444; line-height: 1.55; max-width: 62ch; }
-        .note {
-          margin: 0 0 20px; color: #6b6b6b; font-size: 0.85rem;
-          line-height: 1.55; max-width: 62ch;
-          border-left: 2px solid #e8e8e8; padding-left: 11px;
+        .page { padding-bottom: 72px; }
+        .head { padding-top: 26px; }
+        .head h1 {
+          margin: 0 0 10px;
+          font-size: 29px;
+          line-height: 1.2;
+          letter-spacing: -0.025em;
         }
+        .lede {
+          margin: 0 0 12px;
+          font-size: 16px;
+          line-height: 1.6;
+          color: var(--muted);
+          max-width: 60ch;
+        }
+        .aside {
+          margin: 0 0 22px;
+          font-size: 13.5px;
+          line-height: 1.6;
+          color: var(--dim);
+          border-left: 2px solid var(--line);
+          padding-left: 13px;
+          max-width: 60ch;
+        }
+
         .tally { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 18px; }
         .t-card {
-          flex: 1 1 130px; border: 1px solid #e8e8e8; border-radius: 12px;
-          padding: 12px 14px; display: flex; flex-direction: column; gap: 1px;
+          flex: 1 1 130px;
+          background: var(--panel);
+          border: 1px solid var(--line);
+          border-radius: 13px;
+          padding: 13px 15px;
+          display: flex;
+          flex-direction: column;
+          gap: 1px;
         }
-        .t-card.buy { border-color: #c6e6cf; background: #f4fbf6; }
-        .t-card.sell { border-color: #f2d0d0; background: #fdf6f6; }
-        .t-n { font-size: 1.7rem; font-weight: 660; letter-spacing: -0.02em; }
-        .t-l { font-size: 0.8rem; color: #666; }
-        .controls { display: flex; gap: 9px; flex-wrap: wrap; margin-bottom: 16px; }
+        .t-card.pos { border-color: color-mix(in srgb, var(--pos) 35%, var(--line)); }
+        .t-card.neg { border-color: color-mix(in srgb, var(--neg) 35%, var(--line)); }
+        .t-n {
+          font-size: 27px;
+          font-weight: 680;
+          letter-spacing: -0.03em;
+          font-variant-numeric: tabular-nums;
+        }
+        .t-card.pos .t-n { color: var(--pos); }
+        .t-card.neg .t-n { color: var(--neg); }
+        .t-l { font-size: 12.5px; color: var(--dim); }
+
+        .controls { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 22px; }
         .seg {
-          display: inline-flex; border: 1px solid #e2e2e2; border-radius: 9px;
+          display: inline-flex;
+          border: 1px solid var(--line);
+          border-radius: 10px;
           overflow: hidden;
+          background: var(--panel);
         }
         .seg button {
-          border: 0; background: #fff; padding: 7px 12px; cursor: pointer;
-          font-size: 0.85rem; color: #333; border-right: 1px solid #eee;
+          border: 0;
+          background: transparent;
+          color: var(--muted);
+          padding: 7px 13px;
+          cursor: pointer;
+          font: inherit;
+          font-size: 13px;
+          border-right: 1px solid var(--line);
+          transition: background .12s ease, color .12s ease;
         }
         .seg button:last-child { border-right: 0; }
-        .seg button:hover { background: #f6f6f6; }
-        .seg button.on { background: #111; color: #fff; }
+        .seg button:hover { background: var(--panel-2); color: var(--ink); }
+        .seg button.on { background: var(--ink); color: var(--bg); font-weight: 600; }
         .search {
-          flex: 1 1 200px; min-width: 170px; padding: 7px 12px;
-          border: 1px solid #e2e2e2; border-radius: 9px; font-size: 0.85rem;
+          flex: 1 1 210px;
+          min-width: 180px;
+          padding: 7px 13px;
+          border: 1px solid var(--line);
+          border-radius: 10px;
+          background: var(--panel);
+          color: var(--ink);
+          font: inherit;
+          font-size: 13px;
         }
-        .deals { list-style: none; margin: 0; padding: 0; }
-        .deal {
-          border: 1px solid #eee; border-left: 3px solid #e0e0e0;
-          border-radius: 10px; padding: 12px 14px; margin-bottom: 9px;
+        .search::placeholder { color: var(--dim); }
+        .search:focus {
+          outline: none;
+          border-color: color-mix(in srgb, var(--accent) 55%, var(--line));
         }
-        .deal.buy { border-left-color: #3aa35c; }
-        .deal.sell { border-left-color: #cc4b4b; }
-        .d-top { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
-        .co { font-weight: 630; }
-        .cap {
-          font-size: 0.71rem; color: #555; background: #f2f2f2;
-          padding: 1px 7px; border-radius: 99px; white-space: nowrap;
+
+        .day { margin-bottom: 26px; }
+        .day-head {
+          display: flex;
+          align-items: baseline;
+          gap: 9px;
+          margin: 0 0 11px;
+          font-size: 12px;
+          font-weight: 680;
+          letter-spacing: 0.07em;
+          text-transform: uppercase;
+          color: var(--dim);
         }
-        .when { margin-left: auto; font-size: 0.76rem; color: #9a9a9a; }
-        .d-deal {
-          margin: 8px 0 0; display: flex; gap: 9px; align-items: baseline;
-          flex-wrap: wrap; font-size: 0.92rem;
+        .day-head::after {
+          content: "";
+          flex: 1;
+          height: 1px;
+          background: var(--line);
         }
-        .side {
-          font-size: 0.72rem; padding: 2px 8px; border-radius: 99px;
-          background: #eee; font-weight: 600; letter-spacing: 0.01em;
+        .day-n {
+          font-size: 11.5px;
+          letter-spacing: 0;
+          text-transform: none;
+          font-weight: 600;
+          color: var(--dim);
+          background: var(--panel-2);
+          border-radius: 999px;
+          padding: 1px 8px;
+          order: 3;
         }
-        .side.buy { background: #e4f5e9; color: #1e6b38; }
-        .side.sell { background: #fbe7e7; color: #8c2b2b; }
-        .qty { color: #222; }
-        .each { color: #666; }
-        .val { margin-left: auto; font-weight: 650; color: #111; }
-        .d-who { margin: 6px 0 0; font-size: 0.88rem; color: #333; }
-        .tag { margin-left: 8px; font-size: 0.75rem; color: #8a8a8a; }
-        .d-tail { margin: 4px 0 0; font-size: 0.8rem; color: #8a8a8a; }
+
+        .card {
+          background: var(--panel);
+          border: 1px solid var(--line);
+          border-left: 3px solid var(--line);
+          border-radius: 13px;
+          padding: 14px 17px;
+          margin-bottom: 9px;
+          transition: border-color .15s ease;
+        }
+        .card:hover {
+          border-color: color-mix(in srgb, var(--accent) 35%, var(--line));
+        }
+        .card.tone-pos { border-left-color: var(--pos); }
+        .card.tone-neg { border-left-color: var(--neg); }
+        .card:hover.tone-pos { border-left-color: var(--pos); }
+        .card:hover.tone-neg { border-left-color: var(--neg); }
+
+        .card-top { display: flex; justify-content: space-between; gap: 14px; }
+        .left { min-width: 0; }
+        .co-line {
+          display: flex;
+          align-items: baseline;
+          gap: 8px;
+          flex-wrap: wrap;
+        }
+        .co { font-size: 16px; font-weight: 670; letter-spacing: -0.015em; }
+        .mcap {
+          font-size: 11.5px;
+          font-weight: 600;
+          font-variant-numeric: tabular-nums;
+          white-space: nowrap;
+        }
+        .mcap.lg { color: var(--accent); }
+        .mcap.md { color: var(--muted); }
+        .mcap.sm { color: var(--dim); }
+        .who { margin-top: 4px; color: var(--muted); font-size: 13.5px; }
+        .tag { margin-left: 8px; color: var(--dim); font-size: 12px; }
+
+        .right {
+          display: flex;
+          flex-direction: column;
+          align-items: flex-end;
+          gap: 5px;
+          flex-shrink: 0;
+        }
+        .b {
+          font-size: 11.5px;
+          font-weight: 650;
+          padding: 3px 9px;
+          border-radius: 999px;
+          background: var(--panel-2);
+          color: var(--muted);
+          white-space: nowrap;
+        }
+        .b.pos { background: var(--pos-bg); color: var(--pos); }
+        .b.neg { background: var(--neg-bg); color: var(--neg); }
+        .amt {
+          font-size: 17px;
+          font-weight: 680;
+          letter-spacing: -0.02em;
+          font-variant-numeric: tabular-nums;
+          white-space: nowrap;
+        }
+
+        .line {
+          margin: 9px 0 0;
+          display: flex;
+          gap: 10px;
+          flex-wrap: wrap;
+          font-size: 13.5px;
+          color: var(--muted);
+          font-variant-numeric: tabular-nums;
+        }
+        .qty { color: var(--ink); }
+        .tail { margin: 5px 0 0; font-size: 12.5px; color: var(--dim); }
+
         .more {
-          display: block; margin: 14px auto; padding: 9px 18px;
-          border: 1px solid #e2e2e2; border-radius: 9px; background: #fff;
-          cursor: pointer; font-size: 0.87rem;
+          display: block;
+          margin: 4px auto 0;
+          padding: 9px 20px;
+          border: 1px solid var(--line);
+          border-radius: 10px;
+          background: var(--panel);
+          color: var(--muted);
+          font: inherit;
+          font-size: 13.5px;
+          cursor: pointer;
         }
-        .more:hover { background: #f6f6f6; }
-        .empty { color: #777; padding: 18px 0; line-height: 1.55; }
+        .more:hover { background: var(--panel-2); color: var(--ink); }
+        .empty { color: var(--dim); padding: 22px 0; line-height: 1.6; }
         .verify {
-          margin-top: 28px; color: #9a9a9a; font-size: 0.78rem;
-          line-height: 1.55; max-width: 66ch;
+          margin-top: 30px;
+          color: var(--dim);
+          font-size: 12.5px;
+          line-height: 1.6;
+          max-width: 66ch;
         }
-        @media (prefers-color-scheme: dark) {
-          .sub { color: #bbb; }
-          .note { color: #8d8d8d; border-left-color: #2c2c2c; }
-          .when, .d-tail, .each, .tag { color: #888; }
-          .t-card { border-color: #333; }
-          .t-card.buy { background: #102114; border-color: #2c5c3a; }
-          .t-card.sell { background: #241111; border-color: #5e2b2b; }
-          .t-l { color: #999; }
-          .deal { border-color: #2a2a2a; border-left-color: #383838; }
-          .cap { background: #232323; color: #aaa; }
-          .seg { border-color: #333; }
-          .seg button {
-            background: #161616; color: #ddd; border-right-color: #262626;
+
+        @media (max-width: 560px) {
+          .head h1 { font-size: 24px; }
+          .lede { font-size: 15px; }
+          .card { padding: 13px 14px; }
+          .card-top { flex-direction: column; gap: 8px; }
+          /* The money column only works while there is a column. On a phone
+             the badge and the figure sit on one line under the name. */
+          .right {
+            flex-direction: row-reverse;
+            justify-content: flex-end;
+            align-items: baseline;
+            gap: 9px;
           }
-          .seg button:hover { background: #1e1e1e; }
-          .seg button.on { background: #fff; color: #111; }
-          .search { background: #161616; color: #ddd; border-color: #333; }
-          .more { background: #161616; color: #ddd; border-color: #333; }
-          .more:hover { background: #1e1e1e; }
-          .qty { color: #ddd; }
-          .val { color: #fff; }
-          .d-who { color: #ccc; }
+          .amt { font-size: 16px; }
         }
       `}</style>
     </>
