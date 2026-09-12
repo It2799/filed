@@ -111,17 +111,40 @@ def deal_key(row):
 
 
 def merge(old, new):
-    """The day's deals so far, plus whatever this pass found."""
-    by_key = {deal_key(r): r for r in old}
-    added = 0
+    """The day's deals so far, plus whatever this pass found.
+
+    Per EXCHANGE, replace rather than merge row by row.
+
+    Merging row by row can only ever add. A row written under a rule we have
+    since fixed sits there for its whole seven days, so fixing the rule fixes
+    nothing a reader can see - which is exactly what happened with the block
+    deals printed twice in the bulk report: they were already stored, and the
+    de-duplication would have had no effect on the days already written.
+
+    Replacing wholesale would be wrong too. BSE only ever answers with the
+    latest day, so for any older day this pass has no BSE rows at all, and
+    wiping them would throw away history we cannot fetch again.
+
+    So the unit is the exchange. If this pass has rows from NSE for a day,
+    its NSE rows are the whole truth about NSE that day and the stored ones
+    go. Exchanges the pass heard nothing from are left alone.
+    """
+    fresh = {(r.get("exchange") or "") for r in new}
+    kept = [r for r in old if (r.get("exchange") or "") not in fresh]
+    replaced = len(old) - len(kept)
+
+    was = {deal_key(r) for r in old}
+    by_key = {deal_key(r): r for r in kept}
     for r in new:
-        k = deal_key(r)
-        if k not in by_key:
-            added += 1
-        by_key[k] = r
+        by_key[deal_key(r)] = r
+
     rows = list(by_key.values())
     rows.sort(key=lambda r: -(r.get("value") or 0))
-    return rows, added
+    # "Added" means new to this day, counted against what was there before -
+    # not against the rows this pass happened to replace.
+    added = len([k for k in by_key if k not in was])
+    gone = replaced - (len(by_key) - len(kept))
+    return rows, added, max(0, gone)
 
 
 def store_days(url, token, by_day, log=print):
@@ -129,10 +152,12 @@ def store_days(url, token, by_day, log=print):
     written = 0
     for day, found in sorted(by_day.items()):
         key = f"mt:deals:{day}"
-        rows, added = merge(read_day(url, token, key), found)
+        rows, added, gone = merge(read_day(url, token, key), found)
         write_day(url, token, key, rows)
         written += added
-        log(f"  deals: {day} now holds {len(rows)} deals (+{added})")
+        dropped = f", -{gone} no longer reported" if gone else ""
+        log(f"  deals: {day} now holds {len(rows)} deals "
+            f"(+{added}{dropped})")
     return written
 
 

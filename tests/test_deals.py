@@ -358,6 +358,54 @@ check(not ({"date", "who", "qty", "price"}
       "an unrecognisable header row looked fine")
 
 
+# ---------------------------------------------------------------------------
+# 7. A rule that tightens has to clean what the loose rule already wrote
+#
+# merge() could only ever ADD. So the block rows printed twice were already
+# stored, and de-duplicating them at the source would have changed nothing a
+# reader could see for a whole week - the same shape of bug as the employee
+# trusts that survived two widenings on the insider page.
+#
+# Wiping the day wholesale would be wrong the other way: BSE only ever answers
+# with the latest day, so for any older day a pass has no BSE rows at all and
+# wiping would throw away history that cannot be fetched again.
+#
+# So the unit is the EXCHANGE.
+# ---------------------------------------------------------------------------
+
+import publish_deals as pdeals                               # noqa: E402
+
+STORED = [
+    row(kind="Bulk", symbol="GRANULES", who="K P CHIGURUPATI", side="Sell",
+        shares=13295129, price=872.50),
+    # the twin that should never have been kept
+    row(kind="Block", symbol="GRANULES", who="K P CHIGURUPATI", side="Sell",
+        shares=13295129, price=872.50),
+    # BSE history for a day BSE will not answer for again
+    row(exchange="BSE", scrip="500001", symbol="BSECO", who="SOMEONE",
+        side="Buy", shares=1000, price=10.0),
+]
+THIS_PASS = [
+    row(kind="Bulk", symbol="GRANULES", who="K P CHIGURUPATI", side="Sell",
+        shares=13295129, price=872.50),
+]
+rows, added, gone = pdeals.merge(STORED, THIS_PASS)
+check(gone == 1, "the stale block row was not swept out", f"{gone} dropped")
+check(not any(r["kind"] == "Block" for r in rows),
+      "a row this pass no longer reports survived")
+check(any(r["exchange"] == "BSE" for r in rows),
+      "BSE history was wiped by a pass that only re-read NSE")
+check(len(rows) == 2, "the day ended up the wrong size", f"{len(rows)} rows")
+check(added == 0, "a row that was already there was counted as new",
+      f"added={added}")
+
+# A genuinely new deal still counts as added.
+rows, added, gone = pdeals.merge(
+    STORED, THIS_PASS + [row(kind="Bulk", symbol="NEWCO", who="A FUND",
+                             side="Buy", shares=500, price=20.0)])
+check(added == 1, "a new deal was not counted", f"added={added}")
+
+
 print(f"{CHECKS[0]} checks")
 if FAILURES:
     print(f"\n{len(FAILURES)} FAILED\n")
