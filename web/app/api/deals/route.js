@@ -13,7 +13,7 @@ function publicRow(row) {
   const fields = [
     "id", "day", "kind", "exchange", "symbol", "scrip", "company", "mcap",
     "who", "side", "shares", "price", "value", "netted", "gross_buy",
-    "gross_sell", "rows", "remarks", "headline",
+    "gross_sell", "rows", "remarks", "headline", "via_block",
   ];
   return Object.fromEntries(fields.map((k) => [k, row[k]]));
 }
@@ -35,6 +35,7 @@ const COLUMNS = [
   { header: "Deal type", key: "kind", width: 11 },
   { header: "Exchange", key: "exchange", width: 10 },
   { header: "Netted", key: "nettedLabel", width: 10 },
+  { header: "Block window", key: "blockLabel", width: 14 },
   { header: "Also bought same day", key: "gross_buy", width: 21, kind: "int" },
   { header: "Also sold same day", key: "gross_sell", width: 21, kind: "int" },
   { header: "Exchange remark", key: "remarks", width: 30 },
@@ -76,6 +77,7 @@ export async function GET(request) {
       who: name(d.who),
       // "Yes"/"" reads better in a column than true/false, and filters.
       nettedLabel: d.netted ? "Yes" : "",
+      blockLabel: d.via_block ? "Yes" : "",
     }));
     const label =
       side === "buy" ? "buying" : side === "sell" ? "selling" : "deals";

@@ -56,6 +56,10 @@ export default function DealsPage() {
               {count((bought ? d.gross_sell : d.gross_buy) || 0)} the same day
             </span>
           ) : null}
+          {/* The exchange prints a large block deal in BOTH reports. We keep
+              the bulk row, because it is the client's whole day - but a
+              block is negotiated off the order book, which is worth saying. */}
+          {d.via_block ? <span>through the block window</span> : null}
         </p>
         {d.remarks ? <p className="line">{d.remarks}</p> : null}
       </li>
