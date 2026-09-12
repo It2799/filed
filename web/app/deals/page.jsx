@@ -18,6 +18,8 @@ export default function DealsPage() {
   const [kind, setKind] = useState("all");
   const [exch, setExch] = useState("all");
   const [q, setQ] = useState("");
+  const [day, setDay] = useState("all");
+  const [days, setDays] = useState("7");
   const [shown, setShown] = useState(PAGE);
 
   // One investor's position. Defined HERE, inside the component, and not as a
@@ -61,10 +63,11 @@ export default function DealsPage() {
   };
 
   const query = useMemo(() => {
-    const p = new URLSearchParams({ days: "7", side, kind, exchange: exch });
+    const p = new URLSearchParams({ days, side, kind, exchange: exch });
+    if (day !== "all") p.set("day", day);
     if (q.trim()) p.set("q", q.trim());
     return p.toString();
-  }, [side, kind, exch, q]);
+  }, [side, kind, exch, q, day, days]);
 
   useEffect(() => {
     let alive = true;
@@ -89,7 +92,7 @@ export default function DealsPage() {
   // same company on the same day, so they belong in one card - as two separate
   // cards they read like a duplicate, and the story is lost. Granules on
   // 11 September is one promoter selling ₹1,160 Cr to thirteen funds.
-  const days = useMemo(
+  const grouped = useMemo(
     () =>
       byDay(items.slice(0, shown)).map((d) => ({
         ...d,
@@ -97,6 +100,16 @@ export default function DealsPage() {
       })),
     [items, shown]
   );
+  // How many rows each day contributes, for the number on its
+  // chip. Counted off the rows already loaded, so it follows the
+  // other filters - and it is only meaningful while showing all
+  // days, which is the only time the chips need it.
+  const perDay = useMemo(() => {
+    const n = {};
+    for (const r of items) n[r.day] = (n[r.day] || 0) + 1;
+    return n;
+  }, [items]);
+
   const counts = data?.counts;
 
   return (
@@ -135,7 +148,11 @@ export default function DealsPage() {
             </div>
             <div className="t-card">
               <span className="t-n">{counts.total}</span>
-              <span className="t-l">in the last 7 days</span>
+              {/* The window is a choice now, and a single day is
+                  not a window at all. */}
+              <span className="t-l">
+                {day === "all" ? `in the last ${days} days` : "on this day"}
+              </span>
             </div>
           </section>
         ) : null}
@@ -205,7 +222,48 @@ export default function DealsPage() {
           </p>
         ) : null}
 
-        {days.map((g) => (
+        {/* Date filter. The exchanges publish these after each close, so
+            "what happened on Thursday" is a real question - and one the
+            seven-day window on its own could not answer. Days come from the
+            API's own index, so a day with nothing in it is never offered. */}
+        {data?.days?.length ? (
+          <section className="dates">
+            <span className="lbl">Day</span>
+            <button
+              type="button"
+              className={`chip ${day === "all" ? "on" : ""}`}
+              onClick={() => setDay("all")}
+            >
+              All
+            </button>
+            {data.days.map((d) => (
+              <button
+                key={d}
+                type="button"
+                className={`chip ${day === d ? "on" : ""}`}
+                onClick={() => setDay(d)}
+              >
+                {dayLabel(d)}
+                {perDay[d] ? <span className="n">{perDay[d]}</span> : null}
+              </button>
+            ))}
+            <select
+              className="win"
+              value={days}
+              onChange={(e) => {
+                setDays(e.target.value);
+                setDay("all");
+              }}
+              aria-label="How far back to look"
+            >
+              <option value="7">Last 7 days</option>
+              <option value="14">Last 14 days</option>
+              <option value="30">Last 30 days</option>
+            </select>
+          </section>
+        ) : null}
+
+        {grouped.map((g) => (
           <section key={g.day} className="day">
             <h2 className="day-head">
               <span>{dayLabel(g.day)}</span>
@@ -515,6 +573,56 @@ export default function DealsPage() {
           font-variant-numeric: tabular-nums;
         }
         .deals-page .qty { color: var(--muted); }
+
+        .deals-page .dates {
+          display: flex;
+          gap: 7px;
+          flex-wrap: wrap;
+          align-items: center;
+          margin-bottom: 10px;
+        }
+        .deals-page .dates .lbl {
+          font-size: 11.5px;
+          font-weight: 680;
+          letter-spacing: 0.07em;
+          text-transform: uppercase;
+          color: var(--dim);
+          margin-right: 2px;
+        }
+        .deals-page .chip {
+          border: 1px solid var(--line);
+          background: var(--panel);
+          color: var(--muted);
+          border-radius: 999px;
+          padding: 5px 12px;
+          font: inherit;
+          font-size: 12.5px;
+          cursor: pointer;
+          transition: background .12s ease, color .12s ease;
+        }
+        .deals-page .chip:hover { background: var(--panel-2); color: var(--ink); }
+        .deals-page .chip.on {
+          background: var(--ink);
+          color: var(--bg);
+          border-color: var(--ink);
+          font-weight: 600;
+        }
+        .deals-page .chip .n {
+          margin-left: 6px;
+          font-size: 11px;
+          opacity: 0.6;
+          font-variant-numeric: tabular-nums;
+        }
+        .deals-page .win {
+          margin-left: auto;
+          border: 1px solid var(--line);
+          background: var(--panel);
+          color: var(--muted);
+          border-radius: 10px;
+          padding: 5px 10px;
+          font: inherit;
+          font-size: 12.5px;
+        }
 
         .deals-page .more {
           display: block;

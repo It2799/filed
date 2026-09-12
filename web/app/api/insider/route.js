@@ -60,9 +60,10 @@ export async function GET(request) {
   const role = url.searchParams.get("role") || "all";
   const q = url.searchParams.get("q") || "";
   const format = url.searchParams.get("format") || "json";
+  const day = url.searchParams.get("day") || "all";
 
   const { days: held, trades, meta } = await insiderTrades({ days });
-  const filtered = applyFilters(trades, { side, role, q });
+  const filtered = applyFilters(trades, { side, role, q, day });
 
   // Biggest first. A promoter putting Rs 20 crore in is the reason to open
   // this page; five hundred shares changing hands is not.
@@ -96,7 +97,7 @@ export async function GET(request) {
           "family are left out. Nothing here is advice.",
       ],
     });
-    return download(buf, `markettide-insider-${label}-${stamp()}.xlsx`);
+    return download(buf, `markettide-insider-${label}-${day === "all" ? stamp() : day}.xlsx`);
   }
 
   const buys = filtered.filter((t) => (t.side || "").toLowerCase() === "buy");

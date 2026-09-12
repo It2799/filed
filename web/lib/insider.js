@@ -131,9 +131,14 @@ export function isPledge(row) {
 }
 
 /** Filters the page applies, kept here so the page stays about layout. */
-export function applyFilters(trades, { side = "all", role = "all", q = "" } = {}) {
+export function applyFilters(
+  trades,
+  { side = "all", role = "all", q = "", day = "all" } = {}
+) {
   const needle = q.trim().toLowerCase();
   return trades.filter((t) => {
+    // One trading day, when the reader has picked one.
+    if (day !== "all" && (t.day || "") !== day) return false;
     if (side === "buy" && !isBuy(t)) return false;
     if (side === "sell" && !isSell(t)) return false;
     if (side === "pledge" && !isPledge(t)) return false;

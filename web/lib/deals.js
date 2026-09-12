@@ -89,10 +89,14 @@ export function isSell(row) {
 /** Filters the page applies, kept here so the page stays about layout. */
 export function applyFilters(
   rows,
-  { side = "all", kind = "all", exchange = "all", q = "" } = {}
+  { side = "all", kind = "all", exchange = "all", q = "", day = "all" } = {}
 ) {
   const needle = q.trim().toLowerCase();
   return rows.filter((r) => {
+    // One trading day, when the reader has picked one. The exchanges publish
+    // these after the close, so "what happened on Thursday" is a real
+    // question and the window alone could not answer it.
+    if (day !== "all" && (r.day || "") !== day) return false;
     if (side === "buy" && !isBuy(r)) return false;
     if (side === "sell" && !isSell(r)) return false;
     if (kind !== "all" && (r.kind || "").toLowerCase() !== kind) return false;

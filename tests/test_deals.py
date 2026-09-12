@@ -249,6 +249,115 @@ check("net" in vague.lower(),
 
 # ---------------------------------------------------------------------------
 
+# ---------------------------------------------------------------------------
+# 5. The same trade, printed in both reports
+#
+# A block deal is a negotiated trade in its own window; a bulk deal is any
+# client crossing 0.5% of a company in a day. A block that big is BOTH, so the
+# exchange prints it twice - same client, same day, same quantity, same price.
+# Twelve of them in the week of 7 September.
+#
+# Counted twice, Granules read as the promoter selling Rs 1,160 crore in a
+# block AND another Rs 1,160 crore in bulk. He sold it once.
+# ---------------------------------------------------------------------------
+
+BOTH_REPORTS = [
+    row(kind="Bulk", symbol="GRANULES", company="Granules India Limited",
+        who="KRISHNA PRASAD CHIGURUPATI", side="Sell",
+        shares=13295129, price=872.50),
+    row(kind="Block", symbol="GRANULES", company="Granules India Limited",
+        who="KRISHNA PRASAD CHIGURUPATI", side="Sell",
+        shares=13295129, price=872.50),
+]
+out = deals.drop_double_reported(BOTH_REPORTS, log=lambda *a: None)
+check(len(out) == 1, "a trade printed in both reports was counted twice",
+      f"{len(out)} rows")
+if out:
+    check(out[0]["kind"] == "Bulk",
+          "the wrong report survived - bulk is the day's whole position",
+          out[0]["kind"])
+    check(out[0].get("via_block") is True,
+          "the surviving row forgot it came through the block window")
+
+# A block deal by somebody who did NOT cross the bulk threshold has no twin,
+# and must be kept.
+ONLY_BLOCK = [
+    row(kind="Block", symbol="ACME", who="A FUND", side="Buy",
+        shares=500000, price=100.0),
+]
+out = deals.drop_double_reported(ONLY_BLOCK, log=lambda *a: None)
+check(len(out) == 1, "a block deal with no bulk twin was thrown away")
+
+# Same client and scrip, DIFFERENT quantity, is not the same trade.
+DIFFERENT = [
+    row(kind="Bulk", symbol="ACME", who="A FUND", side="Buy",
+        shares=500000, price=100.0),
+    row(kind="Block", symbol="ACME", who="A FUND", side="Buy",
+        shares=300000, price=100.0),
+]
+out = deals.drop_double_reported(DIFFERENT, log=lambda *a: None)
+check(len(out) == 2, "two different trades were collapsed into one",
+      f"{len(out)} rows")
+
+# Opposite sides are not the same trade either.
+OPPOSITE = [
+    row(kind="Bulk", symbol="ACME", who="A FUND", side="Buy",
+        shares=500000, price=100.0),
+    row(kind="Block", symbol="ACME", who="A FUND", side="Sell",
+        shares=500000, price=100.0),
+]
+out = deals.drop_double_reported(OPPOSITE, log=lambda *a: None)
+check(len(out) == 2, "a buy and a sell were treated as one trade",
+      f"{len(out)} rows")
+
+# And the flag survives netting, because that is where the row a reader sees
+# is actually built.
+NETTED = deals.net_out_intraday(
+    deals.drop_double_reported(BOTH_REPORTS, log=lambda *a: None),
+    log=lambda *a: None)
+check(len(NETTED) == 1 and NETTED[0].get("via_block") is True,
+      "the block-window flag was lost in netting", str(NETTED))
+
+
+# ---------------------------------------------------------------------------
+# 6. NSE's CSV columns
+#
+# The JSON answer ignores the date range and caps at 70 rows - asked for five
+# days it returned 70 rows from one of them, and four days were missing from
+# the site entirely. The CSV at the same URL honours the range: 924 bulk deals
+# across those five days.
+#
+# Its headers are the human ones, and NSE has reworded them before, so the
+# mapping is pinned here rather than trusted.
+# ---------------------------------------------------------------------------
+
+TODAYS_HEADERS = ["Date", "Symbol", "Security Name", "Client Name",
+                  "Buy / Sell", "Quantity Traded",
+                  "Trade Price / Wght. Avg. Price", "Remarks"]
+col = deals._nse_col_map(TODAYS_HEADERS)
+for want, header in [("date", "Date"), ("symbol", "Symbol"),
+                     ("company", "Security Name"), ("who", "Client Name"),
+                     ("side", "Buy / Sell"), ("qty", "Quantity Traded"),
+                     ("price", "Trade Price / Wght. Avg. Price"),
+                     ("remarks", "Remarks")]:
+    check(col.get(want) == header,
+          f"the CSV column for {want!r} was not recognised", str(col))
+
+# Spacing and case are NSE's to change; the meaning is not.
+col = deals._nse_col_map(["DATE", "symbol", "SECURITYNAME", "clientname",
+                          "Buy/Sell", "quantitytraded", "TRADEPRICE",
+                          "REMARKS"])
+check({"date", "symbol", "company", "who", "side", "qty", "price"}
+      <= set(col),
+      "a respaced header row was not understood", str(col))
+
+# A header row we do not recognise must be reported, not silently read as
+# empty rows - that is how four days of deals went missing quietly.
+check(not ({"date", "who", "qty", "price"}
+           <= set(deals._nse_col_map(["a", "b", "c"]))),
+      "an unrecognisable header row looked fine")
+
+
 print(f"{CHECKS[0]} checks")
 if FAILURES:
     print(f"\n{len(FAILURES)} FAILED\n")

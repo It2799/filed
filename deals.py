@@ -24,7 +24,9 @@ SMALL. A bulk deal is 0.5% of a company, and in a company worth Rs 40 crore
 that is Rs 20 lakh. Most of the report by row count is penny-stock churn.
 """
 
+import csv
 import datetime
+import io
 import re
 
 import requests
@@ -96,8 +98,53 @@ def _nse_session():
     return s
 
 
+# The CSV, not the JSON. Both live at the same URL.
+#
+# This is not a preference, it is the difference between a week of deals and
+# one day of them. The JSON answer:
+#
+#   - IGNORES the date range. Asked for 5 to 12 September it returned 70 rows
+#     all dated the 7th, and the block report 39 rows all dated the 11th.
+#   - CAPS at 70 rows. Every single day asked for on its own came back with
+#     exactly 70, which is a page size, not a day's trading. No page, start,
+#     length, limit or size parameter moved it.
+#
+# The same request with csv=true honours the range and returns everything:
+# 924 bulk deals across the five trading days where the JSON gave 70 on one.
+# Four days out of five had been missing from the site since this was written,
+# and the day that did arrive was two thirds short.
+#
+# The CSV column names are the human ones, so they are mapped rather than
+# guessed at, and both spellings of each are accepted - NSE has changed the
+# header text before.
+_NSE_CSV_COLS = {
+    "date": ("date",),
+    "symbol": ("symbol",),
+    "company": ("security name", "securityname", "security"),
+    "who": ("client name", "clientname", "client"),
+    "side": ("buy / sell", "buy/sell", "buysell"),
+    "qty": ("quantity traded", "quantitytraded", "quantity"),
+    "price": ("trade price / wght. avg. price", "trade price",
+              "tradeprice", "price"),
+    "remarks": ("remarks",),
+}
+
+
+def _nse_col_map(fieldnames):
+    """Header text -> the field we want, however NSE has spelled it today."""
+    found = {}
+    for raw in fieldnames or []:
+        key = (raw or "").strip().lower()
+        squashed = key.replace(" ", "")
+        for want, spellings in _NSE_CSV_COLS.items():
+            if key in spellings or squashed in spellings:
+                found[want] = raw
+                break
+    return found
+
+
 def fetch_nse(from_date, to_date, log=print, session=None):
-    """Both NSE reports, over a date range."""
+    """Both NSE reports, over a date range that is actually honoured."""
     s = session or _nse_session()
     hdr = {"Accept": "*/*", "Referer": NSE_PAGE,
            "X-Requested-With": "XMLHttpRequest"}
@@ -105,31 +152,47 @@ def fetch_nse(from_date, to_date, log=print, session=None):
     out = []
     for kind, option in (("Bulk", "bulk_deals"), ("Block", "block_deals")):
         try:
-            r = s.get(NSE_DEALS, timeout=60, headers=hdr,
+            r = s.get(NSE_DEALS, timeout=90, headers=hdr,
                       params={"optionType": option,
                               "from": from_date.strftime(fmt),
-                              "to": to_date.strftime(fmt)})
-            rows = (r.json() or {}).get("data") or []
+                              "to": to_date.strftime(fmt),
+                              "csv": "true"})
+            text = r.content.decode("utf-8-sig", "replace")
+            reader = csv.DictReader(io.StringIO(text))
+            col = _nse_col_map(reader.fieldnames)
+            if not {"date", "who", "qty", "price"} <= set(col):
+                log(f"  deals NSE {kind}: unexpected columns "
+                    f"{reader.fieldnames}")
+                continue
+            rows = list(reader)
         except Exception as e:
             log(f"  deals NSE {kind}: {type(e).__name__}: {e}")
             continue
+
+        def get(row, want):
+            name = col.get(want)
+            return (row.get(name) or "").strip() if name else ""
+
+        kept = 0
         for row in rows:
-            day = _date(row.get("BD_DT_DATE"), "%d-%b-%Y", "%d-%B-%Y")
+            day = _date(get(row, "date"), "%d-%b-%Y", "%d-%B-%Y", "%d-%m-%Y")
             if not day:
                 continue
-            qty = _num(row.get("BD_QTY_TRD"))
-            price = _num(row.get("BD_TP_WATP"))
+            qty = _num(get(row, "qty"))
+            price = _num(get(row, "price"))
             out.append({
                 "day": str(day), "kind": kind, "exchange": "NSE",
-                "symbol": (row.get("BD_SYMBOL") or "").strip(), "scrip": "",
-                "company": (row.get("BD_SCRIP_NAME") or "").strip(),
-                "who": (row.get("BD_CLIENT_NAME") or "").strip(),
-                "side": ("Buy" if (row.get("BD_BUY_SELL") or "").strip()
-                         .upper().startswith("B") else "Sell"),
+                "symbol": get(row, "symbol"), "scrip": "",
+                "company": get(row, "company"),
+                "who": get(row, "who"),
+                "side": ("Buy" if get(row, "side").upper().startswith("B")
+                         else "Sell"),
                 "shares": qty, "price": price, "value": qty * price,
-                "remarks": (row.get("BD_REMARKS") or "").strip(" -") or "",
+                "remarks": get(row, "remarks").strip(" -") or "",
             })
-        log(f"  deals NSE {kind}: {len(rows)} rows")
+            kept += 1
+        days = len({r["day"] for r in out if r["kind"] == kind})
+        log(f"  deals NSE {kind}: {kept} rows across {days} days")
     return out
 
 
@@ -176,6 +239,50 @@ def fetch_bse(log=print, session=None):
 ROUND_TRIP = 0.02
 
 
+# The same trade, printed in both reports.
+#
+# A block deal is a negotiated trade in its own window; a bulk deal is any
+# client crossing 0.5% of a company in a day. A block deal that big is BOTH,
+# so the exchange prints it twice - once in each report, same client, same
+# day, same quantity, same price. Twelve of them in one week.
+#
+# Counted twice, Granules on 11 September read as the promoter selling
+# Rs 1,160 crore in a block AND another Rs 1,160 crore in bulk. He sold it
+# once.
+#
+# The bulk report is the one kept, because it is the day's whole position for
+# that client - the block window plus anything else they did. The block row is
+# dropped and the bulk row remembers it came through the block window, which
+# is the part worth saying.
+def drop_double_reported(rows, log=print):
+    """Remove the block row when the bulk report already carries that trade."""
+    bulk = {}
+    for r in rows:
+        if r["kind"] != "Bulk":
+            continue
+        key = (r["day"], r["exchange"], r["symbol"] or r["scrip"],
+               _who(r["who"]), r["side"], round(r["shares"]),
+               round(r["price"], 2))
+        bulk[key] = r
+
+    out, dropped = [], 0
+    for r in rows:
+        if r["kind"] == "Block":
+            key = (r["day"], r["exchange"], r["symbol"] or r["scrip"],
+                   _who(r["who"]), r["side"], round(r["shares"]),
+                   round(r["price"], 2))
+            twin = bulk.get(key)
+            if twin is not None:
+                twin["via_block"] = True
+                dropped += 1
+                continue
+        out.append(r)
+
+    if dropped:
+        log(f"  deals: {dropped} block rows already in the bulk report")
+    return out
+
+
 def net_out_intraday(rows, log=print):
     """One row per client per scrip per day, with the day trade taken out."""
     groups = {}
@@ -213,6 +320,9 @@ def net_out_intraday(rows, log=print):
             "netted": bool(bq and sq),
             "gross_buy": bq,
             "gross_sell": sq,
+            # True when any part of this position came through the block
+            # window. Worth saying: a block is negotiated off the order book.
+            "via_block": any(r.get("via_block") for r in part),
         })
         if row["netted"]:
             netted += 1
@@ -319,6 +429,9 @@ def fetch(from_date, to_date, log=print):
     rows = fetch_nse(from_date, to_date, log=log) + fetch_bse(log=log)
     rows = [r for r in rows
             if from_date <= datetime.date.fromisoformat(r["day"]) <= to_date]
+    # Before netting: a trade printed in both reports must not be netted as
+    # two separate positions and then shown twice.
+    rows = drop_double_reported(rows, log=log)
     rows = net_out_intraday(rows, log=log)
 
     # Market cap before the filter, because the filter is mostly about it.

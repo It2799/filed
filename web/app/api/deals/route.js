@@ -58,9 +58,10 @@ export async function GET(request) {
   const exchange = url.searchParams.get("exchange") || "all";
   const q = url.searchParams.get("q") || "";
   const format = url.searchParams.get("format") || "json";
+  const day = url.searchParams.get("day") || "all";
 
   const { days: held, deals, meta } = await bulkBlockDeals({ days });
-  const filtered = applyFilters(deals, { side, kind, exchange, q });
+  const filtered = applyFilters(deals, { side, kind, exchange, q, day });
 
   // Biggest first. A fund putting Rs 300 crore in is the reason to open this
   // page; a Rs 2 crore bulk deal in a micro-cap is not.
@@ -91,7 +92,7 @@ export async function GET(request) {
           "here is advice.",
       ],
     });
-    return download(buf, `markettide-bulk-block-${label}-${stamp()}.xlsx`);
+    return download(buf, `markettide-bulk-block-${label}-${day === "all" ? stamp() : day}.xlsx`);
   }
 
   const buys = filtered.filter((d) => (d.side || "").toLowerCase() === "buy");
